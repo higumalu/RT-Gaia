@@ -7,7 +7,9 @@ breaking changes.
 
 ## [Unreleased]
 
-First public release candidate. RT-Gaia is research software; it is not a medical device.
+## [0.1.0] - 2026-10-10
+
+First public release. RT-Gaia is research software; it is not a medical device.
 
 ### Library and data management
 
@@ -94,3 +96,6 @@ First public release candidate. RT-Gaia is research software; it is not a medica
 - Docker Compose deployment with separate API, job worker and DICOM receiver processes.
 - Continuous integration for Rust, Python and the frontend, including end-to-end tests, performance
   budgets and a deployment smoke test.
+
+[Unreleased]: https://github.com/higumalu/RT-Gaia/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/higumalu/RT-Gaia/releases/tag/v0.1.0
