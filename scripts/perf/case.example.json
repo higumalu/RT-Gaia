@@ -1,0 +1,15 @@
+{
+ "description": "PROTEAS brain metastases case P21 (Zenodo doi:10.5281/zenodo.23171182, CC BY 4.0); see scripts/demo/README.md for the download",
+ "primary_series_uid": "1.2.246.352.221.565885789114202309917221935214712256442",
+ "image_series_uids": [
+  "1.2.246.352.221.565885789114202309917221935214712256442"
+ ],
+ "structure_set_uids": [
+  "1.2.246.352.221.494680121602534880911795141871311340477"
+ ],
+ "dose_uids": [
+  "1.2.246.352.221.474495522144312556810933687127476376986"
+ ],
+ "extra_dose_uids": [],
+ "registration_uids": []
+}

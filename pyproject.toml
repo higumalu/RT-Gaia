@@ -1,0 +1,78 @@
+[project]
+name = "rt-gaia-workspace"
+version = "0.1.0"
+description = "RT-Gaia workspace root (not installed): radiotherapy image viewing and editing"
+license = "MIT"
+requires-python = ">=3.11"
+
+[tool.uv.workspace]
+members = ["packages/rtgaia-geom", "packages/rtgaia-core", "packages/rtgaia-server", "packages/rtgaia-testbe", "packages/rtgaia-plugin-sdk"]
+
+[tool.uv.sources]
+rtgaia-geom = { workspace = true }
+rtgaia-core = { workspace = true }
+rtgaia-server = { workspace = true }
+rtgaia-plugin-sdk = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.6",
+    # scripts/verify-ci-kernel-step.py 要讀 .github/workflows/ci.yml。
+    # 🔴 先前它是靠「剛好在 venv 裡」的傳遞依賴跑起來的 —— 那種腳本只在寫它
+    # 的那台機器上算驗證過。
+    "pyyaml>=6.0",
+    # examples/plugin-nnunet/server.py 的 multipart（測試在工作區 venv 跑）
+    "python-multipart>=0.0.9",
+    # packages/rtgaia-plugin-api/check_contract.py（plugin 契約 v1 自檢）進 CI 要的。
+    # 🔴 它原本只在 README 裡以 `uv run --with ...` 出現 —— 那樣的檢查沒有人跑，
+    # 而契約是對外承諾，不能靠「記得手動跑一次」。
+    "jsonschema>=4.26.0",
+    "openapi-spec-validator>=0.9.0",
+]
+
+[tool.ruff]
+# 🔴 120 是**現況**，不是理想值。
+#
+# 設 100 的時候沒有任何東西在跑 ruff，於是程式碼實際上一路寫在 100–120 之間，
+# 累積了 92 個 E501。把 CI 接上去時只有兩條路：改 92 行，或讓設定說出實情。
+# 選後者的理由是那 92 行沒有一行是真的難讀的（最長 118），而**為了進 CI 去動
+# 92 行不相干的程式碼**，會把同一批的正確性修正埋在格式噪音裡。
+#
+# 要收回 100 的話：`uv run ruff format .` 一次到位（會重排 47 個檔案），
+# 建議單獨一個 commit，不要跟功能混在一起。
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# 🔴 FastAPI 的依賴注入慣用法就是「在預設值裡呼叫 `Depends()`」，
+# B008（不要在預設參數裡呼叫函式）在這裡是誤報：`Depends(...)` 回傳的是一個
+# 標記物件，不是每次呼叫都會變的可變預設值。
+#
+# 該改的是設定而不是程式碼 —— 把 24 個路由改成 `= None` 再在函式體裡取值，
+# 會讓 FastAPI 看不到型別、依賴注入直接失效。
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body", "fastapi.Header"]
+
+[tool.pytest.ini_options]
+testpaths = ["packages/rtgaia-geom/tests", "packages/rtgaia-testbe/tests", "packages/rtgaia-plugin-sdk/tests"]
+asyncio_mode = "auto"
+# 只忽略**已判定**的第三方棄用訊息（每條附理由），fixture 自己的警告修在 fixture（synth UID 改全數字）。
+# 目標是「新警告看得見」，所以不設全域 ignore；ResourceWarning 也刻意留著。
+filterwarnings = [
+    # starlette 0.4x：TestClient 內部 httpx 的棄用提示；升級 starlette 時再看
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:DeprecationWarning",
+    # anyio 4.x 的別名搬家，來自 starlette.testclient，不是我們的程式
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+    # FastAPI on_event → lifespan：已知，之後重整 startup（domain service）時一起改
+    "ignore:.*on_event is deprecated.*:DeprecationWarning",
+]
+markers = [
+    "kernel: 需要已建置的 Rust 重切核心（scripts/build-kernel.sh）",
+    "e2e: 需要起一個真的 uvicorn（真 socket）。`pytest -m \"not e2e\"` 可跳過",
+    "db: 需要 Postgres（RTGAIA_TEST_DB_URL；./scripts/dev-db.sh 會印）；未設就 skip",
+]

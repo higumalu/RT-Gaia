@@ -1,0 +1,384 @@
+# RT-Gaia CI —— 「每一項都要有自動化量測，納入 CI」的第一版。
+#
+# 🔴 **這個檔案存在的直接理由**：進版控的 `.js` 遮蔽 `.ts` 已經發生過一次，
+# 而且是在做 UI 重構時當場咬人的 —— vite 的 `resolve.extensions` 把 `.js` 排在
+# `.ts` 前面，於是 src/ 裡只要有一份編譯產物，跑的就全是它，而 `.ts` 的修改
+# 靜默不生效、測試照樣全綠。CI 是唯一擋得住同類問題的東西。
+#
+# 這一版**刻意不做效能量測**。效能門檻需要穩定的執行環境，
+# 而 GitHub runner 不是；先把「會不會壞」擋住，效能留給有專屬機器時再說。
+
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # 🔴 **釘住 Python，而且釘在最低支援版**（`requires-python = ">=3.11"`），理由與
+  # 下面 Node 釘 22 的那條一樣：那才抓得到「不小心用了更新的 API」。原本沒釘，
+  # CI 拿 runner 當下的預設（3.12）、本機是 3.13 —— 兩邊跑的都不是承諾支援的那一版。
+  UV_PYTHON: '3.11'
+
+jobs:
+  # ── Rust 重切核心 ─────────────────────────────────────────────────────────
+  #
+  # 先跑，而且**產出 wasm 與 .so 給後面兩個 job 用**（單一來源、三處
+  # 使用）。用預先建好的產物跑等效性測試，才是真的在測「同一份程式碼的兩個
+  # 建構目標逐像素相同」——各自重建會讓兩者的等效性變成巧合。
+  kernel:
+    name: Rust 核心（cargo test ＋ 兩個建構目標）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/rtgaia-reslice
+      - name: cargo fmt
+        run: cargo fmt --manifest-path packages/rtgaia-reslice/Cargo.toml -- --check
+      - name: cargo clippy
+        run: cargo clippy --manifest-path packages/rtgaia-reslice/Cargo.toml --all-targets -- -D warnings
+      - name: cargo test
+        run: cargo test --manifest-path packages/rtgaia-reslice/Cargo.toml
+      - name: 建置兩個目標
+        run: ./scripts/build-kernel.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: kernel
+          path: |
+            apps/viewer/public/rtgaia_reslice.wasm
+            packages/rtgaia-geom/src/rtgaia_geom/_native/librtgaia_reslice.so
+          if-no-files-found: error
+
+  # ── Python ────────────────────────────────────────────────────────────────
+  python:
+    name: Python（ruff ＋ pytest 含 e2e）
+    runs-on: ubuntu-latest
+    # 目錄進 Postgres 的測試（tests/test_catalog_db.py，marker db）需要一個真的 Postgres。
+    # 沒有 RTGAIA_TEST_DB_URL 時那些測試會 skip，因此在本機不裝 docker 也能跑其餘的。
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rtgaia
+          POSTGRES_PASSWORD: rtgaia
+          POSTGRES_DB: rtgaia_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rtgaia -d rtgaia_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    needs: kernel
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: kernel
+      # 🔴 **`upload-artifact` 以所有 path 的「共同祖先」為 artifact 的根。**
+      #
+      # 上面兩個檔案分屬 `apps/` 與 `packages/`，共同祖先是 repo 根 —— 因此
+      # 下載回來時它們**已經在正確位置**，不需要（也不能）搬。
+      #
+      # 舊版在根目錄找扁平的檔名，於是 `python` 與 `viewer` 兩個 job 都在這一步
+      # 就以 `mv: cannot stat 'librtgaia_reslice.so'` 掛掉，ruff／pytest／tsc／
+      # vitest **一條都沒跑到**。CI 從接上那天（5eca4ee）起就沒有真的驗證過任何
+      # 東西 —— 這與它要防的「`.js` 遮蔽 `.ts`」是同一個形狀：紅燈與綠燈都不代表程式碼的狀態。
+      #
+      # 因此這一步改成「**核對**而不是搬」，並且在核對失敗時印出實際佈局，
+      # 讓下一次的錯誤訊息說得出原因。仍相容扁平佈局，以防 action 改行為。
+      - name: 核心就位（Python 只需要 .so）
+        run: |
+          missing=0
+          expect() {
+            mkdir -p "$(dirname "$1")"
+            # 相容：artifact 的根若只含檔名，就搬回它該在的位置
+            base=$(basename "$1")
+            if [ ! -f "$1" ] && [ -f "$base" ]; then mv "$base" "$1"; fi
+            if [ -f "$1" ]; then
+              echo "✓ $1（$(stat -c%s "$1") bytes）"
+            else
+              echo "::error::缺少 $1"
+              missing=1
+            fi
+          }
+          expect "packages/rtgaia-geom/src/rtgaia_geom/_native/librtgaia_reslice.so"
+          if [ "$missing" != 0 ]; then
+            echo "下載回來的實際佈局："
+            find . -path ./node_modules -prune -o \
+                   \( -name 'librtgaia_reslice.so' -o -name 'rtgaia_reslice.wasm' \) -print
+            exit 1
+          fi
+      # 🔴 **runner 沒有 GPU，VTK 在這裡畫不動 —— 而「畫不動」曾經等於 CI 整個死掉。**
+      #
+      # `render3d_vtk` 的 probe 現在走子行程（見 8d076c5），所以就算下面這些裝不
+      # 起來，也只是 `available()` False、3D 退回 MIP、composite 的測試 skip ——
+      # 不會再像 2026-09-09 到 09-18 那樣，pytest 在 collect 時就 exit 139、
+      # 343 條測試一條都沒跑到。
+      #
+      # 裝 mesa 的軟體 GL（llvmpipe）＋ Xvfb，是為了讓 composite 那條路**真的被
+      # 走過**而不是永遠 skip。走的是 X／GLX（`vtkXOpenGLRenderWindow`）而不是
+      # 本機的 EGL；GPU ray cast 在 llvmpipe 上回報支援與否都行，測試本來就是
+      # 跟著 `gpu_available()` 斷言（`_pick_mapper`）。
+      - name: 軟體 GL（讓 VTK 的 composite 路徑真的被測到；裝不起來就只是 skip）
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            xvfb libgl1 libglx-mesa0 libgl1-mesa-dri libxrender1 libxext6 libxt6
+      - run: uv sync --all-packages
+      - name: ruff
+        run: uv run ruff check .
+      - name: 程式碼不引用不公開的設計文件
+        run: uv run python scripts/check-internal-refs.py
+      # 一道會擋 CI 的檢查必須自己被測過 —— 這支把下面「核心就位」那兩步的 shell
+      # 抽出來，在三種 artifact 佈局（nested／flat／missing）下以 `bash -e` 實跑。
+      # 它躺在 scripts/ 裡沒人叫，而它要防的正是「CI 綠燈不代表程式碼的狀態」。
+      - name: CI 自己的「核心就位」步驟可信（三種佈局實跑）
+        run: uv run python scripts/verify-ci-kernel-step.py
+      - name: plugin 契約自檢（契約 v1：schema 合法、範例通過、OpenAPI 可解析）
+        run: uv run python packages/rtgaia-plugin-api/check_contract.py
+      - name: 依賴公告掃描（pip-audit）—— 鎖定的執行期依賴有已知公告就紅
+        run: |
+          uv export --all-packages --frozen --no-dev --no-emit-workspace -o /tmp/requirements.txt
+          uvx pip-audit -r /tmp/requirements.txt --strict --progress-spinner off
+      - name: pytest（含 e2e —— 會起真的 uvicorn；含 db —— 打上面的 Postgres service）
+        env:
+          RTGAIA_TEST_DB_URL: postgresql+asyncpg://rtgaia:rtgaia@127.0.0.1:5432/rtgaia_test
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: xvfb-run -a uv run pytest
+      # 效能預算的後端那一半（首張畫面 lod 2、全解析度 lod 0、單結構後處理往返；Tier C）。
+      # 合成 512×512×160 CT、冷快取；超過預算 × slack → 紅。GitHub runner 比開發機慢，slack 1.5。
+      - name: 效能門檻（後端）
+        env:
+          RTGAIA_PERF_SLACK: '1.5'
+        run: uv run python scripts/perf/ci_gate.py
+
+      # 🔴 fixture 必須與後端同步。
+      #
+      # `apps/viewer/tests/fixtures/geometry-vectors.json` 由後端產生、前端逐條
+      # 斷言（一邊產生、另一邊斷言）。**沒有任何測試比對過它**，
+      # 因此後端改了幾何而忘記重跑腳本時，前端會對著一組過期的向量通過。
+      # 這實際發生過兩次：committed 的 fixture 停在專案改名前的 `RTATLAS` UID
+      # 與一組過期的 `display_grid_id`，而 549 個測試全綠；後來又漏了
+      # `FrameGroup` 新增的兩個 wire 欄位。
+      #
+      # ⚠️ **判定「有沒有意義的差別」，不是 `git diff --exit-code`。** 後者要求
+      # 浮點管線在不同機器上逐位元組相同，而那做不到（numpy 的矩陣乘與 LAPACK
+      # 在不同 CPU 上差 1 ULP）。理由與容差的選法寫在腳本的 docstring 裡。
+      #
+      # 檢查器自己先跑一次自我測試 —— 一道會擋 CI 的檢查必須自己被測過。
+      - name: fixture 與後端同步（重跑後不得有意義的差別）
+        run: |
+          uv run python scripts/check-fixture-sync.py --self-test
+          uv run python scripts/emit-geometry-fixture.py
+          uv run python scripts/emit-chaos-fixtures.py
+          uv run python scripts/check-fixture-sync.py
+
+  # ── 前端 ──────────────────────────────────────────────────────────────────
+  viewer:
+    name: 前端（tsc ＋ eslint ＋ vitest ＋ e2e）
+    runs-on: ubuntu-latest
+    needs: kernel
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          # 🔴 **22，不是 20。** `tests/setup.ts` 用 `node:zlib` 的
+          # `zstdDecompressSync`，那是 Node **22.15+** 才有的。釘在 20 的症狀是
+          # `chaos-matrix.test.ts` 掛在 `(0, zstdDecompressSync) is not a function`
+          # 而其餘 453 條全綠 —— 也就是 chaos 一對一對照表整組沒跑到。
+          #
+          # 刻意跑**最低支援版**而不是最新版：那才抓得到「不小心用了更新的 API」。
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/viewer/package-lock.json
+      # 🔴 **只還原、不儲存。** 快取鍵由 `**/pyproject.toml` ＋ `**/uv.lock`（setup-uv
+      # 的預設 glob）算出來，而兩個 job 從同一個 repo 根跑同一句
+      # `uv sync --all-packages` —— 鍵一模一樣。它們是平行跑的，於是後收工的那個
+      # 在 post 步驟撞上「Unable to reserve cache with key setup-uv-...，another job
+      # may be creating this cache」的警告。
+      #
+      # 兩條路：各給一個 `cache-suffix` 讓它們各存一份，或讓其中一個別存。
+      # 選後者 —— 兩份內容完全相同，多存一份只是白燒 repo 的快取額度（並讓
+      # 其他快取更早被 LRU 擠掉）。python job 是那句 `uv sync` 的正主，由它存。
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+          save-cache: false
+      # 與 python job 同一組：e2e 的 3D 渲染會讓後端走進 VTK（見那邊的說明）
+      - name: 軟體 GL（e2e 的 render3d 會走進 VTK）
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            xvfb libgl1 libglx-mesa0 libgl1-mesa-dri libxrender1 libxext6 libxt6
+      # 🔴 **先刪掉進版控的 `.wasm`，再下載 artifact。**
+      #
+      # `apps/viewer/public/rtgaia_reslice.wasm` 是進版控的（它沒有任何
+      # 來源憑據）。checkout 一定會帶進來一份，於是「artifact
+      # 沒放進來」這件事會被那一份**靜默補上** —— 而 wasm／.so 的等效性就變成
+      # 「拿舊 wasm 跟這次建出來的 .so 比」。它會過，但測的不是同一份程式碼的
+      # 兩個建構目標，而那正是這個 job 存在的唯一理由。
+      - name: 移除進版控的 .wasm（要驗的是這次建出來的那一份）
+        run: rm -f apps/viewer/public/rtgaia_reslice.wasm
+      - uses: actions/download-artifact@v8
+        with:
+          name: kernel
+      # 🔴 **`upload-artifact` 以所有 path 的「共同祖先」為 artifact 的根。**
+      #
+      # 上面兩個檔案分屬 `apps/` 與 `packages/`，共同祖先是 repo 根 —— 因此
+      # 下載回來時它們**已經在正確位置**，不需要（也不能）搬。
+      #
+      # 舊版在根目錄找扁平的檔名，於是 `python` 與 `viewer` 兩個 job 都在這一步
+      # 就以 `mv: cannot stat 'librtgaia_reslice.so'` 掛掉，ruff／pytest／tsc／
+      # vitest **一條都沒跑到**。CI 從接上那天（5eca4ee）起就沒有真的驗證過任何
+      # 東西 —— 這與它要防的「`.js` 遮蔽 `.ts`」是同一個形狀：紅燈與綠燈都不代表程式碼的狀態。
+      #
+      # 因此這一步改成「**核對**而不是搬」，並且在核對失敗時印出實際佈局，
+      # 讓下一次的錯誤訊息說得出原因。仍相容扁平佈局，以防 action 改行為。
+      - name: 核心就位（.wasm ＋ .so 都要，等效性測試靠它）
+        run: |
+          missing=0
+          expect() {
+            mkdir -p "$(dirname "$1")"
+            # 相容：artifact 的根若只含檔名，就搬回它該在的位置
+            base=$(basename "$1")
+            if [ ! -f "$1" ] && [ -f "$base" ]; then mv "$base" "$1"; fi
+            if [ -f "$1" ]; then
+              echo "✓ $1（$(stat -c%s "$1") bytes）"
+            else
+              echo "::error::缺少 $1"
+              missing=1
+            fi
+          }
+          expect "apps/viewer/public/rtgaia_reslice.wasm"
+          expect "packages/rtgaia-geom/src/rtgaia_geom/_native/librtgaia_reslice.so"
+          if [ "$missing" != 0 ]; then
+            echo "下載回來的實際佈局："
+            find . -path ./node_modules -prune -o \
+                   \( -name 'librtgaia_reslice.so' -o -name 'rtgaia_reslice.wasm' \) -print
+            exit 1
+          fi
+
+      # 🔴 守門：進版控的 .js 會遮蔽 .ts，而且測試照樣全綠。
+      # 這一步放在 npm install **之前**，因為它跟依賴無關，而且失敗時的訊息
+      # 要能一眼看懂。
+      - name: 沒有進版控的 tsc 編譯產物
+        run: |
+          found=$(git ls-files 'apps/viewer/src/**/*.js' 'apps/viewer/src/**/*.jsx' \
+                                'apps/viewer/tests/**/*.js' 'apps/viewer/vite.config.js')
+          if [ -n "$found" ]; then
+            echo "::error::進版控的編譯產物會遮蔽 .ts（vite 的 resolve.extensions 把 .js 排在前面）："
+            echo "$found"
+            exit 1
+          fi
+
+      - run: npm ci
+        working-directory: apps/viewer
+      - run: uv sync --all-packages
+      - name: tsc
+        run: npx tsc -b --noEmit
+        working-directory: apps/viewer
+      - name: eslint
+        run: npx eslint src tests --max-warnings=0
+        working-directory: apps/viewer
+      - name: 依賴公告掃描（npm audit ≥ moderate）
+        working-directory: apps/viewer
+        run: npm audit --audit-level=moderate
+      - name: vitest（離線、確定性）
+        run: npm test
+        working-directory: apps/viewer
+      # 效能預算的純計算那一半（WASM 重切 1/4 與全解析度、window LUT、20 個結構的輪廓；Tier C）。
+      # 量時間的測試不是確定性的，所以跟 `npm test` 分開；用的是這次建出來的 .wasm。
+      - name: 效能門檻（前端純計算）
+        env:
+          RTGAIA_PERF_SLACK: '1.5'
+        run: npm run test:perf
+        working-directory: apps/viewer
+      # e2e 的 3D 渲染會打 /render3d —— 那條路徑在後端進 VTK。uvicorn 是 vitest 的
+      # globalSetup 起的子行程，所以 DISPLAY 要從這裡一路傳下去（同 python job）。
+      - name: vitest e2e（globalSetup 會起一個 uvicorn）
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: xvfb-run -a npm run test:e2e
+        working-directory: apps/viewer
+      # UI 驗收矩陣 —— 檢視器 12 格 ＋ 資料頁 8 格（視窗 × 語言 × 密度 × 200%），
+      # 確定性的版面斷言、不比對截圖。病例是合成的 synth4d ct1（`data/` 不進版控，在這裡產）；
+      # 量測堆疊（auth off、8091／5183）；Chrome 用 runner 內建的 google-chrome。失敗時上傳每一格的截圖。
+      - name: UI 驗收矩陣
+        run: |
+          uv run python -m rtgaia_testbe.fixtures.synth4d --out data/test_4d --only ct1
+          scripts/perf/stack.sh start
+          mkdir -p .rtgaia/ui-matrix
+          node scripts/verify-ui-matrix.mjs --url http://127.0.0.1:5183/#/library --out-dir .rtgaia/ui-matrix
+      # 手機與平板 —— 觸控手勢與觸控筆（平板）、手機資料頁、手機檢視器（觸控編輯 ROI、手機簽核）。
+      # 接著上一步的量測堆疊與 synth4d ct1；觸控是 CDP 的 Input.dispatchTouchEvent（Android Chrome 同一個引擎）。
+      - name: 手機與平板
+        run: |
+          node scripts/verify-touch.mjs --url http://127.0.0.1:5183/#/library --out-dir .rtgaia/ui-matrix
+          node scripts/verify-phone-data.mjs --url http://127.0.0.1:5183/#/library --out-dir .rtgaia/ui-matrix
+          node scripts/verify-phone-viewer.mjs --url http://127.0.0.1:5183/#/library --out-dir .rtgaia/ui-matrix
+      - name: UI 驗收矩陣與手機驗證的截圖（失敗時）
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-matrix
+          # 兩個 path 都在 .rtgaia/ 底下（upload-artifact 以共同祖先為根，見上面 kernel 那段）
+          path: |
+            .rtgaia/ui-matrix
+            .rtgaia/perf/*.log
+          if-no-files-found: ignore
+      # plugin UI bundle 範例：只 import 四個 external、react 沒被打包、含 manifest 的 id／version 字串。
+      # 用 apps/viewer 的工具鏈建，examples/ 不另裝 node_modules。
+      - name: plugin-hello-ui：tsc ＋ vite build ＋ bundle 檢查
+        working-directory: apps/viewer
+        run: |
+          npx tsc -p ../../examples/plugin-hello-ui/tsconfig.json --noEmit
+          npx vite build --config ../../examples/plugin-hello-ui/vite.config.ts
+          node ../../examples/check-ui-bundle.mjs ../../examples/plugin-hello-ui/dist/index.js hello-threshold 0.1.1
+      - name: plugin-nnunet UI：tsc ＋ vite build ＋ bundle 檢查
+        working-directory: apps/viewer
+        run: |
+          npx tsc -p ../../examples/plugin-nnunet/ui/tsconfig.json --noEmit
+          npx vite build --config ../../examples/plugin-nnunet/ui/vite.config.ts
+          node ../../examples/check-ui-bundle.mjs ../../examples/plugin-nnunet/ui/dist/index.js nnunet-oar 0.2.2
+
+  compose-smoke:
+    name: 部署（全新 Compose 映像 ＋ smoke）
+    runs-on: ubuntu-latest
+    # 只有 `vite build` 通過不足以驗證部署 —— 曾經在 runtime 映像少 COPY plugin SDK、
+    # nginx 拿不到前端靜態檔這兩點上各卡一次，而三個綠燈 job 都看不到。這個 job 真的 build ＋ up ＋ 打頁面。
+    needs: [python, viewer]
+    steps:
+      - uses: actions/checkout@v7
+      - name: 建立 .env
+        run: |
+          cat > deploy/.env <<'EOF'
+          RTGAIA_SECRET=ci-smoke-secret-not-for-production-0123456789
+          POSTGRES_PASSWORD=rtgaia
+          RTGAIA_HTTP_PORT=8088
+          RTGAIA_PUBLIC_URL=http://localhost:8088
+          EOF
+      - name: docker compose build
+        run: docker compose --env-file deploy/.env -f deploy/docker-compose.yml build
+      - name: docker compose up
+        run: docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
+      - name: smoke
+        run: scripts/compose-smoke.sh http://localhost:8088
+      - name: logs（失敗時看這裡）
+        if: failure()
+        run: docker compose --env-file deploy/.env -f deploy/docker-compose.yml logs --no-color | tail -300
+      - name: down
+        if: always()
+        run: docker compose --env-file deploy/.env -f deploy/docker-compose.yml down -v

@@ -1,0 +1,23 @@
+[project]
+name = "rtgaia-testbe"
+version = "0.1.0"
+description = "RT-Gaia test backend (test double): synthetic phantoms, fault injection, /api/v1/_test/* and a verification driver; the rtgaia-testbe CLI is rtgaia-server plus --test-api"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    # 拆層：產品邏輯在 rtgaia-core、SQL 與正式進入點在 rtgaia-server；這裡只剩合成假體、chaos、_test 端點、driver
+    "rtgaia-core",
+    "rtgaia-server",
+    "numpy>=1.26",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+rtgaia-testbe = "rtgaia_testbe.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rtgaia_testbe"]

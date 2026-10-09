@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rt-gaia.dev/schemas/import-bundle/1",
+  "title": "RT-Gaia ImportBundle (contract v1)",
+  "description": "What a plugin hands back (POST {callback}/results or GET /jobs/{id}/result). Structural rules only; semantic rules B1-B8 (geometry equality, FoR existence, quota) are enforced by the host validator. Normative text: docs/plugin-contract.md#importbundle.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bundle_version", "provenance"],
+  "properties": {
+    "bundle_version": { "type": "string", "const": "1" },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module_version", "source"],
+      "properties": {
+        "module_version": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,40}@\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$" },
+        "source": { "type": "string", "enum": ["model", "post-process", "import"] },
+        "parent_hash": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "frame_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["frame_of_reference_uid", "series_id", "transform_to_primary", "transform_kind"],
+        "properties": {
+          "frame_of_reference_uid": { "$ref": "#/$defs/uid" },
+          "series_id": { "type": "string", "minLength": 1 },
+          "transform_to_primary": { "type": "array", "minItems": 16, "maxItems": 16, "items": { "type": "number" }, "description": "column-major 4x4 mapping this FoR to the primary FoR; see docs/plugin-contract.md#frame-groups" },
+          "transform_kind": { "type": "string", "enum": ["rigid", "affine"], "description": "deformable registration is not supported in contract v1" }
+        }
+      }
+    },
+    "images": {
+      "type": "array", "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["series_id", "label", "modality", "frame_of_reference_uid", "grid", "voxels"],
+        "properties": {
+          "series_id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "modality": { "type": "string", "minLength": 2, "maxLength": 16 },
+          "frame_of_reference_uid": { "$ref": "#/$defs/uid" },
+          "grid": { "$ref": "#/$defs/grid" },
+          "voxels": { "$ref": "#/$defs/volumeRef" },
+          "window_level": { "type": "object", "additionalProperties": false, "required": ["center", "width"], "properties": { "center": { "type": "number" }, "width": { "type": "number", "exclusiveMinimum": 0 } } }
+        }
+      }
+    },
+    "structures": {
+      "type": "array", "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "color_rgb", "frame_of_reference_uid", "mask"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "color_rgb": { "$ref": "#/$defs/rgb" },
+          "tg263_code": { "type": ["string", "null"] },
+          "frame_of_reference_uid": { "$ref": "#/$defs/uid" },
+          "allow_empty": { "type": "boolean", "default": false },
+          "mask": {
+            "oneOf": [
+              { "type": "object", "additionalProperties": false, "required": ["encoding", "url", "value"],
+                "properties": { "encoding": { "const": "labelmap" }, "url": { "$ref": "#/$defs/url" }, "value": { "type": "integer", "minimum": 1 } } },
+              { "type": "object", "additionalProperties": false, "required": ["encoding", "grid", "bbox_ijk", "bits"],
+                "properties": { "encoding": { "const": "json-mask" }, "grid": { "$ref": "#/$defs/grid" },
+                  "bbox_ijk": { "type": "object", "additionalProperties": false, "required": ["offset", "size"], "properties": { "offset": { "$ref": "#/$defs/int3" }, "size": { "$ref": "#/$defs/int3" } } },
+                  "bits": { "type": "string", "contentEncoding": "base64", "description": "zstd-compressed 1-bit mask over bbox, k-j-i order" } } },
+              { "type": "object", "additionalProperties": false, "required": ["encoding", "url", "roi_number"],
+                "properties": { "encoding": { "const": "dicom-rtstruct" }, "url": { "$ref": "#/$defs/url" }, "roi_number": { "type": "integer", "minimum": 1 } } },
+              { "type": "object", "additionalProperties": false, "required": ["encoding", "url", "segment_number"],
+                "properties": { "encoding": { "const": "dicom-seg" }, "url": { "$ref": "#/$defs/url" }, "segment_number": { "type": "integer", "minimum": 1 } } }
+            ]
+          }
+        }
+      }
+    },
+    "doses": {
+      "type": "array", "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "unit", "frame_of_reference_uid", "grid", "voxels"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "unit": { "const": "Gy" },
+          "frame_of_reference_uid": { "$ref": "#/$defs/uid" },
+          "grid": { "$ref": "#/$defs/grid" },
+          "voxels": { "$ref": "#/$defs/volumeRef" },
+          "dose_summation_type": { "type": "string", "enum": ["PLAN", "FRACTION", "BEAM", "MULTI_PLAN"] }
+        }
+      }
+    },
+    "measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "label", "frame_of_reference_uid", "points"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["distance", "area", "roi3d", "point"] },
+          "label": { "type": "string" },
+          "frame_of_reference_uid": { "$ref": "#/$defs/uid" },
+          "points": { "type": "array", "items": { "type": "number" }, "description": "flat xyz triplets in that FoR (LPS mm); see docs/plugin-contract.md#measurements" }
+        }
+      }
+    },
+    "reports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "media_type", "url"],
+        "properties": {
+          "label": { "type": "string" },
+          "media_type": { "type": "string", "enum": ["application/pdf", "application/json", "text/plain", "text/html"] },
+          "url": { "$ref": "#/$defs/url" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "uid": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,128}$", "description": "DICOM UID (dotted digits) or a host-internal FoR id (phantoms use letters)" },
+    "url": { "type": "string", "description": "https URL fetchable with the plugin's registered bearer, or data: URI <= 1 MB", "pattern": "^(https?://|data:)" },
+    "int3": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } },
+    "rgb": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size", "spacing", "origin", "direction"],
+      "description": "world = origin + direction @ (spacing * ijk); direction row-major 3x3, column c = axis c; see docs/plugin-contract.md#grid",
+      "properties": {
+        "size": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 1 } },
+        "spacing": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "exclusiveMinimum": 0 } },
+        "origin": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+        "direction": { "type": "array", "minItems": 9, "maxItems": 9, "items": { "type": "number" } }
+      }
+    },
+    "volumeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["encoding", "url"],
+      "properties": {
+        "encoding": { "type": "string", "enum": ["nifti", "rtgaia-grid", "dicom-series", "dicom-rtdose"] },
+        "url": { "$ref": "#/$defs/url" }
+      }
+    }
+  }
+}

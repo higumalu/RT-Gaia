@@ -1,0 +1,20 @@
+[package]
+name = "rtgaia-reslice"
+version = "0.1.0"
+edition = "2021"
+description = "RT-Gaia CPU reslice kernel: one source built as wasm32 for the browser and as a cdylib for the backend"
+license = "MIT"
+
+[lib]
+name = "rtgaia_reslice"
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[features]
+default = []
+simd = []

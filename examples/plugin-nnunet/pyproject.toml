@@ -1,0 +1,19 @@
+[project]
+name = "rtgaia-plugin-nnunet"
+version = "0.2.2"
+description = "RT-Gaia plugin: nnU-Net-family auto-segmentation (TotalSegmentator weights first), with a local engine or a remote inference service"
+license = "MIT"
+requires-python = ">=3.11,<3.13"
+dependencies = ["rtgaia-plugin-sdk", "httpx>=0.27", "python-multipart>=0.0.9"]
+
+[project.optional-dependencies]
+# 真的推論才裝（torch 很大）；契約測試用 RTGAIA_SEG_ENGINE=fake 不需要
+inference = ["TotalSegmentator>=2.4", "nnunetv2>=2.5"]
+
+[tool.uv.sources]
+rtgaia-plugin-sdk = { path = "../../packages/rtgaia-plugin-sdk", editable = true }
+rtgaia-geom = { path = "../../packages/rtgaia-geom", editable = true }
+
+[tool.uv]
+# 不是 workspace 成員：自己一個 .venv（torch 不進宿主的 lock）
+package = false

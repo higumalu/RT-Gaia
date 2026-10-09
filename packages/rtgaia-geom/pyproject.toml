@@ -1,0 +1,20 @@
+[project]
+name = "rtgaia-geom"
+version = "0.1.0"
+description = "RT-Gaia shared geometry core, used by both the production and the test backend"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "zstandard>=0.22",
+]
+
+[project.optional-dependencies]
+itk = ["SimpleITK>=2.3"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rtgaia_geom"]

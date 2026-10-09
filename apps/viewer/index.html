@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#16181c" />
+    <title>RT-Gaia</title>
+    <link rel="icon" type="image/png" href="%BASE_URL%branding/rt-gaia-icon-64.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%branding/rt-gaia-icon-192.png" />
+    <!-- Name and icon for "Add to Home screen" on phones (no offline mode, no push notifications) -->
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+  </head>
+  <body>
+    <!--
+      Boot fallback. A classic (non-module) script, so it still runs when the app bundle fails to load
+      (for example on a browser that is too old): it shows "Loading…" and, if the app has not started
+      after 20 seconds, prints the errors and the browser version and reports them to the server
+      (GET /api/v1/client-boot). The language follows the app: ?lang= > saved choice > English.
+    -->
+    <style>
+      html, body { background: #16181c; color: #e6e8ea; margin: 0; font-family: system-ui, "Noto Sans TC", sans-serif; }
+      .boot-note { padding: 24px 16px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+    </style>
+    <div id="root"><p class="boot-note" id="boot-loading">Loading RT-Gaia…</p></div>
+    <script>
+      (function () {
+        var en = true;
+        try {
+          var q = new URLSearchParams(location.search).get('lang');
+          var saved = localStorage.getItem('rtgaia.lang');
+          en = q === 'en' || q === 'zh-TW' ? q === 'en' : saved !== 'zh-TW';
+        } catch (e) {}
+        var M = en
+          ? { loading: 'Loading RT-Gaia…', cantLoad: 'Could not load ', error: 'Error', unhandled: 'Unhandled error: ',
+              failed: 'RT-Gaia did not finish loading within 20 seconds. Please send a screenshot of this screen to your administrator.',
+              browser: 'Browser: ', errors: 'Errors: ', none: '(no error message; the network may be slow or the app is still downloading)' }
+          : { loading: 'RT-Gaia 載入中…', cantLoad: '無法載入 ', error: '錯誤', unhandled: '未處理的錯誤：',
+              failed: 'RT-Gaia 20 秒內沒有載入完成。請把這個畫面截圖給管理者。',
+              browser: '瀏覽器：', errors: '錯誤：', none: '（沒有錯誤訊息 —— 可能是網路太慢或主程式還在下載）' };
+        if (!en) {
+          document.documentElement.lang = 'zh-Hant';
+          document.getElementById('boot-loading').textContent = M.loading;
+        }
+        var errs = [];
+        window.addEventListener('error', function (ev) {
+          errs.push((ev.message || (ev.target && ev.target.src ? M.cantLoad + ev.target.src : M.error)) + (ev.filename ? ' @ ' + ev.filename + ':' + ev.lineno : ''));
+        }, true);
+        window.addEventListener('unhandledrejection', function (ev) {
+          errs.push(M.unhandled + ((ev.reason && ev.reason.message) || ev.reason));
+        });
+        setTimeout(function () {
+          if (window.__rtgaiaBooted) return;
+          var d = document.createElement('div');
+          d.className = 'boot-note';
+          d.id = 'boot-fail';
+          d.textContent = M.failed + '\n' + M.browser + navigator.userAgent + '\n' + M.errors + (errs.length ? errs.join(' | ') : M.none);
+          d.style.whiteSpace = 'pre-wrap';
+          document.body.appendChild(d);
+          try {
+            new Image().src = '/api/v1/client-boot?ua=' + encodeURIComponent(navigator.userAgent) + '&e=' + encodeURIComponent(errs.join(' | ').slice(0, 1500));
+          } catch (e) {}
+        }, 20000);
+      })();
+    </script>
+    <!-- The four externals of plugin UI bundles (docs/plugin-contract.md): shims served by the host, so plugins share its React and SDK -->
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "/plugin-shims/react.js",
+          "react-dom": "/plugin-shims/react-dom.js",
+          "react/jsx-runtime": "/plugin-shims/jsx-runtime.js",
+          "@rtgaia/sdk": "/plugin-shims/sdk.js"
+        }
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

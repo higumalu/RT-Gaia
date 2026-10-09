@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rt-gaia.dev/schemas/plugin-manifest/1",
+  "title": "RT-Gaia plugin manifest (contract v1)",
+  "description": "Returned by GET {endpoint}/manifest. Normative text: docs/plugin-contract.md#manifest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "api_version", "label", "licenses", "soup", "required_role", "capabilities", "inputs", "outputs", "execution"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,40}$" },
+    "version": { "$ref": "#/$defs/semver" },
+    "api_version": { "type": "string", "const": "1" },
+    "label": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "description": { "type": "string", "maxLength": 2000 },
+    "icon": { "type": "string", "maxLength": 32 },
+    "licenses": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "soup": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "version", "license"],
+        "properties": {
+          "name": { "type": "string" },
+          "version": { "type": "string" },
+          "license": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "kind": { "type": "string", "enum": ["library", "model-weights", "dataset", "other"] }
+        }
+      }
+    },
+    "required_role": { "type": "string", "enum": ["viewer", "contourer", "approver", "admin"] },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "enum": ["read-image", "read-masks", "read-structures", "write-transient", "kv", "audit"] }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "params_schema"],
+      "properties": {
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "format"],
+          "properties": {
+            "required": { "type": "boolean" },
+            "multiple": { "type": "boolean", "default": false },
+            "format": { "type": "string", "enum": ["nifti", "dicom-zip", "rtgaia-grid"] },
+            "modalities": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "structures": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required"],
+          "properties": {
+            "required": { "type": "boolean" },
+            "multiple": { "type": "boolean", "default": true },
+            "statuses": { "type": "array", "items": { "type": "string", "enum": ["under_review", "approved", "rejected"] } }
+          }
+        },
+        "params_schema": { "type": "object", "description": "JSON Schema draft 2020-12 for RunRequest.inputs.params; properties may carry x-ui-widget hints. See docs/plugin-contract.md#inputs." }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kinds", "encodings"],
+      "properties": {
+        "kinds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "enum": ["images", "structures", "doses", "measurements", "reports"] } },
+        "encodings": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/encoding" } }
+      }
+    },
+    "artifact_origins": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Origins (scheme://host[:port]) the host may fetch ImportBundle artifact URLs from, in addition to the plugin endpoint's own origin. Anything else is refused (PL-ARTIFACT-ORIGIN). See docs/plugin-contract.md#artifact-downloads.",
+      "items": { "type": "string", "pattern": "^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$" }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeout_s", "progress", "concurrency"],
+      "properties": {
+        "timeout_s": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "progress": { "type": "string", "enum": ["callback", "poll"] },
+        "concurrency": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle", "sdk_version"],
+      "properties": {
+        "bundle": { "type": "string", "pattern": "^/ui/.+\\.js$" },
+        "sdk_version": { "type": "string", "description": "semver range against @rtgaia/sdk" },
+        "trust": {
+          "type": "string",
+          "enum": ["host-equivalent"],
+          "description": "Declares that this UI bundle runs with the host's privileges (same origin, same cookies). Without it the host never loads the bundle and falls back to the declarative panel. See docs/plugin-contract.md#ui-bundles and docs/plugin-contract.md#security-and-trust."
+        },
+        "panels": { "type": "array", "items": { "type": "string" }, "description": "Panel ids the bundle registers (informational)." }
+      }
+    }
+  },
+  "$defs": {
+    "semver": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$" },
+    "encoding": { "type": "string", "enum": ["nifti", "labelmap", "json-mask", "rtgaia-grid", "dicom-series", "dicom-rtstruct", "dicom-seg", "dicom-rtdose", "dicom-reg"] }
+  }
+}

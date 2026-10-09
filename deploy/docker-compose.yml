@@ -1,0 +1,148 @@
+# RT-Gaia deployment: Postgres + API + separate job worker + nginx (static frontend, reverse proxy, COOP/COEP).
+#
+#   cp deploy/.env.example deploy/.env && edit RTGAIA_SECRET and RTGAIA_PUBLIC_URL
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#   open http://<host>/  → the first visit asks you to create the first administrator
+#   check the deployment: scripts/compose-smoke.sh (index, JS/WASM, login, API, WS, plugin manifest; CI runs it too)
+#
+# Data: ./volumes/library (DICOM), ./volumes/rtgaia (blobs, cache), ./volumes/pg. Back up with pg_dump plus a copy of the two directories.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: rtgaia
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rtgaia}
+      POSTGRES_DB: rtgaia
+    volumes:
+      - ./volumes/pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rtgaia -d rtgaia"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      # The last Dockerfile stage is `web` (nginx); without `target` the api service would become an nginx container
+      target: runtime
+    environment:
+      RTGAIA_DB_URL: postgresql+asyncpg://rtgaia:${POSTGRES_PASSWORD:-rtgaia}@postgres:5432/rtgaia
+      RTGAIA_SECRET: ${RTGAIA_SECRET:?set RTGAIA_SECRET in deploy/.env}
+      # The public address is configured, never learned from the Host header; plugin callbacks and the Host allow-list use it
+      RTGAIA_PUBLIC_URL: ${RTGAIA_PUBLIC_URL:?set RTGAIA_PUBLIC_URL in deploy/.env (e.g. https://rtgaia.example.org)}
+      RTGAIA_ALLOWED_HOSTS: ${RTGAIA_ALLOWED_HOSTS:-}
+      RTGAIA_PHI_KEY: ${RTGAIA_PHI_KEY:-}
+      RTGAIA_INPROCESS_WORKER: "0"
+    volumes:
+      - ./volumes/library:/data/library
+      - ./volumes/rtgaia:/data/rtgaia
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose: ["8080"]
+    restart: unless-stopped
+    # /readyz returns 503 when the database is unreachable; /healthz is liveness plus diagnostics and always returns 200
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/readyz', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: runtime
+    command: ["rtgaia-worker", "--library", "/data/library", "--data-dir", "/data/rtgaia"]
+    environment:
+      RTGAIA_DB_URL: postgresql+asyncpg://rtgaia:${POSTGRES_PASSWORD:-rtgaia}@postgres:5432/rtgaia
+      # Must match the API: the worker hashes patient names on import (key derived from RTGAIA_SECRET unless
+      # RTGAIA_PHI_KEY is set) and gives plugins the callback address derived from RTGAIA_PUBLIC_URL.
+      RTGAIA_SECRET: ${RTGAIA_SECRET:?set RTGAIA_SECRET in deploy/.env}
+      RTGAIA_PUBLIC_URL: ${RTGAIA_PUBLIC_URL:?set RTGAIA_PUBLIC_URL in deploy/.env (e.g. https://rtgaia.example.org)}
+      RTGAIA_PHI_KEY: ${RTGAIA_PHI_KEY:-}
+      RTGAIA_WORKER_HEARTBEAT_FILE: /tmp/rtgaia-worker.alive
+    # If the worker loop ends unexpectedly the process exits non-zero and is restarted; an idle loop that stops ticking
+    # (heartbeat file not updated for 90 s) is reported unhealthy.
+    # The loop does not tick while a job runs, so the threshold must exceed the longest single job (exports and sends take minutes).
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys,time; sys.exit(0 if time.time() - os.path.getmtime('/tmp/rtgaia-worker.alive') < 90 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ./volumes/library:/data/library
+      - ./volumes/rtgaia:/data/rtgaia
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      replicas: 1
+
+  web:
+    # nginx with the built frontend (the `web` stage of the Dockerfile)
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${RTGAIA_HTTP_PORT:-80}:80"
+
+  # ── example plugins (profile `plugins`) ──
+  #   docker compose -f deploy/docker-compose.yml --profile plugins up -d --build
+  # local mode: the plugin runs in this compose project, on the same machine and GPU as RT-Gaia.
+  # remote mode: only plugin-nnunet runs here (no GPU); its panel points to another machine running `seg-server`.
+  plugin-nnunet:
+    profiles: ["plugins"]
+    build:
+      context: ../examples/plugin-nnunet
+      dockerfile: Dockerfile
+    environment:
+      RTGAIA_SEG_ENGINE: ${RTGAIA_SEG_ENGINE:-totalseg}
+      RTGAIA_SEG_DEVICE: ${RTGAIA_SEG_DEVICE:-gpu}
+      RTGAIA_SEG_MODE: ${RTGAIA_SEG_MODE:-local}
+      RTGAIA_PLUGIN_TOKEN: ${RTGAIA_PLUGIN_NNUNET_TOKEN:-change-me}
+      RTGAIA_PLUGIN_PUBLIC_URL: http://plugin-nnunet:8702
+      TOTALSEG_HOME_DIR: /models/totalseg
+    volumes:
+      - ./volumes/plugin-nnunet:/data
+      - ./volumes/models:/models
+    expose: ["8702"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Remote inference service (run it on the GPU machine; same image as the plugin above, different entry point)
+  seg-server:
+    profiles: ["seg-server"]
+    build:
+      context: ../examples/plugin-nnunet
+      dockerfile: Dockerfile
+    command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8710"]
+    environment:
+      RTGAIA_SEG_ENGINE: ${RTGAIA_SEG_ENGINE:-totalseg}
+      RTGAIA_SEG_DEVICE: ${RTGAIA_SEG_DEVICE:-gpu}
+      RTGAIA_SEG_REMOTE_TOKEN: ${RTGAIA_SEG_REMOTE_TOKEN:-change-me}
+      TOTALSEG_HOME_DIR: /models/totalseg
+    volumes:
+      - ./volumes/models:/models
+    ports:
+      - "${RTGAIA_SEG_SERVER_PORT:-8710}:8710"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

@@ -1,0 +1,15 @@
+{
+  "extends": "../../../apps/viewer/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "typeRoots": ["../../../apps/viewer/node_modules/@types"],
+    "types": ["node"],
+    "paths": {
+      "@rtgaia/sdk": ["../../../apps/viewer/src/sdk/index.ts"],
+      "react": ["../../../apps/viewer/node_modules/@types/react"],
+      "react/jsx-runtime": ["../../../apps/viewer/node_modules/@types/react/jsx-runtime"],
+      "vite": ["../../../apps/viewer/node_modules/vite"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

@@ -1,0 +1,55 @@
+__pycache__/
+*.py[cod]
+.venv/
+.uv-cache/
+dist/
+build/
+*.egg-info/
+node_modules/
+apps/viewer/dist/
+target/
+.cache/
+**/fixtures/cache/
+packages/rtgaia-testbe/src/rtgaia_testbe/fixtures/dicom/*
+!packages/rtgaia-testbe/src/rtgaia_testbe/fixtures/dicom/.gitkeep
+*.so
+*.wasm
+!apps/viewer/public/*.wasm
+.pytest_cache/
+.DS_Store
+
+# 🔴 真實病人資料一律不進版控。
+# 這個目錄裡的 DICOM **可能未去識別化**——去識別化後的成品請放
+# packages/rtgaia-testbe/src/rtgaia_testbe/fixtures/dicom/ 並在該處的
+# README.md 登錄來源、工具版本、執行者與日期。
+/data/
+/fixtures/
+*.dcm
+tsconfig.tsbuildinfo
+
+# 🔴 tsc 的編譯產物不進版控。
+# vite 的 resolve.extensions 把 .js 排在 .ts **前面**，而本專案 import 一律不帶
+# 副檔名 —— 只要 src/ 裡有一份 .js，dev / build / test 跑的就全是它，而 .ts 的
+# 修改會靜默不生效（測試照樣全綠）。
+apps/viewer/src/**/*.js
+apps/viewer/src/**/*.jsx
+apps/viewer/tests/**/*.js
+apps/viewer/vite.config.js
+.rtgaia/
+
+# plugin 範例的建置產物與 plugin 服務的結果檔
+examples/*/dist/
+artifacts/
+
+# 🔴 機密不進版控：deploy/docker-compose.yml 讀 deploy/.env（RTGAIA_SECRET、DB 帳密）。
+# 範本 deploy/.env.example 要進版控。
+.env
+.env.*
+!.env.example
+
+# 工具快取（各自的 .gitignore 已自我排除，這裡寫明以免哪天工具不再產生）
+.ruff_cache/
+.orca/
+
+# compose 的 bind-mount 資料目錄（docker-compose.yml 註解：備份 ＝ pg_dump ＋ rsync 這兩個目錄）
+deploy/volumes/

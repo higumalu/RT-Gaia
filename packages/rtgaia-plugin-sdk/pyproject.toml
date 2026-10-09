@@ -1,0 +1,30 @@
+[project]
+name = "rtgaia-plugin-sdk"
+version = "0.1.0"
+description = "RT-Gaia reference plugin SDK (Python): contract v1 plugin endpoints, host callback client, ImportBundle builder and validator, and the rtgaia-plugin-check contract test tool"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    # 幾何契約（Grid、不變式）與宿主共用同一份 —— 幾何語意不能有兩種
+    "rtgaia-geom",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "numpy>=1.26",
+    # NIfTI 讀寫（Apache-2.0）
+    "SimpleITK>=2.3",
+    # 契約 schema 驗證（MIT）
+    "jsonschema>=4.20",
+]
+
+[project.scripts]
+rtgaia-plugin-check = "rtgaia_plugin_sdk.check:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rtgaia_plugin_sdk"]
+# 契約檔（openapi、schema）隨 wheel 帶著走，plugin 開發者離線也能驗
+force-include = { "../rtgaia-plugin-api/schemas" = "rtgaia_plugin_sdk/schemas", "../rtgaia-plugin-api/openapi.yaml" = "rtgaia_plugin_sdk/openapi.yaml" }

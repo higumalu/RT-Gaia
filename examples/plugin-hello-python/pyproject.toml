@@ -1,0 +1,14 @@
+[project]
+name = "rtgaia-plugin-hello"
+version = "0.1.1"
+description = "Minimal RT-Gaia plugin example (Python)"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = ["rtgaia-plugin-sdk"]
+
+[tool.uv.sources]
+rtgaia-plugin-sdk = { path = "../../packages/rtgaia-plugin-sdk", editable = true }
+rtgaia-geom = { path = "../../packages/rtgaia-geom", editable = true }
+
+[tool.uv]
+package = false

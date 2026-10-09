@@ -1,0 +1,384 @@
+openapi: 3.1.0
+info:
+  title: RT-Gaia plugin contract
+  version: "1.0.0"
+  description: |
+    Contract v1 between the RT-Gaia host and an out-of-process plugin service.
+    Normative text: docs/plugin-contract.md. Two sides share this document:
+
+    * `x-side: plugin` — endpoints the PLUGIN must implement, relative to the endpoint
+      registered by an administrator. The host calls them with the registered bearer token.
+    * `x-side: host` — callback endpoints the HOST implements, relative to
+      `RunRequest.callback.base_url`. The plugin calls them with the scoped job token.
+    * `x-side: host-ui` — host endpoints a plugin's UI bundle calls as the signed-in user
+      (absolute paths under /api/v1; see docs/plugin-contract.md#host-plugin-api and
+      docs/plugin-contract.md#custom-endpoints).
+
+    Large payloads (volumes, masks) travel by URL, never embedded in JSON.
+servers:
+  - url: "{endpoint}"
+    description: plugin endpoint (x-side plugin)
+    variables: { endpoint: { default: "https://plugin.example" } }
+  - url: "{base_url}"
+    description: host callback base (x-side host), from RunRequest.callback.base_url
+    variables: { base_url: { default: "https://rtgaia.example/api/v1/plugins/{plugin_id}/jobs/{job_id}" } }
+security:
+  - bearer: []
+tags:
+  - { name: plugin, description: implemented by the plugin }
+  - { name: host, description: implemented by the host (callbacks) }
+
+paths:
+  /manifest:
+    get:
+      x-side: plugin
+      tags: [plugin]
+      summary: Plugin manifest (docs/plugin-contract.md#manifest)
+      responses:
+        "200":
+          description: manifest
+          content: { application/json: { schema: { $ref: "schemas/manifest.schema.json" } } }
+  /health:
+    get:
+      x-side: plugin
+      tags: [plugin]
+      summary: Liveness and current version (docs/plugin-contract.md#get-health)
+      responses:
+        "200":
+          description: health
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  version: { type: string }
+                  detail: { type: string }
+  /run:
+    post:
+      x-side: plugin
+      tags: [plugin]
+      summary: Start a job (docs/plugin-contract.md#post-run)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RunRequest" } } }
+      responses:
+        "202":
+          description: accepted
+          content:
+            application/json:
+              schema: { type: object, required: [job_id], properties: { job_id: { type: string } } }
+        "422": { $ref: "#/components/responses/Error" }
+        "429":
+          description: plugin at its concurrency limit. The host does not retry and ignores Retry-After; the job fails at once with an error carrying code PL-DOWN, and the user has to start it again (docs/plugin-contract.md#post-run).
+          headers: { Retry-After: { schema: { type: integer } } }
+  /jobs/{job_id}:
+    parameters: [ { $ref: "#/components/parameters/jobId" } ]
+    get:
+      x-side: plugin
+      tags: [plugin]
+      summary: Job status (poll mode or host-side reconciliation)
+      responses:
+        "200":
+          description: status
+          content: { application/json: { schema: { $ref: "#/components/schemas/JobStatus" } } }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      x-side: plugin
+      tags: [plugin]
+      summary: Cancel (idempotent)
+      responses:
+        "204": { description: cancelled or already finished }
+  /jobs/{job_id}/result:
+    parameters: [ { $ref: "#/components/parameters/jobId" } ]
+    get:
+      x-side: plugin
+      tags: [plugin]
+      summary: Result bundle when execution.progress is poll (docs/plugin-contract.md#importbundle)
+      responses:
+        "200":
+          description: ImportBundle
+          content: { application/json: { schema: { $ref: "schemas/import-bundle.schema.json" } } }
+        "409": { description: job not finished }
+  /ui/{path}:
+    get:
+      x-side: plugin
+      tags: [plugin]
+      summary: Optional UI bundle (docs/plugin-contract.md#ui-bundles); proxied by the host under /api/v1/plugins/{id}/ui/
+      parameters: [ { name: path, in: path, required: true, schema: { type: string } } ]
+      responses:
+        "200": { description: static asset }
+
+  /inputs/image:
+    get:
+      x-side: host
+      tags: [host]
+      summary: Input image in the format declared by manifest.inputs.image.format (capability read-image)
+      responses:
+        "200":
+          description: nifti (.nii.gz), dicom-zip, or rtgaia-grid binary wire; see docs/plugin-contract.md#get-inputsimage
+          headers:
+            X-RTGaia-Grid: { description: JSON Grid (docs/plugin-contract.md#grid), schema: { type: string } }
+            X-RTGaia-Content-Hash: { schema: { type: string } }
+          content:
+            application/gzip: { schema: { type: string, format: binary } }
+            application/zip: { schema: { type: string, format: binary } }
+            application/octet-stream: { schema: { type: string, format: binary } }
+        "403": { $ref: "#/components/responses/Error" }
+  /inputs/structures:
+    get:
+      x-side: host
+      tags: [host]
+      summary: Structure list without voxels (capability read-structures; docs/plugin-contract.md#get-inputsstructures)
+      responses:
+        "200":
+          description: list
+          content: { application/json: { schema: { type: array, items: { type: object } } } }
+  /inputs/structures/{structure_id}:
+    get:
+      x-side: host
+      tags: [host]
+      summary: One structure mask on that FoR's MaskGrid (capability read-masks)
+      parameters:
+        - { name: structure_id, in: path, required: true, schema: { type: string } }
+        - { name: format, in: query, schema: { type: string, enum: [nifti, rtgaia-mask], default: nifti } }
+      responses:
+        "200":
+          description: 0/1 nifti or MaskPayload wire; see docs/plugin-contract.md#host-callbacks
+          content:
+            application/gzip: { schema: { type: string, format: binary } }
+            application/octet-stream: { schema: { type: string, format: binary } }
+  /progress:
+    post:
+      x-side: host
+      tags: [host]
+      summary: Progress report; host pushes job.progress to the user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [percent]
+              properties:
+                percent: { type: number, minimum: 0, maximum: 100 }
+                phase: { type: string }
+      responses: { "204": { description: recorded } }
+  /results:
+    post:
+      x-side: host
+      tags: [host]
+      summary: Deliver one ImportBundle (may be called several times; capability write-transient)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "schemas/import-bundle.schema.json" } } }
+      responses:
+        "200":
+          description: per-member outcome; rejected members carry a B1–B8 code and reason
+          content: { application/json: { schema: { $ref: "#/components/schemas/ResultsOutcome" } } }
+        "413": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /done:
+    post:
+      x-side: host
+      tags: [host]
+      summary: Terminal status; the job token is invalidated afterwards
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [done, failed] }
+                error: { type: string }
+      responses: { "204": { description: recorded } }
+  /audit:
+    post:
+      x-side: host
+      tags: [host]
+      summary: Append an audit event; host fills actor and module (capability audit)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, payload]
+              properties: { kind: { type: string }, payload: { type: object } }
+      responses: { "204": { description: recorded } }
+  /kv/{key}:
+    parameters: [ { name: key, in: path, required: true, schema: { type: string, pattern: "^(plugin|user)/[A-Za-z0-9._-]{1,128}$" } } ]
+    get:
+      x-side: host
+      tags: [host]
+      summary: Read a KV value (capability kv; docs/plugin-contract.md#kv-storage)
+      responses:
+        "200": { description: value, content: { application/json: { schema: {} } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      x-side: host
+      tags: [host]
+      summary: Write a KV value (<= 1 MB)
+      requestBody: { required: true, content: { application/json: { schema: {} } } }
+      responses:
+        "204": { description: stored }
+        "413": { $ref: "#/components/responses/Error" }
+    delete:
+      x-side: host
+      tags: [host]
+      summary: Delete a KV value
+      responses: { "204": { description: deleted } }
+
+  /api/v1/plugins/{plugin_id}/run:
+    post:
+      x-side: host-ui
+      tags: [host]
+      summary: Start a plugin job on behalf of the signed-in user (docs/plugin-contract.md#starting-a-job; called by UI bundles via api.http)
+      parameters: [ { name: plugin_id, in: path, required: true, schema: { type: string } } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [params]
+              properties:
+                params: { type: object, description: validated against manifest.inputs.params_schema }
+                image_series_id: { type: [string, "null"], description: default = the primary image series }
+                structure_ids: { type: array, items: { type: string } }
+                study_id: { type: string, description: locate the caller's session by study }
+                session_id: { type: string, description: "or by session id (takes precedence)" }
+      responses:
+        "202":
+          description: job created (kind plugin:<id>)
+          content: { application/json: { schema: { type: object, required: [job_id], properties: { job_id: { type: string } } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /api/v1/plugins/{plugin_id}/jobs/{job_id}:
+    delete:
+      x-side: host-ui
+      tags: [host]
+      summary: Cancel a plugin job (forwards DELETE to the plugin, marks the host job failed/cancelled)
+      parameters:
+        - { name: plugin_id, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/jobId" }
+      responses: { "204": { description: cancelled } }
+  /api/v1/modules/{plugin_id}/{path}:
+    description: Reverse proxy to the plugin's own endpoints (docs/plugin-contract.md#custom-endpoints). The host checks role >= required_role and adds X-RTGaia-Actor / X-RTGaia-Role.
+    parameters:
+      - { name: plugin_id, in: path, required: true, schema: { type: string } }
+      - { name: path, in: path, required: true, schema: { type: string } }
+    get: { x-side: host-ui, tags: [host], summary: proxied GET, responses: { "200": { description: plugin response } } }
+    post: { x-side: host-ui, tags: [host], summary: proxied POST, responses: { "200": { description: plugin response } } }
+    patch: { x-side: host-ui, tags: [host], summary: proxied PATCH, responses: { "200": { description: plugin response } } }
+
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }
+  parameters:
+    jobId: { name: job_id, in: path, required: true, schema: { type: string } }
+  responses:
+    Error:
+      description: error with a stable code (docs/plugin-contract.md#error-codes)
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message]
+            properties:
+              code: { type: string, description: "PL-API, PL-LICENSE, PL-SCHEMA, PL-SCOPE, PL-ROLE, PL-DOWN, PL-QUOTA, B1..B8" }
+              message: { type: string }
+              pointer: { type: string, description: JSON pointer into the offending document }
+  schemas:
+    Grid:
+      type: object
+      required: [size, spacing, origin, direction, frame_of_reference_uid]
+      properties:
+        size: { type: array, minItems: 3, maxItems: 3, items: { type: integer, minimum: 1 } }
+        spacing: { type: array, minItems: 3, maxItems: 3, items: { type: number, exclusiveMinimum: 0 } }
+        origin: { type: array, minItems: 3, maxItems: 3, items: { type: number } }
+        direction: { type: array, minItems: 9, maxItems: 9, items: { type: number } }
+        frame_of_reference_uid: { type: string }
+    RunRequest:
+      type: object
+      required: [job_id, callback, case, inputs, actor, timeout_s]
+      properties:
+        job_id: { type: string }
+        callback:
+          type: object
+          required: [base_url, token, expires_at]
+          properties:
+            base_url: { type: string, format: uri }
+            token: { type: string }
+            expires_at: { type: string, format: date-time }
+        case:
+          type: object
+          required: [case_id, primary_frame_of_reference_uid]
+          properties:
+            case_id: { type: string }
+            primary_frame_of_reference_uid: { type: string }
+        inputs:
+          type: object
+          required: [params]
+          properties:
+            image:
+              type: object
+              required: [series_id, frame_of_reference_uid, modality, grid, content_hash, url]
+              properties:
+                series_id: { type: string }
+                frame_of_reference_uid: { type: string }
+                modality: { type: string }
+                grid: { $ref: "#/components/schemas/Grid" }
+                content_hash: { type: string }
+                url: { type: string, format: uri }
+            structures:
+              type: array
+              items:
+                type: object
+                required: [structure_id, name, url]
+                properties:
+                  structure_id: { type: string }
+                  name: { type: string }
+                  url: { type: string, format: uri }
+            params: { type: object, description: validated against manifest.inputs.params_schema }
+        actor:
+          type: object
+          required: [username, role]
+          properties:
+            username: { type: string }
+            role: { type: string, enum: [viewer, contourer, approver, admin] }
+        timeout_s: { type: integer, minimum: 1 }
+    JobStatus:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [queued, running, done, failed] }
+        percent: { type: number, minimum: 0, maximum: 100 }
+        phase: { type: string }
+        error: { type: string }
+    ResultsOutcome:
+      type: object
+      required: [accepted, rejected]
+      properties:
+        accepted:
+          type: array
+          items:
+            type: object
+            required: [kind, index, id]
+            properties:
+              kind: { type: string, enum: [frame_group, image, structure, dose, measurement, report] }
+              index: { type: integer }
+              id: { type: string, description: "Opaque string of the form <job_id>:<batch>:<kind>:<index>, where batch numbers the bundles of this job that passed the schema check, starting at 0. It is not the id of a structure in the case; do not parse it." }
+        rejected:
+          type: array
+          items:
+            type: object
+            required: [kind, index, code, reason]
+            properties:
+              kind: { type: string }
+              index: { type: integer }
+              code: { type: string, pattern: "^B[1-8]$" }
+              reason: { type: string }

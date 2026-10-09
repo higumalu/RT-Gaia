@@ -1,0 +1,8 @@
+# 映像用；本機開發用 pyproject（uv sync --extra inference）。
+# SDK 尚未發佈到 PyPI：先以 git 路徑安裝（部署者可改成內部 index）。
+rtgaia-plugin-sdk @ git+https://github.com/higumalu/RT-Gaia.git@dev#subdirectory=packages/rtgaia-plugin-sdk
+rtgaia-geom @ git+https://github.com/higumalu/RT-Gaia.git@dev#subdirectory=packages/rtgaia-geom
+TotalSegmentator>=2.4
+nnunetv2>=2.5
+httpx>=0.27
+python-multipart>=0.0.9

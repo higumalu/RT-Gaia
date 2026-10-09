@@ -1,0 +1,15 @@
+{
+  "name": "RT-Gaia",
+  "short_name": "RT-Gaia",
+  "description": "RT-Gaia viewer",
+  "start_url": "./#/library",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#16181c",
+  "theme_color": "#16181c",
+  "icons": [
+    { "src": "branding/rt-gaia-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "branding/rt-gaia-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

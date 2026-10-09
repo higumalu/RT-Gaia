@@ -1,0 +1,103 @@
+{
+  "cases": [
+    {
+      "name": "clean_image",
+      "mode": null,
+      "target": "image",
+      "file": "clean_image.bin",
+      "expect_code": null,
+      "expected_behaviour": "正常解碼（反向保證：chaos 關掉後不得有殘餘）",
+      "bytes": 49671
+    },
+    {
+      "name": "clean_mask",
+      "mode": null,
+      "target": "mask",
+      "file": "clean_mask.bin",
+      "expect_code": null,
+      "expected_behaviour": "正常解碼（反向保證：chaos 關掉後不得有殘餘）",
+      "bytes": 958
+    },
+    {
+      "name": "grid_mismatch",
+      "mode": "grid_mismatch",
+      "target": "mask",
+      "file": "grid_mismatch.bin",
+      "expect_code": "I3",
+      "expected_behaviour": "拒絕合成並明確報錯，不得嘗試自動對齊",
+      "bytes": 922
+    },
+    {
+      "name": "fractional_offset",
+      "mode": "fractional_offset",
+      "target": "mask",
+      "file": "fractional_offset.bin",
+      "expect_code": "I1",
+      "expected_behaviour": "拒絕載入（offset_ijk 必須是整數 voxel）",
+      "bytes": 960
+    },
+    {
+      "name": "missing_direction",
+      "mode": "missing_direction",
+      "target": "image",
+      "file": "missing_direction.bin",
+      "expect_code": "G4",
+      "expected_behaviour": "拒絕載入，不得預設為單位矩陣",
+      "bytes": 49445
+    },
+    {
+      "name": "truncate",
+      "mode": "truncate",
+      "target": "image",
+      "file": "truncate.bin",
+      "expect_code": "W6",
+      "expected_behaviour": "偵測並報錯，不得渲染半張影像",
+      "bytes": 25460
+    },
+    {
+      "name": "wrong_size",
+      "mode": "wrong_size",
+      "target": "mask",
+      "file": "wrong_size.bin",
+      "expect_code": "I9",
+      "expected_behaviour": "拒絕載入（size_ijk 與實際資料量不符）",
+      "bytes": 958
+    },
+    {
+      "name": "stale_hash",
+      "mode": "stale_hash",
+      "target": "edit",
+      "file": null,
+      "expect_code": "HTTP 409",
+      "expected_behaviour": "重取 mask ＋ 提示使用者；送出佇列丟棄待送 op、清空該結構 undo",
+      "covered_by": "tests/edit.test.ts（SubmitQueue 的衝突流程）"
+    },
+    {
+      "name": "latency",
+      "mode": "latency",
+      "target": "all",
+      "file": null,
+      "expect_code": null,
+      "expected_behaviour": "載入指示、漸進式 lod、不得出現空白畫面",
+      "covered_by": "packages/rtgaia-testbe/tests/test_chaos.py::test_latency_delays_every_response"
+    },
+    {
+      "name": "disconnect",
+      "mode": "disconnect",
+      "target": "ws",
+      "file": null,
+      "expect_code": null,
+      "expected_behaviour": "重連並重新同步（伺服器在 connect 時主動推 scene.replace）",
+      "covered_by": "tests/push.test.ts（PushChannel 的重連）"
+    },
+    {
+      "name": "push_limit",
+      "mode": "push_limit",
+      "target": "ws",
+      "file": null,
+      "expect_code": null,
+      "expected_behaviour": "scene.replace 超過推送上限 → 收到 {refetch: true} → 走 GET /sessions/{id}/scene，畫面照常更新",
+      "covered_by": "tests/push.test.ts（refetch 小訊息）＋ test_chaos.py::test_push_limit_sends_refetch_and_scene_is_on_http ＋ scripts/verify-push-refetch.mjs"
+    }
+  ]
+}
