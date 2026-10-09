@@ -193,5 +193,10 @@ if (args.readme) {
   // 128 色調色盤 ＋ 只重畫有變的方框（介面大多不動，GIF 小很多）
   const gif = '[c]split[a][b];[a]palettegen=stats_mode=diff:max_colors=128[pal];[b][pal]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle';
   ff(...inputs, '-filter_complex', [...parts, cat, gif].join(';'), '-loop', '0', join(dir, 'demo-preview.gif'));
-  console.log(`README：${dir}/rt-gaia-demo.mp4、demo-preview.gif`);
+  // 手機那一幕另出一張：只裁手機（連外框），去掉頭尾淡入淡出
+  const phone = timeline('phone');
+  const [pw, ph] = size(phone.raw);
+  const crop = `crop=${pw + 16}:${ph + 16}:${Math.round((W - pw) / 2) - 8}:${Math.round((H - ph) / 2) - 8}`;
+  ff('-ss', '0.35', '-t', (phone.len - 0.8).toFixed(2), '-i', join(CLIPS, 'phone.mp4'), '-filter_complex', `[0:v]${crop},fps=10,scale=360:-2:flags=lanczos,setsar=1[c];${gif}`, '-loop', '0', join(dir, 'phone-preview.gif'));
+  console.log(`README：${dir}/rt-gaia-demo.mp4、demo-preview.gif、phone-preview.gif`);
 }

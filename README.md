@@ -77,6 +77,17 @@ plugin, review and export, and the phone layout.
 | ![Contouring the spinal canal with the threshold brush](docs/assets/screenshots/contouring-tools.jpg) | ![Plan review: beam's-eye view with MLC aperture over a DRR, and arcs on the axial image](docs/assets/screenshots/plan-bev.jpg) |
 | ![4D CT with the tumor contour of each phase and the time curve](docs/assets/screenshots/timebar-4d.jpg) | ![AI auto-contouring results from the nnU-Net plugin](docs/assets/screenshots/plugin-results.jpg) |
 
+### On phones and tablets
+
+<p align="center">
+  <img src="docs/assets/demo/phone-preview.gif" alt="RT-Gaia on a phone: swiping through slices, switching to the coronal view, then opening the data and DVH panels from the bottom tab bar" width="300" />
+</p>
+
+The same case on a phone: one view at a time, a swipe to change slices, and a bottom tab bar for the
+data, contouring, review and DVH panels. Tablets get the desktop layout with larger controls and touch
+gestures. Both are tested with Chrome on Android; see
+[Phones and tablets](docs/user-guide.md#phones-and-tablets) in the user guide.
+
 ### Demo data
 
 The screenshots and videos use public data under Creative Commons Attribution licenses, from The Cancer
