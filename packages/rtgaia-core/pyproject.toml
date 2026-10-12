@@ -6,6 +6,8 @@ license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
     "rtgaia-geom",
+    # 劑量計算：計算封包、射束幾何、CT 校正曲線（引擎在另一個行程跑）
+    "rtgaia-dosecalc",
     # plugin 契約驗證器與 NIfTI 轉換與 check 工具同一份
     "rtgaia-plugin-sdk",
     "fastapi>=0.115",

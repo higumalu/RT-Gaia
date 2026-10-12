@@ -28,6 +28,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY packages/rtgaia-geom packages/rtgaia-geom
+COPY packages/rtgaia-dosecalc packages/rtgaia-dosecalc
 COPY packages/rtgaia-core packages/rtgaia-core
 COPY packages/rtgaia-server packages/rtgaia-server
 COPY packages/rtgaia-testbe packages/rtgaia-testbe

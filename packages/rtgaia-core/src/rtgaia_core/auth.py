@@ -241,6 +241,6 @@ def required_role_for(method: str, path: str) -> str | None:
         return "viewer"
     # 劑量運算的暫存結果只有自己看得到、關掉就沒了 —— 看得到劑量的人就能算、能丟；
     # 存成 RTDOSE（/dose/{id}/save）跟 RS 匯出同門檻
-    if "/dose-ops" in path and path.startswith("/api/v1/studies/"):
+    if ("/dose-ops" in path or "/dosecalc" in path) and path.startswith("/api/v1/studies/"):
         return "viewer"
     return "contourer"

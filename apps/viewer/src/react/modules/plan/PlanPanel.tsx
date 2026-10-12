@@ -7,6 +7,7 @@
 import { layoutCellName } from '../../../core';
 import type { ViewerPanelProps } from '../../panels/types';
 import { BevView } from './BevView';
+import { DoseCalcSection } from './DoseCalcSection';
 import {
   BEV_PANEL_ID,
   beamKindText,
@@ -160,6 +161,7 @@ export function PlanPanel({ api }: ViewerPanelProps): React.JSX.Element {
           </table>
         </div>
       )}
+      {!gk && <DoseCalcSection api={api} plan={plan} />}
       {!gk && <BevSection api={api} />}
       <p className="muted small plan-disclaimer">{t('只顯示計畫內容，不是照射模擬，也不做碰撞檢查。')}</p>
     </div>

@@ -843,9 +843,7 @@ def build_ct4(root: Path) -> Case:
         for n, p in enumerate(PHASES)
     ]
     case.expected = {
-        "groups": [
-            {**_phase_group(case, series, None, confidence="low"), "kind": "series", "axis": "time"}
-        ],
+        "groups": [{**_phase_group(case, series, None, confidence="low"), "kind": "series", "axis": "time"}],
         "derived": [],
         "standalone": [],
         "warnings": ["沒有相位標籤，依 SeriesNumber 排序 —— 要使用者確認"],

@@ -68,6 +68,8 @@ export interface PlanInfo {
   readonly label: string;
   readonly name: string;
   readonly frame_of_reference_uid: string;
+  /** RTPLAN 的 SOPInstanceUID（重算劑量用；舊後端沒有）。 */
+  readonly sop_instance_uid?: string;
   /**
    * `gamma_knife`（Elekta GammaPlan：每個「射束」是一個 shot，沒有機架／准直器／MLC —— 不畫射束、BEV、弧）
    * 或 `external_beam`。舊後端沒有這個欄位 → 當 external_beam。

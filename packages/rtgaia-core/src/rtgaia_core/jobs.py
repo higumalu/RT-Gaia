@@ -24,7 +24,7 @@ from typing import Any, Literal, Protocol
 
 log = logging.getLogger(__name__)
 
-JobKind = Literal["export", "import", "send", "retrieve", "plugin", "service.call"]
+JobKind = Literal["export", "import", "send", "retrieve", "plugin", "service.call", "dosecalc"]
 JobStatus = Literal["queued", "running", "done", "failed"]
 
 MAX_ATTEMPTS = 3
@@ -857,7 +857,14 @@ HANDLERS = {
     "retrieve": run_retrieve,
     "plugin": run_plugin,
     "service.call": run_service_call,
+    "dosecalc": lambda app, job: _dosecalc(app, job),
 }
+
+
+async def _dosecalc(app: Any, job: Job) -> None:
+    from .dosecalc_jobs import run_dosecalc
+
+    await run_dosecalc(app, job)
 
 
 async def run_job(app: Any, job: Job) -> None:

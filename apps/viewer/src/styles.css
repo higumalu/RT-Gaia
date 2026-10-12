@@ -1490,3 +1490,15 @@ kbd { font: inherit; font-size: 11px; padding: 1px 5px; border: 1px solid var(--
 .ctcal-form label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
 .ctcal-form fieldset label .num { width: 5em; }
 .ctcal-form textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* 重算劑量（計畫面板） */
+.plan-dosecalc { margin-top: 8px; }
+.plan-dosecalc-form { display: flex; flex-wrap: wrap; gap: 4px; }
+.plan-dosecalc-form select { flex: 1 1 140px; min-width: 0; }
+.plan-dosecalc-jobs { list-style: none; padding: 0; margin: 4px 0; }
+.plan-dosecalc-jobs > li { border-top: 1px solid var(--line); padding: 4px 0; }
+.dosecalc-job-head { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.plan-dosecalc-jobs li[data-status='failed'] .dosecalc-status { color: var(--warn); }
+.plan-dosecalc-jobs li[data-status='done'] .dosecalc-status { color: var(--ok); }
+.plan-dosecalc-jobs progress { width: 100%; height: 6px; }
+.dosecalc-notes { margin: 2px 0; padding-left: 1.2em; }

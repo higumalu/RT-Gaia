@@ -558,8 +558,20 @@ async def save_dose_op(series_id: str, body: dict[str, Any], request: Request, a
     leaves = dose_ops.leaves(chain)
     ops = [n["op"] for n in _all_nodes(chain) if "op" in n]
     ascii_text = _ascii_chain(chain)
+    computed = derived.get("dosecalc") if isinstance(derived.get("dosecalc"), dict) else None
     description = " | ".join(
         [
+            f"RT-Gaia dose calculation: {computed.get('engine')} {computed.get('engine_version') or ''}".strip(),
+            f"beam model {(computed.get('beam_model') or {}).get('name')}"
+            + (" (demo)" if (computed.get("beam_model") or {}).get("demo") else ""),
+            f"CT calibration {(computed.get('calibration') or {}).get('name')}"
+            + (" (generic fallback)" if computed.get("calibration_fallback") else ""),
+            f"histories {computed.get('histories')}",
+            f"dose {computed.get('dose_quantity') or 'to medium'}",
+            f"by {user} at {derived['created_at']}",
+        ]
+        if computed
+        else [
             f"RT-Gaia dose operation: {ascii_text}",
             "sources: " + ", ".join(f"{x['label']} ({x['sop_instance_uid'] or x['series_id']})" for x in leaves),
             f"grid of {leaves[0]['label']}",
@@ -568,7 +580,7 @@ async def save_dose_op(series_id: str, body: dict[str, Any], request: Request, a
             f"by {user} at {derived['created_at']}",
         ]
     )
-    series_description = translate("RT-Gaia 劑量運算") + f" {date}"
+    series_description = translate("RT-Gaia 劑量計算" if computed else "RT-Gaia 劑量運算") + f" {date}"
 
     def work() -> bytes:
         ds = build_rtdose(

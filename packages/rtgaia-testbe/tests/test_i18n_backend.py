@@ -23,6 +23,7 @@ SCANNED = [
     ROOT / "packages/rtgaia-core/src",
     ROOT / "packages/rtgaia-server/src",
     ROOT / "packages/rtgaia-geom/src",
+    ROOT / "packages/rtgaia-dosecalc/src",
 ]
 CJK = re.compile(r"[㐀-鿿＀-￯　-〿]")
 PLACEHOLDER = re.compile(r"\{(\w+)\}")

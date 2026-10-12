@@ -6,10 +6,11 @@ license = "MIT"
 requires-python = ">=3.11"
 
 [tool.uv.workspace]
-members = ["packages/rtgaia-geom", "packages/rtgaia-core", "packages/rtgaia-server", "packages/rtgaia-testbe", "packages/rtgaia-plugin-sdk"]
+members = ["packages/rtgaia-geom", "packages/rtgaia-dosecalc", "packages/rtgaia-core", "packages/rtgaia-server", "packages/rtgaia-testbe", "packages/rtgaia-plugin-sdk"]
 
 [tool.uv.sources]
 rtgaia-geom = { workspace = true }
+rtgaia-dosecalc = { workspace = true }
 rtgaia-core = { workspace = true }
 rtgaia-server = { workspace = true }
 rtgaia-plugin-sdk = { workspace = true }
