@@ -2360,4 +2360,11 @@ export const EN: Readonly<Record<string, MessageEntry>> = {
   "載入結果": "Load result",
   "載入結果失敗：{msg}": "Loading the result failed: {msg}",
   "重算劑量": "Recalculate dose",
+  // OpenTOPAS
+  "OpenTOPAS（Geant4）Monte Carlo": "OpenTOPAS (Geant4) Monte Carlo",
+  "快速（2 百萬個歷史）": "Quick (2 million histories)",
+  "標準（2 千萬個歷史）": "Standard (20 million histories)",
+  "精細（1 億個歷史）": "Fine (100 million histories)",
+  "歷史數越多，統計不確定度越小、計算越久": "More histories give a smaller statistical uncertainty and take longer",
+  "統計量": "Statistics",
 };

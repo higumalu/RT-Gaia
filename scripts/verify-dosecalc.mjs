@@ -10,7 +10,8 @@
  * 需要量測堆疊、帶 `RTGAIA_DOSECALC_TEST_ENGINE=1`、資料庫目錄裡有 `data/test_plan`：
  *   uv run python -m rtgaia_testbe.fixtures.synth_plan --out data/test_plan
  *   RTGAIA_DOSECALC_TEST_ENGINE=1 scripts/perf/stack.sh start
- *   node scripts/verify-dosecalc.mjs --url http://127.0.0.1:5183/#/viewer --api http://127.0.0.1:8091 [--out-dir DIR]
+ *   node scripts/verify-dosecalc.mjs --url http://127.0.0.1:5183/#/viewer --api http://127.0.0.1:8091 [--engine topas] [--out-dir DIR]
+ *   `--engine topas`：用 OpenTOPAS（快速統計量，約 1–2 分鐘）；預設是流程測試引擎
  * 退出碼：任一步失敗 → 1。
  */
 import { spawn } from 'node:child_process';
@@ -157,11 +158,13 @@ await waitFor(`!!${section}?.querySelector('select[data-field="dosecalc-engine"]
 
 // 1. 引擎清單
 const opts = await evaluate(`[...${section}.querySelectorAll('select[data-field="dosecalc-engine"] option')].map((o) => ({ v: o.value, t: o.textContent, disabled: o.disabled }))`);
-const g4 = opts.find((o) => o.v === 'geant4');
-const test = opts.find((o) => o.v === 'pipeline-test');
+const g4 = opts.find((o) => o.v === 'topas');
+const engineName = args.engine ?? 'pipeline-test';
+const test = opts.find((o) => o.v === engineName);
 if (!test || test.disabled || !g4) throw new Error(`引擎清單：${JSON.stringify(opts)}`);
 step(`引擎：${opts.map((o) => `${o.t}${o.disabled ? '（停用）' : ''}`).join('；')}`);
-await setValue(`${section}.querySelector('select[data-field="dosecalc-engine"]')`, 'pipeline-test', 'change');
+await setValue(`${section}.querySelector('select[data-field="dosecalc-engine"]')`, engineName, 'change');
+if (engineName === 'topas') await setValue(`${section}.querySelector('select[data-field="dosecalc-histories"]')`, '2000000', 'change');
 await setValue(`${section}.querySelector('select[data-field="dosecalc-grid"]')`, 'ct', 'change');
 
 // 2. 送出 → 工作 → 完成
@@ -172,7 +175,7 @@ const jobLi = `${section}.querySelector('.plan-dosecalc-jobs > li')`;
 const notes = await evaluate(`[...(${jobLi}).querySelectorAll('.dosecalc-notes li')].map((x) => x.textContent)`);
 if (!notes.some((n) => /示範用/.test(n)) || !notes.some((n) => /CT 校正曲線/.test(n)) || !notes.some((n) => /2 次/.test(n))) throw new Error(`條件說明：${JSON.stringify(notes)}`);
 step(`送出：${notes.join(' ／ ')}`);
-await waitFor(`(${jobLi}).dataset.status === 'done'`, '計算完成', 180000);
+await waitFor(`(${jobLi}).dataset.status === 'done'`, '計算完成', engineName === 'topas' ? 900000 : 180000);
 step(`完成：${await evaluate(`(${jobLi}).querySelector('.dosecalc-status').textContent`)}`);
 
 // 3. 載入結果 → 左側「劑量」面板多 4 個
@@ -182,7 +185,7 @@ await clickEl(`(${jobLi}).querySelector('button[data-action="dosecalc-load"]')`)
 await waitFor(`!(${jobLi}).querySelector('button[data-action="dosecalc-load"]')`, '載入後按鈕消失', 30000);
 await waitFor(`document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object)').length === ${n0 + 4}`, '劑量面板多 4 個', 30000);
 const names = await evaluate(`[...document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object)')].map((li) => ({ name: li.querySelector('.dose-object-name').textContent, visible: li.querySelector('.visibility input').checked }))`);
-const total = names.find((x) => /pipeline-test$/.test(x.name));
+const total = names.find((x) => new RegExp(`${engineName}$`).test(x.name));
 const beams = names.filter((x) => /beam \d$/.test(x.name));
 if (!total?.visible || beams.length !== 3 || beams.some((b) => b.visible)) throw new Error(`載入的劑量：${JSON.stringify(names)}`);
 step(`載入：${names.map((x) => `${x.name}${x.visible ? '' : '（隱藏）'}`).join('、')}`);

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 PIPELINE_TEST = "pipeline-test"
-GEANT4 = "geant4"
+TOPAS = "topas"
 
 Progress = Callable[[str, float, str], None]
 
@@ -17,23 +17,29 @@ def get(name: str) -> Callable[..., Any]:
         from .pipeline_test import run
 
         return run
-    if name == GEANT4:
-        from .geant4 import run
+    if name == TOPAS:
+        from .topas import run
 
         return run
     raise KeyError(f"沒有引擎 {name}")
 
 
 def available() -> list[dict[str, Any]]:
-    """這台機器上能用的引擎（API 列給介面）：Geant4 要裝了 `geant4` extra；測試引擎只在
+    """這台機器上能用的引擎（API 列給介面）：OpenTOPAS 要有 docker、映像與 Geant4 物理資料；測試引擎只在
     `RTGAIA_DOSECALC_TEST_ENGINE=1` 時列出（它不是劑量計算）。"""
-    out: list[dict[str, Any]] = []
-    try:
-        from .geant4 import status
+    from .topas import status
 
-        out.append({"name": GEANT4, **status()})
-    except ImportError as exc:
-        out.append({"name": GEANT4, "ready": False, "reason": f"沒有安裝 Geant4（{exc}）"})
+    out: list[dict[str, Any]] = [{"name": TOPAS, **status()}]
     if os.environ.get("RTGAIA_DOSECALC_TEST_ENGINE") == "1":
         out.append({"name": PIPELINE_TEST, "ready": True, "reason": "", "test_only": True})
     return out
+
+
+def cancel(label: str) -> None:
+    """停掉這個工作在引擎那邊還在跑的東西（OpenTOPAS 的容器）。引擎行程本身由呼叫端殺掉。"""
+    from .topas import cancel as topas_cancel
+
+    try:
+        topas_cancel(label)
+    except Exception:  # noqa: BLE001 - 取消是盡力而為：沒有 docker 也不能讓取消失敗
+        pass

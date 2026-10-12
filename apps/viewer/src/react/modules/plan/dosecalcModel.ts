@@ -42,13 +42,20 @@ export interface DosecalcJob {
 }
 
 export const ENGINE_LABEL: Record<string, string> = {
-  geant4: msg('Geant4 Monte Carlo'),
+  topas: msg('OpenTOPAS（Geant4）Monte Carlo'),
   'pipeline-test': msg('流程測試引擎（不是劑量計算）'),
 };
 
 export function engineLabel(name: string): string {
   return ENGINE_LABEL[name] ? t(ENGINE_LABEL[name]) : name;
 }
+
+/** 統計量：歷史數越多不確定度越小、越慢（大約跟歷史數成正比）。 */
+export const HISTORY_PRESETS: readonly { value: number; label: string }[] = [
+  { value: 2_000_000, label: msg('快速（2 百萬個歷史）') },
+  { value: 20_000_000, label: msg('標準（2 千萬個歷史）') },
+  { value: 100_000_000, label: msg('精細（1 億個歷史）') },
+];
 
 /** 這份計畫的工作，最新的在前。 */
 export function jobsForPlan(jobs: readonly DosecalcJob[], planSop: string | undefined): DosecalcJob[] {

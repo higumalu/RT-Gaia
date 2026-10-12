@@ -1,7 +1,7 @@
 [project]
 name = "rtgaia-dosecalc"
 version = "0.1.0"
-description = "RT-Gaia dose calculation: calculation packages, beam geometry, phantoms and engines (Geant4 Monte Carlo as an optional extra)"
+description = "RT-Gaia dose calculation: calculation packages, beam geometry, phantoms and engines (OpenTOPAS/Geant4 Monte Carlo in a container)"
 license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
@@ -10,10 +10,6 @@ dependencies = [
     "scipy>=1.11",
     "pydicom>=2.4",
 ]
-
-[project.optional-dependencies]
-# Geant4 引擎：geant4-pybind 內含 Geant4（Geant4 Software License 1.0）；物理資料第一次用時下載（約 2 GB）
-geant4 = ["geant4-pybind==0.1.3"]
 
 [project.scripts]
 rtgaia-dosecalc = "rtgaia_dosecalc.cli:main"

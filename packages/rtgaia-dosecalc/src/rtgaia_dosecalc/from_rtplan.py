@@ -113,6 +113,13 @@ def _beam(b: Any, number: int, name: str, mu: float | None, setups: dict[int, st
     mlc_dev = next((d for k, d in devices.items() if k in MLC_X), None)
     if any(k.startswith("MLCY") for k in devices):
         why.append("MLCY（沿 Y 的 MLC）：還不支援")
+    if any(k in ("MLCX1", "MLCX2") for k in devices):
+        why.append("雙層 MLC（MLCX1／MLCX2，例如 Halcyon）：還不支援")
+    unknown = sorted(
+        k for k in devices if k not in JAW_X | JAW_Y | MLC_X | {"MLCX1", "MLCX2"} and not k.startswith("MLCY")
+    )
+    if unknown:
+        why.append(f"不認得的射束限制裝置 {'、'.join(unknown)}：不知道怎麼算")
     bounds = (
         [float(v) for v in mlc_dev.LeafPositionBoundaries]
         if mlc_dev is not None and mlc_dev.get("LeafPositionBoundaries")

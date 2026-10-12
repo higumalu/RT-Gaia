@@ -182,6 +182,7 @@ async def load_dosecalc(study_id: str, job_id: str, request: Request, app: AppSt
         warnings.append("CT 用的是內建的通用校正曲線（示範用）")
     if res.info.get("engine") == "pipeline-test":
         warnings.append("流程測試引擎：不是劑量計算")
+    warnings += [str(n) for n in res.info.get("notes") or [] if str(n) not in warnings]
     label = f"{summary.get('plan_label') or 'plan'} {res.info.get('engine')}"
     created = []
     parts = [(None, res.dose_gy, label)] + [

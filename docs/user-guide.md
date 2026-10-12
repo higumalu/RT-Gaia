@@ -570,6 +570,18 @@ With **Show ISO on images** (on by default), isocenters are drawn in every 2D ce
 - **Beams in 3D** draws every treatment beam's trajectory and the current aperture in the 3D cell, with a small BEV in its corner. The 3D image updates when playback stops.
 - **Gantry sketch** draws a ring gantry (Halcyon / Ethos) or a C-arm, depending on the machine, seen from the foot of the couch and from above, following the gantry and couch angles of the current control point.
 
+### Recalculating the dose
+
+**Recalculate dose** in the Plans panel recalculates a photon plan on the planning CT with an independent engine, so that the result can be compared with the TPS dose (gamma, DVH, dose difference). It is research software: the built-in beam model is a demo that represents no real machine, and every result says so.
+
+- Choose the engine: **OpenTOPAS (Geant4) Monte Carlo**, or the **Pipeline test engine (not a dose calculation)** when the administrator has enabled it for testing. An engine that is not available on the server is listed with the reason.
+- **Dose grid**: **Same grid as the TPS dose** (when the case contains a dose that references the plan) or **CT extent, 2.5 mm**.
+- **Statistics**: **Quick (2 million histories)**, **Standard (20 million histories)** or **Fine (100 million histories)**. More histories give a smaller statistical uncertainty and take longer, roughly in proportion. Use Standard or Fine for comparisons; Quick results are noisy, especially on a 2.5 mm grid.
+- Click **Recalculate dose**. The job lists what it uses: the beam model, the CT calibration (and why it was chosen), the dose grid, and the beams, MU and fractions. The calculation runs on the server; the progress bar follows it and **Cancel** stops it.
+- When it is done, **Load result** adds the dose of all fractions to the **Dose** panel as a temporary result, plus one dose per beam (hidden) when the plan has several beams. Compare it with the TPS dose with **Gamma comparison**, add both to the DVH, or save it as RTDOSE (the derivation description names the engine, beam model, CT calibration and number of histories).
+
+Plans that cannot be calculated are refused with every reason listed: non-photon beams, wedges, blocks, compensators, bolus, applicators, gantry pitch, couch pitch or roll, collimator or couch angles that change within a beam, dual-layer MLCs (for example Halcyon), unknown beam limiting devices, beams without MU, unsupported patient positions, and beams whose energy and fluence mode have no beam model (the built-in model is 6 MV with a flattening filter). No dose is reported in voxels whose centre is air.
+
 ### Gamma Knife plans
 
 For a Gamma Knife plan the panel shows a shot table (beam-on time, relative weight and dose at the prescription point) with **Go to shot**, and **Show shots on images** marks shot positions within 8 mm of the current slice. There is no BEV, arc or beam display for these plans.

@@ -853,4 +853,16 @@ EN: dict[str, str] = {
     "{label} {v}°：還不支援": "{label} {v}°: not supported yet",
     "計算封包版本 {p0}，這個引擎只認 {FORMAT_VERSION}": "Calculation package version {p0}; this engine reads only {FORMAT_VERSION}",
     "ct_hu.npy 的形狀跟 ct_grid 不合": "ct_hu.npy does not match ct_grid",
+    # OpenTOPAS 引擎
+    "這台機器沒有 docker（OpenTOPAS 在容器裡跑）": "docker is not available on this machine (OpenTOPAS runs in a container)",
+    "沒有 OpenTOPAS 映像 {IMAGE}（docker pull {IMAGE2}）": "The OpenTOPAS image {IMAGE} is missing (docker pull {IMAGE2})",
+    "沒有 Geant4 物理資料（{p0}；設定 RTGAIA_G4DATA）": "The Geant4 datasets are missing ({p0}; set RTGAIA_G4DATA)",
+    "劑量網格不是跟 LPS 軸對齊的（斜的 CT）：還不支援": "The dose grid is not aligned with the LPS axes (oblique CT): not supported yet",
+    "OpenTOPAS 失敗（exit {rc}）：{tail}": "OpenTOPAS failed (exit {rc}): {tail}",
+    "OpenTOPAS 輸出大小不對：{size} 個值，要 {p1}": "Unexpected OpenTOPAS output size: {size} values, expected {p1}",
+    "MLC 葉片邊界不對稱：還不支援": "Asymmetric MLC leaf boundaries: not supported yet",
+    "OpenTOPAS 沒有寫出 {name} 的劑量": "OpenTOPAS did not write the dose of {name}",
+    "雙層 MLC（MLCX1／MLCX2，例如 Halcyon）：還不支援": "Dual-layer MLC (MLCX1/MLCX2, e.g. Halcyon): not supported yet",
+    "不認得的射束限制裝置 {p0}：不知道怎麼算": "Unknown beam limiting device {p0}: cannot be calculated",
+    "體素中心是空氣（或密度 < 0.02 g/cm³）的地方不報劑量": "No dose is reported where the voxel centre is air (or below 0.02 g/cm³)",
 }

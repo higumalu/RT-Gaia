@@ -1032,6 +1032,29 @@ activating, retiring and deleting curves require the administrator role and are 
 The curves are stored in the `app_setting` table under the key `ct_calibrations` and are included in
 database backups.
 
+### Dose calculation engine
+
+Dose recalculation runs as a background job. The worker writes a calculation package under
+`RTGAIA_DATA_DIR/dosecalc/<job>/` and runs the engine there, so the API and worker processes must share the data
+directory. The Monte Carlo engine is OpenTOPAS (Geant4), run in its official container image:
+
+- Install docker on the worker host and give the worker's user access to it.
+- Pull the image: `docker pull opentopas/opentopas:v4.3.0-geant4-11.4.2`.
+- Provide the Geant4 11.4 datasets (G4EMLOW 8.8 and the others listed in the OpenTOPAS quick-start guide, about
+  2 GB) in one directory and point `RTGAIA_G4DATA` at it.
+- The first calculation with a beam model runs an MU calibration (about one minute) and caches it under
+  `RTGAIA_DATA_DIR/dosecalc/calibration/`.
+
+| Variable | Default | Description |
+|---|---|---|
+| `RTGAIA_TOPAS_IMAGE` | `opentopas/opentopas:v4.3.0-geant4-11.4.2` | OpenTOPAS container image. |
+| `RTGAIA_G4DATA` | `~/.geant4_pybind` | Directory with the Geant4 datasets, mounted read-only into the container. |
+| `RTGAIA_TOPAS_THREADS` | number of CPUs | Geant4 worker threads per calculation. |
+| `RTGAIA_DOSECALC_TEST_ENGINE` | unset | `1` also offers the pipeline test engine (not a dose calculation) for testing. |
+
+Cancelling a job stops its containers (they carry the label `rtgaia.dosecalc=<job>`). Calculations run one at a
+time per worker.
+
 ## Resource limits
 
 | Limit | Default | Setting |

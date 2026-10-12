@@ -61,6 +61,10 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   step and cap): a gamma map with a pass/fail colormap and γ = 1 line, pass rate, an explanation of where
   failures lie (high-gradient or flat regions, evaluated high or low), a histogram and per-structure pass
   rates.
+- Dose recalculation of photon plans with OpenTOPAS (Geant4) Monte Carlo in a container: static, step-and-shoot
+  and VMAT beams with jaws and MLC, MU-weighted control points, MU calibration from a simulated reference field,
+  per-beam doses and per-voxel statistical uncertainty; results load as temporary doses for gamma, DVH and RTDOSE
+  export. Ships with a demo 6 MV beam model only; unsupported plan features are refused with reasons.
 - CT calibration curves for dose calculation (HU → mass density and material): a built-in generic
   Schneider 2000 curve marked as demo, administrator-managed curves from phantom tables with draft, active
   and retired states, and matching by scanner manufacturer, model and kVp with the reason shown.

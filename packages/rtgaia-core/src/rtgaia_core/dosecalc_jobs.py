@@ -48,7 +48,7 @@ def work_root() -> Path:
 
 def engine_choice(requested: str | None) -> str:
     avail = {e["name"]: e for e in engines.available()}
-    name = requested or engines.GEANT4
+    name = requested or engines.TOPAS
     e = avail.get(name)
     if e is None:
         raise PrepareError("NO_ENGINE", [f"沒有引擎 {name}"])
@@ -196,6 +196,7 @@ async def run_dosecalc(app: Any, job: Any) -> None:
             if fresh is not None and fresh.status in TERMINAL:
                 proc.kill()  # 取消了（或在別處結束）
                 await proc.wait()
+                await asyncio.to_thread(engines.cancel, work.name)  # 引擎那邊的容器
                 return
             p = read_progress(out)
             if p is not None and (p.get("phase"), p.get("percent")) != last:
@@ -214,6 +215,7 @@ async def run_dosecalc(app: Any, job: Any) -> None:
                 )
     except asyncio.CancelledError:
         proc.kill()
+        await asyncio.to_thread(engines.cancel, work.name)
         raise
     stderr = (await proc.stderr.read()).decode("utf-8", "replace")[-2000:] if proc.stderr else ""
     if proc.returncode != 0:

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { t } from '../../../core/i18n';
 import type { ViewerPanelProps } from '../../panels/types';
 import type { PlanInfo } from './model';
-import { engineLabel, isActive, jobsForPlan, jobStatusText, summaryNotes, type DosecalcEngine, type DosecalcJob } from './dosecalcModel';
+import { engineLabel, HISTORY_PRESETS, isActive, jobsForPlan, jobStatusText, summaryNotes, type DosecalcEngine, type DosecalcJob } from './dosecalcModel';
 
 const POLL_MS = 2000;
 
@@ -18,6 +18,7 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
   const [engines, setEngines] = useState<DosecalcEngine[] | null>(null);
   const [engine, setEngine] = useState('');
   const [grid, setGrid] = useState<'tps' | 'ct'>('tps');
+  const [histories, setHistories] = useState<number>(HISTORY_PRESETS[1]!.value);
   const [jobs, setJobs] = useState<DosecalcJob[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -60,7 +61,7 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
     setBusy('submit');
     setProblem(null);
     try {
-      await http.postJson(base, { plan_sop_uid: planSop, engine, grid });
+      await http.postJson(base, { plan_sop_uid: planSop, engine, grid, ...(chosen?.test_only ? {} : { histories }) });
       await reload();
     } catch (e) {
       setProblem(e instanceof Error ? e.message : String(e));
@@ -109,6 +110,15 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
             <option value="tps">{t('跟 TPS 劑量同網格')}</option>
             <option value="ct">{t('CT 範圍 2.5 mm')}</option>
           </select>
+          {!chosen?.test_only && (
+            <select value={histories} onChange={(e) => setHistories(Number(e.target.value))} aria-label={t('統計量')} data-field="dosecalc-histories" title={t('歷史數越多，統計不確定度越小、計算越久')}>
+              {HISTORY_PRESETS.map((h) => (
+                <option key={h.value} value={h.value}>
+                  {t(h.label)}
+                </option>
+              ))}
+            </select>
+          )}
           <button type="button" className="primary" disabled={busy !== null || !chosen?.ready} onClick={() => void submit()} data-action="dosecalc-submit" title={chosen && !chosen.ready ? chosen.reason : undefined}>
             {busy === 'submit' ? t('準備中…') : t('重算劑量')}
           </button>
