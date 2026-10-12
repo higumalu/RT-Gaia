@@ -274,8 +274,8 @@ export function isodoseColor(display: DoseDisplay, levelGy: number): readonly [n
   return [lut[t * 3]!, lut[t * 3 + 1]!, lut[t * 3 + 2]!];
 }
 
-/** 兩個 renderer 共用：重切出 layer 自己 FoR 的 f32 劑量平面（Gy，volume 外 NaN）。 */
-function reslicedDose(ctx: CpuContext, layer: Layer): Float32Array | null {
+/** 兩個 renderer 共用：重切出 layer 自己 FoR 的 f32 劑量平面（Gy，volume 外 NaN）。γ 模組也用（f32 純量場同一條路）。 */
+export function reslicedDose(ctx: CpuContext, layer: Layer): Float32Array | null {
   const entry = ctx.voxels(layer);
   if (entry === null) return null;
   if (!(entry.voxels instanceof Float32Array)) return null; // 劑量一律 float32 Gy

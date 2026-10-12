@@ -517,6 +517,16 @@ Results are temporary: only you can see them, and they disappear when the case i
 
 A result with negative values (a difference) is shown with a diverging colormap: blue is negative, red is positive and 0 is white. In its settings, **|Difference| threshold** hides small differences and a **±** slider narrows the **Color range** so that small differences become visible; **Auto** restores the range. **Difference statistics** lists the maximum positive difference, maximum negative difference and mean difference for the whole grid and for each visible structure (**Partial** when part of the structure has no data). Differences have no DVH curve.
 
+### Gamma comparison
+
+A 3D gamma comparison checks one dose against another in the same space. Select the **reference** dose in the **Dose** panel; under **Gamma comparison**, choose the **Evaluated** dose (doses in other spaces must be moved with **Apply REG** first; differences and gamma maps cannot be compared) and set the criteria: dose difference (%), distance to agreement (mm), **Global** or **Local** normalization and the low-dose threshold (%). The default is 3% / 2 mm, global, 10%. **Advanced** sets the **Search step** (DTA ÷ 3, ÷ 5 or ÷ 10; finer is more accurate and slower) and the **γ cap** (2 or 3). Click **Compute γ**.
+
+- **Global** relates the dose difference to the reference maximum; **Local** relates it to each point's own dose. Reference points below the threshold are not evaluated, and neither are points where the evaluated dose has no data (they are counted separately, not as failures).
+- The result is a **gamma map** listed under the same space. It is not a dose: it cannot be used in dose operations, has no DVH and cannot be saved as RTDOSE.
+- The colormap splits at γ = 1: passing points run from blue to light green, failing points from yellow to red. **γ = 1 line** draws the boundary; **Failures only** colors only γ > 1.
+- The pass-rate badge is green at ≥ 95%, yellow from 90% to 95% and red below 90% (the TG-218 tolerance and action limits); this judgment is shown only for 3% / 2 mm, global, 10%.
+- Select the gamma map to see the explanation: how many points were evaluated, how many failed, and whether failures lie in **high-gradient regions** (moving by the DTA changes the dose by more than the dose criterion, so a failure there mostly means a position mismatch: field edges, MLC, registration) or in **flat regions** (a different dose value, split into evaluated-high and evaluated-low; a large same-direction deviation is usually systematic, such as output, MU or density conversion). A histogram, the mean and 95th-percentile γ, and **Pass rate per structure** for the visible structures follow. **Discard** removes the map.
+
 ### Saving a dose as RTDOSE
 
 Click **Dose operations** in the task bar to open the **Dose operations** panel, which lists the **Temporary results**. Click **Save as RTDOSE…** (or **Save…** in the **Dose** panel):

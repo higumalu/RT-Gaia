@@ -57,6 +57,10 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   partial coverage is flagged; CSV and PNG export.
 - Dose operations: add or subtract two doses (rigidly resampled), multiply or divide by a constant, chain
   steps, sum beam doses into a plan dose, and save results as RTDOSE.
+- 3D gamma comparison between two doses in the same space (global or local, low-dose threshold, search
+  step and cap): a gamma map with a pass/fail colormap and γ = 1 line, pass rate, an explanation of where
+  failures lie (high-gradient or flat regions, evaluated high or low), a histogram and per-structure pass
+  rates.
 - Plan display (view only): beam table, isocenter markers, beam's-eye view with jaws and MLC, a
   control-point timeline, arc ticks on axial images, beams in 3D, a gantry and couch sketch, and a DRR
   computed from the planning CT.

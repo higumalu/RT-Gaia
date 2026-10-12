@@ -117,6 +117,8 @@ def chain_text(node: dict[str, Any]) -> str:
     if node["op"] == "beam_sum":
         beams = ",".join(str(b) for b in node.get("beams") or [])
         return f"Σ beams {beams} ({node.get('plan_label') or '?'})"
+    if node["op"] == "gamma":
+        return f"γ {part(node['b'])} vs {part(node['a'])} ({node.get('criteria_label') or ''})"
     sym = OP_SYMBOL[node["op"]]
     if node["op"] in ("mul", "div"):
         return f"{part(node['a'])} {sym} {fmt_k(float(node['k']))}"
@@ -168,6 +170,9 @@ def operand_check(series: Any, frame_groups: tuple[Any, ...], plan_sops_in_case:
     if series.kind != "dose":
         out.problems.append("不是劑量")
         return out
+    if is_gamma(series):
+        out.problems.append("γ 圖不是劑量")
+        return out
     units = str(p.get("units") or "").upper()
     if units != "GY":
         out.problems.append(f"DoseUnits={units or '(缺)'}，不是 Gy")
@@ -193,6 +198,31 @@ def operand_check(series: Any, frame_groups: tuple[Any, ...], plan_sops_in_case:
             out.notes.append("參照的計畫不在病例裡（分次數查不到）")
         if not plans:
             out.notes.append("沒有參照計畫")
+    return out
+
+
+def is_gamma(series: Any) -> bool:
+    """γ 分析的結果：跟劑量走同一套暫存與體素傳輸，但不是劑量（不能運算、不畫 DVH、不存成 RTDOSE）。"""
+    return str((series.params or {}).get("quantity") or "") == "gamma"
+
+
+def gamma_operand_problems(series: Any) -> list[str]:
+    """這個劑量能不能拿來做 γ 比較（參考或被評估）。跟運算元不同：射束劑量可以（逐射束比對）。"""
+    p = series.params or {}
+    if series.kind != "dose":
+        return ["不是劑量"]
+    if is_gamma(series):
+        return ["γ 圖不是劑量"]
+    out: list[str] = []
+    units = str(p.get("units") or "").upper()
+    if units != "GY":
+        out.append(f"DoseUnits={units or '(缺)'}，不是 Gy")
+    scaling = p.get("dose_grid_scaling")
+    if scaling is not None and not (isinstance(scaling, (int, float)) and np.isfinite(scaling) and scaling > 0):
+        out.append("DoseGridScaling 無效")
+    min_gy = p.get("min_gy")
+    if isinstance(min_gy, (int, float)) and min_gy < 0:
+        out.append("差值（有負值）不能做 γ 比較")
     return out
 
 

@@ -121,7 +121,7 @@ import { ShortcutsDialog } from '../help/ShortcutsDialog';
 import { TourOverlay } from '../help/TourOverlay';
 import { markTourDone, TASK_DRAW_STEPS, tourDone } from '../help/tour';
 import { keyEventOf, resolveGlobalKey } from '../../core/keys';
-import { isEditingTool, listTools } from '../../core';
+import { isEditingTool, listTools, voxelStorageOf } from '../../core';
 import { registerCoreUi } from '../panels/builtins';
 import { ViewerApiProvider } from '../panels/context';
 import { PanelSlot } from '../panels/PanelSlot';
@@ -614,7 +614,7 @@ export function App(): React.JSX.Element {
         //    可見的再補 lod=0（漸進式 lod）
         const volumeSeriesIds = [
           ...seriesIds,
-          ...layers.filter((l) => l.kind === 'dose').map((l) => l.contentRef),
+          ...layers.filter((l) => l.kind !== 'image' && voxelStorageOf(l.kind) === 'volume').map((l) => l.contentRef),
         ];
         fetchedFullRes.current.clear();
         fullResInflight.current.clear();
@@ -739,7 +739,7 @@ export function App(): React.JSX.Element {
     const needed = neededFullResFrames(snapshot.layers, snapshot.temporal, snapshot.viewportFrames);
     const wants: { layer: Layer; frame: number | null }[] = [];
     for (const layer of snapshot.layers) {
-      if ((layer.kind !== 'image' && layer.kind !== 'dose') || !layer.visible) continue;
+      if (voxelStorageOf(layer.kind) !== 'volume' || !layer.visible) continue;
       const frames = typeof layer.frameIndex === 'number' ? [layer.frameIndex] : [...(needed.get(layer.contentRef) ?? [])];
       for (const frame of frames) if (!wants.some((w) => w.layer.contentRef === layer.contentRef && w.frame === frame)) wants.push({ layer, frame });
     }
@@ -910,7 +910,7 @@ export function App(): React.JSX.Element {
         }
         // 可見的再補 lod=0；隱藏的留在 lod 2，顯示時由下面的 effect 補
         const visible = new Set(
-          layers.filter((l) => (l.kind === 'image' || l.kind === 'dose') && l.visible).map((l) => l.contentRef),
+          layers.filter((l) => voxelStorageOf(l.kind) === 'volume' && l.visible).map((l) => l.contentRef),
         );
         for (const seriesId of volumeSeriesIds.filter((id) => visible.has(id))) {
           if (runId !== loadRun.current) return;
@@ -1670,7 +1670,7 @@ export function App(): React.JSX.Element {
         let count = 0;
         for (const layer of session.layers) {
           if (layer.visible) continue;
-          if (layer.kind === 'image' || layer.kind === 'dose') {
+          if (voxelStorageOf(layer.kind) === 'volume') {
             const b = commands.dropImageLod(layer.contentRef, 0);
             if (b > 0) {
               imageBytes += b;

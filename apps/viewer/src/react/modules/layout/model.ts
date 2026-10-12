@@ -63,7 +63,7 @@ export function hiddenLayersForCell(
   return layers
     .filter(
       (l) =>
-        (l.kind === "image" || l.kind === "dose" || l.kind === "mask") &&
+        (l.kind === "image" || l.kind === "dose" || l.kind === "gamma" || l.kind === "mask") &&
         l.frameOfReferenceUid !== frameOfReferenceUid,
     )
     .map((l) => l.layerId);

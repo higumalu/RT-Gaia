@@ -39,11 +39,15 @@ import {
   type BeamGroup,
 } from './model';
 import { joinClauses, t } from '../../../core/i18n';
+import { GammaForm, GammaObject } from './Gamma';
 
 export function DosePanel({ api }: ViewerPanelProps): React.JSX.Element | null {
   const { layers, frameGroups, studyId } = api.state;
   const doses = layers.filter((l) => l.kind === 'dose');
-  const doseKey = doses.map((l) => l.layerId).join('|');
+  const doseKey = layers
+    .filter((l) => l.kind === 'dose' || l.kind === 'gamma')
+    .map((l) => l.layerId)
+    .join('|');
   const [sources, setSources] = useState<DoseOpSource[]>([]);
   const [results, setResults] = useState<DoseOpResult[]>([]);
   const [beamGroups, setBeamGroups] = useState<BeamGroup[]>([]);
@@ -70,12 +74,12 @@ export function DosePanel({ api }: ViewerPanelProps): React.JSX.Element | null {
   const spaces = useMemo(
     () =>
       groupLayersByFrame(layers, frameGroups)
-        .filter((g) => g.doses.length > 0)
-        .map((g) => ({ forUid: g.frameOfReferenceUid, title: `${g.title}${g.role === 'primary' ? t('（主要）') : ''}`, doses: g.doses })),
+        .filter((g) => g.doses.length > 0 || g.gammas.length > 0)
+        .map((g) => ({ forUid: g.frameOfReferenceUid, title: `${g.title}${g.role === 'primary' ? t('（主要）') : ''}`, doses: g.doses, gammas: g.gammas })),
     [layers, frameGroups],
   );
   if (doses.length === 0) return null;
-  const sel = selected !== null && doses.some((l) => l.contentRef === selected) ? selected : null;
+  const sel = selected !== null && layers.some((l) => (l.kind === 'dose' || l.kind === 'gamma') && l.contentRef === selected) ? selected : null;
   const beamSum = async (g: BeamGroup): Promise<void> => {
     if (!studyId) return;
     setSumming(g.plan_sop_uid);
@@ -147,6 +151,24 @@ export function DosePanel({ api }: ViewerPanelProps): React.JSX.Element | null {
               );
             })}
           </ul>
+          {sp.gammas.length > 0 && (
+            <ul className="dose-objects gamma-objects" aria-label={t('γ 比較')}>
+              {sp.gammas.map((layer) => (
+                <GammaObject
+                  key={layer.layerId}
+                  api={api}
+                  layer={layer}
+                  result={results.find((r) => r.series_id === layer.contentRef)}
+                  selected={sel === layer.contentRef}
+                  onSelect={() => setSelected(sel === layer.contentRef ? null : layer.contentRef)}
+                  onDiscarded={() => {
+                    setSelected(null);
+                    void reload();
+                  }}
+                />
+              ))}
+            </ul>
+          )}
         </section>
       ))}
     </div>
@@ -290,6 +312,7 @@ function DoseActions({
           {busy ? t('計算中…') : t('產生')}
         </button>
       </div>
+      <GammaForm api={api} reference={a} sources={sources} onDone={(id) => onChanged(id)} />
       {warnings.length > 0 && (
         <ul className="warning small">
           {warnings.map((w) => (

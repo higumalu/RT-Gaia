@@ -40,6 +40,7 @@ export * from './raster/cpuBackends';
 export * from './raster/colormaps';
 export * from './raster/composite';
 export * from './raster/doseModule';
+export * from './raster/gammaModule';
 export * from './raster/types';
 export * from './scene/cameras';
 export * from './scene/CpuViewportRenderer';

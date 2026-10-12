@@ -753,4 +753,32 @@ EN: dict[str, str] = {
         "The beam dose references no plan (ReferencedRTPlanSequence), so its plan is unknown"
     ),
     "device 只能是 {p0}": "device must be one of {p0}",
+    # γ 比較
+    "γ 圖不是劑量，不能存成 RTDOSE": "A gamma map is not a dose and cannot be saved as RTDOSE",
+    "參考與被評估是同一個劑量": "The reference and evaluated doses are the same dose",
+    "參考與被評估不在同一個空間：先對其中一個套用 REG，把它搬到另一個的空間": (
+        "The reference and evaluated doses are not in the same space: apply a REG to one of them first"
+    ),
+    "參考劑量的網格太大": "The reference dose grid is too large",
+    "{p0} 個參考點在被評估劑量的網格外或沒有資料，沒有評估（不算失敗）": (
+        "{p0} reference points are outside the evaluated dose grid or have no data and were not evaluated "
+        "(not counted as failures)"
+    ),
+    "兩個劑量的 Dmax 差 {ratio} 倍（{rmax} 與 {emax} Gy）：可能一個是單次、一個是整個療程": (
+        "The two doses' Dmax differ by {ratio}× ({rmax} and {emax} Gy): one may be a single fraction "
+        "and the other the whole course"
+    ),
+    "這不是 γ 圖": "This is not a gamma map",
+    "條件無效": "Invalid criteria",
+    "γ 圖不是劑量": "A gamma map is not a dose",
+    "差值（有負值）不能做 γ 比較": "A difference (with negative values) cannot be used in a gamma comparison",
+    "劑量差標準要在 0.1%–20%": "The dose-difference criterion must be 0.1%–20%",
+    "距離標準要在 0.1–10 mm": "The distance-to-agreement criterion must be 0.1–10 mm",
+    "低劑量門檻要在 0%–100%": "The low-dose threshold must be 0%–100%",
+    "γ 上限要在 1–3": "The gamma cap must be 1–3",
+    "正規化要是 global 或 local": "Normalization must be global or local",
+    "搜尋解析度要是 DTA ÷ 3、÷ 5 或 ÷ 10": "The search resolution must be DTA ÷ 3, ÷ 5 or ÷ 10",
+    "正規化劑量要是正數": "The normalization dose must be positive",
+    "搜尋範圍太大（降低 γ 上限或搜尋解析度）": "The search is too large (lower the gamma cap or the search resolution)",
+    "{key} 要是數字": "{key} must be a number",
 }

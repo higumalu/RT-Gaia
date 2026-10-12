@@ -51,7 +51,7 @@ import { fmtLevelGy, isodoseLevelsText, isodoseSourceLabel, percentsOf } from '.
 export function DataPanel({ api }: ViewerPanelProps): React.JSX.Element {
   // 卸載結果提示；hooks 一律放函式頂端
   const [dropped, setDropped] = useState<string | null>(null);
-  const hiddenCount = api.state.layers.filter((l) => !l.visible && (l.kind === 'image' || l.kind === 'dose' || l.kind === 'mask')).length;
+  const hiddenCount = api.state.layers.filter((l) => !l.visible && (l.kind === 'image' || l.kind === 'dose' || l.kind === 'gamma' || l.kind === 'mask')).length;
   const groups = groupLayersByFrame(api.state.layers, api.state.frameGroups);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   // 「合併到我的…」對話框（來源集 ＋ 預選的結構）

@@ -11,6 +11,7 @@
 import { registerBuiltins } from './raster/builtins';
 import { registerBuiltinColormaps } from './raster/colormaps';
 import { DOSE_KIND, registerDoseModule } from './raster/doseModule';
+import { GAMMA_KIND, registerGammaModule } from './raster/gammaModule';
 import { listLayerKinds } from './raster/kinds';
 import { listLayerRenderers } from './raster/registry';
 import { registerVoxelStorage } from './scene/volumeStore';
@@ -25,6 +26,9 @@ export function registerCoreBuiltins(): void {
   // 劑量是第一個「非核心」kind —— 走的是與第三方模組相同的註冊路徑
   registerDoseModule();
   registerVoxelStorage(DOSE_KIND, 'volume');
+  // γ 圖：體素跟劑量一樣是 f32 volume，但是自己的 kind（不是劑量）
+  registerGammaModule();
+  registerVoxelStorage(GAMMA_KIND, 'volume');
   // 逐 id 冪等 —— 不能用「空的才註冊」：模組可能已先註冊自己的工具（曾經因此回歸）
   registerBuiltinTools();
   // 🔴 少了這個，真瀏覽器一載入影像就 `[W8] 尚未註冊解壓器`（見 transport/zstd.ts）

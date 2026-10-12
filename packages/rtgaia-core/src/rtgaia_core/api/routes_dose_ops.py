@@ -6,6 +6,9 @@
 * `GET    /studies/{study_id}/dose-ops`          ：我的暫存結果
 * `DELETE /studies/{study_id}/dose-ops/{id}`     ：丟棄
 * `POST   /dose/{series_id}/save`                ：存成 RTDOSE（下載或存入資料庫；DICOM 值可自訂）→ export job
+* `POST   /studies/{study_id}/dose-ops/gamma`    ：`{reference, evaluated, dose_pct, dta_mm, …}` → γ 圖
+  （暫存結果，`quantity=gamma`）
+* `GET    /dose/{series_id}/gamma-regions`       ：γ 圖在每個結構裡的通過率
 
 **暫存語意**（同 plugin 暫存結果）：只有建立者看得到；關掉病例（這個人最後一條 session 走了）就銷毀；
 不寫 DB。使用者從功能選單「存成 RTDOSE」才進資料庫。
@@ -92,6 +95,7 @@ def _source_row(session: Any, series: Any) -> dict[str, Any]:
         "plan_label": p.get("referenced_plan_label"),
         "derived": derived is not None,
         "eligible": not check.problems,
+        "gamma_problems": [translate(x) for x in dose_ops.gamma_operand_problems(series)],
         "problems": [translate(x) for x in check.problems],
         "notes": [translate(x) for x in check.notes],
     }
@@ -121,7 +125,7 @@ async def dose_op_sources(study_id: str, request: Request, app: AppState = Depen
     user = actor(request)
     return {
         "study_id": study_id,
-        "sources": [_source_row(session, s) for s in _visible_doses(session, user)],
+        "sources": [_source_row(session, s) for s in _visible_doses(session, user) if not dose_ops.is_gamma(s)],
         "beam_groups": await run_cpu(lambda: _beam_groups(session, user)),
     }
 
@@ -153,7 +157,13 @@ def _result_row(series: Any) -> dict[str, Any]:
         "plan_sop_uids": dose_ops.plan_union(chain),
         "registration_sop_uids": d["registration_sop_uids"],
         "space_label": None,
+        "quantity": "gamma" if dose_ops.is_gamma(series) else "dose",
+        **({"gamma": _gamma_wire(d["gamma"])} if isinstance(d.get("gamma"), dict) else {}),
     }
+
+
+def _gamma_wire(g: dict[str, Any]) -> dict[str, Any]:
+    return {**g, "notes": [translate(x) for x in g.get("notes") or []]}
 
 
 @router.get(API + "/studies/{study_id}/dose-ops")
@@ -377,6 +387,7 @@ async def _register_derived(
     registration_sops: list[str],
     extra: dict[str, Any],
     role: str | None = None,
+    params_override: dict[str, Any] | None = None,
 ) -> Any:
     """一個暫存結果進病例（只有建立者看得到）並推 `layer.add` 給建立者。
     `role`：累積劑量的角色（delivered／planned／difference）。"""
@@ -412,6 +423,7 @@ async def _register_derived(
         "prescription_gy": [],
         "referenced_plan_label": None,
         "derived": derived,
+        **(params_override or {}),
     }
     series = DatasetSeries(
         series_id=series_id,
@@ -484,6 +496,8 @@ async def save_dose_op(series_id: str, body: dict[str, Any], request: Request, a
     derived = (series.params or {}).get("derived")
     if not isinstance(derived, dict):
         raise _reject("NOT_DERIVED", "只有劑量運算的暫存結果可以存成 RTDOSE")
+    if dose_ops.is_gamma(series):
+        raise _reject("NOT_DOSE", "γ 圖不是劑量，不能存成 RTDOSE")
     user = actor(request)
     purpose = body.get("purpose", "download")
     if purpose not in SAVE_PURPOSES:
@@ -743,3 +757,166 @@ async def apply_transform(study_id: str, body: dict[str, Any], request: Request,
     )
     request.state.audit_detail = {"dose_transform": {"series_id": src.series_id, "transform_id": opt["transform_id"]}}
     return {**_result_row(series), "layer_id": f"dose:{series.series_id}", "space_label": target_label}
+
+
+# ── γ 比較 ────────────────────────────────────────────────────────────────────
+
+
+@router.post(API + "/studies/{study_id}/dose-ops/gamma", status_code=201)
+async def create_gamma(study_id: str, body: dict[str, Any], request: Request, app: AppState = Depends(state)) -> Any:
+    """參考劑量 vs 被評估劑量的 3D γ（`gamma.py`）。結果在**參考劑量的網格**上，是一個暫存的 γ 圖
+    （跟運算結果同一套：只有自己看得到、關掉病例就沒了），不能運算、不畫 DVH、不存成 RTDOSE。
+    兩個劑量要在同一個空間（不同空間先「套用 REG」）。"""
+    from .. import gamma as gm
+
+    session = _session(app, request, study_id)
+    user = actor(request)
+    criteria, problem = gm.check_criteria(body)
+    if problem or criteria is None:
+        raise _reject("BAD_CRITERIA", problem or "條件無效")
+    if len(session.case.derived_doses(user)) >= dose_ops.MAX_DERIVED_PER_USER:
+        raise _reject(
+            "TOO_MANY_RESULTS",
+            f"暫存結果最多 {dose_ops.MAX_DERIVED_PER_USER} 個；請先丟棄不要的",
+            limit=dose_ops.MAX_DERIVED_PER_USER,
+        )
+    visible = {s.series_id: s for s in _visible_doses(session, user)}
+
+    def operand(key: str) -> Any:
+        sid = body.get(key)
+        if not isinstance(sid, str) or sid not in visible:
+            raise HTTPException(status_code=404, detail={"code": "NO_SERIES", "series_id": sid, "operand": key})
+        s = visible[sid]
+        problems = dose_ops.gamma_operand_problems(s)
+        if problems:
+            raise _reject("NOT_ELIGIBLE", "；".join(problems), operand=key, series_id=sid)
+        return s
+
+    ref = operand("reference")
+    ev = operand("evaluated")
+    if ref.series_id == ev.series_id:
+        raise _reject("SAME_OPERAND", "參考與被評估是同一個劑量")
+    pa, pb = (ref.meta or {}).get("patient_id"), (ev.meta or {}).get("patient_id")
+    if pa and pb and pa != pb:
+        raise _reject("PATIENT_MISMATCH", "兩個劑量不是同一位病人")
+    if ref.frame_of_reference_uid != ev.frame_of_reference_uid:
+        raise _reject(
+            "DIFFERENT_SPACE",
+            "參考與被評估不在同一個空間：先對其中一個套用 REG，把它搬到另一個的空間",
+            reference_frame_of_reference_uid=ref.frame_of_reference_uid,
+            evaluated_frame_of_reference_uid=ev.frame_of_reference_uid,
+        )
+    ref_to_p = _to_primary(session, ref.frame_of_reference_uid)
+    ev_to_p = _to_primary(session, ev.frame_of_reference_uid)
+    if ref.grid.voxel_count > 64_000_000:
+        raise _reject("GRID_TOO_LARGE", "參考劑量的網格太大", voxels=ref.grid.voxel_count)
+
+    def work() -> Any:
+        r = np.asarray(ref.image(ref.grid, 0), dtype=np.float32)
+        e = np.asarray(ev.image(ev.grid, 0), dtype=np.float32)
+        return gm.gamma_3d(r, ref.grid, e, ev.grid, np.linalg.inv(ref_to_p) @ ev_to_p, criteria)
+
+    started = datetime.now(UTC)
+    result = await run_cpu(work)
+    elapsed = (datetime.now(UTC) - started).total_seconds()
+    stats = result.stats
+    notes: list[str] = []
+    if stats["no_data"]:
+        notes.append(f"{stats['no_data']} 個參考點在被評估劑量的網格外或沒有資料，沒有評估（不算失敗）")
+    ratio = 0.0
+    rmax = float(stats["reference_max_gy"] or 0)
+    emax = float((ev.params or {}).get("max_gy") or 0)
+    if rmax > 0 and emax > 0:
+        ratio = max(rmax, emax) / min(rmax, emax)
+    if ratio >= dose_ops.MIXED_COURSE_RATIO:
+        notes.append(
+            f"兩個劑量的 Dmax 差 {ratio:.1f} 倍（{rmax:.2f} 與 {emax:.2f} Gy）：可能一個是單次、一個是整個療程"
+        )
+    node: dict[str, Any] = {
+        "op": "gamma",
+        "a": dose_ops.chain_of(ref),
+        "b": dose_ops.chain_of(ev),
+        "k": None,
+        "result_dose_type": "",
+        "criteria": criteria.to_wire(),
+        "criteria_label": criteria.label,
+    }
+    gamma_info = {
+        **stats,
+        "seconds": round(elapsed, 2),
+        "reference_series_id": ref.series_id,
+        "evaluated_series_id": ev.series_id,
+        "reference_label": dose_ops.short_label(ref),
+        "evaluated_label": dose_ops.short_label(ev),
+        "notes": notes,
+    }
+    values = np.ascontiguousarray(result.gamma_kji, dtype=np.float32)
+    series = await _register_derived(
+        app,
+        session,
+        user,
+        values=values,
+        node=node,
+        text=dose_ops.chain_text(node),
+        grid_series=ref,
+        warnings=[],
+        registration_sops=_registration_sops(session, [ref, ev], ref),
+        extra={"op": "gamma", "a": ref.series_id, "b": ev.series_id, "k": None, "gamma": gamma_info},
+        params_override={
+            "quantity": "gamma",
+            "units": "NONE",
+            "dose_scale": "gamma",
+            "dose_type": "",
+            "summation_type": "",
+            "referenced_plan_sop_uids": [],
+            "max_gy": float(criteria.max_gamma),
+            "min_gy": 0.0,
+            "max_gamma": float(criteria.max_gamma),
+        },
+    )
+    request.state.audit_detail = {
+        "dose_gamma": {
+            "reference_series_id": ref.series_id,
+            "evaluated_series_id": ev.series_id,
+            "criteria": criteria.to_wire(),
+            "pass_rate": stats["pass_rate"],
+            "evaluated_points": stats["evaluated"],
+        }
+    }
+    return {**_result_row(series), "layer_id": f"dose:{series.series_id}"}
+
+
+@router.get(API + "/dose/{series_id}/gamma-regions")
+async def gamma_regions(series_id: str, structure_ids: str, request: Request, app: AppState = Depends(state)) -> Any:
+    """γ 圖在每個結構裡的通過率（結構體素中心取最近的 γ 體素；沒評估的點不算）。"""
+    from .. import gamma as gm
+    from ..dvh import DvhTarget
+    from .deps import readable_structure
+
+    session, series = readable_dose(app, series_id, request)
+    if not dose_ops.is_gamma(series):
+        raise _reject("NOT_GAMMA", "這不是 γ 圖")
+    ids = [x for x in structure_ids.split(",") if x]
+    if not ids:
+        raise _reject("NO_STRUCTURES", "structure_ids 為空")
+    targets = []
+    for sid in ids:
+        st = readable_structure(session, sid, None, request)
+        targets.append(
+            DvhTarget(
+                structure_id=st.structure_id,
+                name=st.name,
+                color_rgb=st.color_rgb,
+                block=st.block,
+                offset_ijk=tuple(int(v) for v in st.offset_ijk),  # type: ignore[arg-type]
+                grid=session.mask_grid_for(st.frame_of_reference_uid).grid,
+                to_primary=_to_primary(session, st.frame_of_reference_uid),
+            )
+        )
+    g_to_p = _to_primary(session, series.frame_of_reference_uid)
+
+    def work() -> list[dict[str, Any]]:
+        values = np.asarray(series.image(series.grid, 0), dtype=np.float32)
+        return gm.region_pass_rates(values, series.grid, targets, g_to_p)
+
+    return {"series_id": series_id, "regions": await run_cpu(work)}

@@ -6,6 +6,7 @@
  */
 
 import { joinClauses, msg, t } from '../../../core/i18n';
+import type { GammaStats } from './gammaModel';
 
 export type DoseOp = 'add' | 'sub' | 'mul' | 'div';
 
@@ -36,6 +37,8 @@ export interface DoseOpSource {
   readonly eligible: boolean;
   readonly problems: readonly string[];
   readonly notes: readonly string[];
+  /** 不能做 γ 比較的原因（空 ＝ 可以；射束劑量可以，差值不行）。 */
+  readonly gamma_problems?: readonly string[];
 }
 
 export interface DoseOpSummary {
@@ -63,6 +66,9 @@ export interface DoseOpResult {
   readonly plan_sop_uids: readonly string[];
   readonly registration_sop_uids: readonly string[];
   readonly layer_id?: string;
+  /** `gamma` ＝ γ 比較的結果（不是劑量：不能運算、不畫 DVH、不存成 RTDOSE）。 */
+  readonly quantity?: 'dose' | 'gamma';
+  readonly gamma?: GammaStats;
 }
 
 /**

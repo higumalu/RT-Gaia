@@ -4,6 +4,7 @@
 
 import type { Layer, TemporalState } from '../../../core';
 import { msg, t } from '../../../core/i18n';
+import { voxelStorageOf } from '../../../core/scene/volumeStore';
 
 const KIND_LABEL: Record<TemporalState['kind'], string> = { cyclic: msg('呼吸／心臟相位'), series: msg('時間序列'), stream: msg('即時串流') };
 
@@ -141,7 +142,8 @@ export function neededFullResFrames(
     out.set(id, set);
   };
   for (const l of layers) {
-    if ((l.kind !== 'image' && l.kind !== 'dose') || !l.visible) continue;
+    // 體素是 volume 的都算（影像、劑量、γ 圖）；mask 另有自己的抓法
+    if (voxelStorageOf(l.kind) !== 'volume' || !l.visible) continue;
     if (typeof l.frameIndex === 'number') {
       add(l.contentRef, l.frameIndex);
       continue;

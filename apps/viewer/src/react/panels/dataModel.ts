@@ -15,6 +15,8 @@ export interface FrameGroupView {
   readonly role: 'primary' | 'secondary' | 'unknown';
   readonly images: readonly Layer[];
   readonly doses: readonly Layer[];
+  /** γ 比較的結果（不是劑量，另列）。 */
+  readonly gammas: readonly Layer[];
   readonly masks: readonly Layer[];
   /** 群組標題：`CBCT 2026-06-17 ART_Pelvic…`（取自第一個影像 layer 的 seriesMeta）。 */
   readonly title: string;
@@ -32,11 +34,11 @@ function formatDate(d: string): string {
 
 /** 依 FoR 分組；primary 在前，其餘照第一個影像的日期。 */
 export function groupLayersByFrame(layers: readonly Layer[], frameGroups: readonly FrameGroup[]): FrameGroupView[] {
-  const byFor = new Map<string, { images: Layer[]; doses: Layer[]; masks: Layer[] }>();
+  const byFor = new Map<string, { images: Layer[]; doses: Layer[]; gammas: Layer[]; masks: Layer[] }>();
   const ensure = (uid: string) => {
     let g = byFor.get(uid);
     if (g === undefined) {
-      g = { images: [], doses: [], masks: [] };
+      g = { images: [], doses: [], gammas: [], masks: [] };
       byFor.set(uid, g);
     }
     return g;
@@ -46,6 +48,7 @@ export function groupLayersByFrame(layers: readonly Layer[], frameGroups: readon
     const g = ensure(layer.frameOfReferenceUid);
     if (layer.kind === 'image') g.images.push(layer);
     else if (layer.kind === 'dose') g.doses.push(layer);
+    else if (layer.kind === 'gamma') g.gammas.push(layer);
     else if (layer.kind === 'mask') g.masks.push(layer);
   }
   const views: FrameGroupView[] = [];
@@ -62,6 +65,7 @@ export function groupLayersByFrame(layers: readonly Layer[], frameGroups: readon
       role: fg?.role ?? 'unknown',
       images: g.images,
       doses: g.doses,
+      gammas: g.gammas,
       masks: g.masks,
       title: [modality, date].filter(Boolean).join(' ') || first?.label || uid.slice(-12),
       subtitle: desc,

@@ -1321,6 +1321,25 @@ kbd { font: inherit; font-size: 11px; padding: 1px 5px; border: 1px solid var(--
 .dose-panel .dose-op-preview { flex: 1 1 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
 .dose-panel ul.warning { padding-left: 1.2em; margin: 0; }
 .dose-moved-hint { padding: 2px 10px; margin: 0; }
+/* γ 比較 */
+.dose-panel .gamma-criteria { display: inline-flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.dose-panel .gamma-criteria .num { width: 3.5em; }
+.dose-panel .dose-action-gamma details { flex: 1 1 100%; }
+.dose-panel .dose-action-gamma details label { margin-right: 8px; }
+.gamma-objects { margin-top: 2px; }
+.gamma-row .gamma-toggles { display: inline-flex; gap: 8px; }
+.badge.gamma-rate.pass { color: var(--ok); border-color: var(--ok); }
+.badge.gamma-rate.review { color: var(--warn); border-color: var(--warn); }
+.badge.gamma-rate.action { color: #f28b82; border-color: #f28b82; }
+.gamma-details { padding: 4px 6px; }
+.gamma-details p { margin: 2px 0; }
+.gamma-explanation { margin: 2px 0; padding-left: 1.2em; }
+.gamma-histogram { position: relative; display: flex; align-items: flex-end; gap: 1px; height: 48px; margin: 4px 0 14px; border-bottom: 1px solid var(--line); }
+.gamma-histogram > span:not(.gamma-histogram-axis) { flex: 1 1 0; min-width: 1px; }
+.gamma-histogram-axis { position: absolute; left: 0; right: 0; bottom: -13px; height: 12px; font-size: 10px; color: var(--muted); }
+.gamma-histogram-axis span { position: absolute; }
+.gamma-regions { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.gamma-regions th, .gamma-regions td { text-align: left; padding: 1px 4px; border-bottom: 1px solid var(--line); }
 .dose-accumulate-result .dose-accumulate-row { display: contents; }
 
 /* ── 劑量色階範圍（差值要能調 color bar 的上下界）────────────────────── */
