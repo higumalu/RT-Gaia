@@ -31,6 +31,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { key: 'nodes', label: msg('DICOM 節點'), route: 'admin', tab: 'nodes', adminOnly: true, title: msg('PACS／TPS 節點：AE Title、IP、port、角色、ECHO') },
   { key: 'service', label: msg('服務設定'), route: 'admin', tab: 'service', adminOnly: true, title: msg('我方 AE Title、接收端、逾時、唯讀的行程設定') },
   { key: 'plugins', label: 'Plugins', route: 'admin', tab: 'plugins', adminOnly: true, title: msg('行程外 plugin 服務：登錄、健康、啟用／停用') },
+  { key: 'ctcal', label: msg('CT 校正曲線'), route: 'admin', tab: 'ctcal', adminOnly: true, title: msg('劑量計算用的 HU → 密度 ＋ 材質；依 CT 機型與 kVp 對到曲線') },
   { key: 'audit', label: msg('稽核'), route: 'admin', tab: 'audit', adminOnly: true, title: msg('誰、何時、做了什麼') },
   { key: 'archive', label: msg('封存區'), route: 'archive', adminOnly: true, title: msg('已簽核後被刪除的結構：不自動清除，只有管理者可存取') },
 ];

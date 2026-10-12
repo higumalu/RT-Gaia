@@ -26,7 +26,7 @@ describe('路由', () => {
     expect(activeNavKey('#/library')).toBe('library');
     expect(activeNavKey('#/login')).toBe('');
     const admin = { user_id: 'u', username: 'a', display_name: 'A', role: 'admin' as const, source: 'local' as const };
-    expect(visibleNavItems(admin).map((i) => i.key)).toEqual(['library', 'viewer', 'exports', 'trash', 'users', 'nodes', 'service', 'plugins', 'audit', 'archive']);
+    expect(visibleNavItems(admin).map((i) => i.key)).toEqual(['library', 'viewer', 'exports', 'trash', 'users', 'nodes', 'service', 'plugins', 'ctcal', 'audit', 'archive']);
     expect(visibleNavItems({ ...admin, role: 'contourer' }).map((i) => i.key)).toEqual(['library', 'viewer', 'exports', 'trash']);
     expect(visibleNavItems(null).map((i) => i.key)).toEqual(['library', 'viewer', 'exports', 'trash']);
   });

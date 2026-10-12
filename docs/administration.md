@@ -26,11 +26,12 @@ Related documents: [User guide](user-guide.md) · [Architecture](architecture.md
 10. [Backup and restore](#backup-and-restore)
 11. [Upgrading](#upgrading)
 12. [Plugins](#plugins)
-13. [Resource limits](#resource-limits)
-14. [Network and security](#network-and-security)
-15. [Patient data](#patient-data)
-16. [Monitoring](#monitoring)
-17. [Troubleshooting](#troubleshooting)
+13. [CT calibration curves](#ct-calibration-curves)
+14. [Resource limits](#resource-limits)
+15. [Network and security](#network-and-security)
+16. [Patient data](#patient-data)
+17. [Monitoring](#monitoring)
+18. [Troubleshooting](#troubleshooting)
 
 ## Components
 
@@ -1003,6 +1004,33 @@ Private network addresses are allowed when the origin is approved. Downloads sto
 
 Unsaved plugin results live in the API's memory. They are deleted 30 minutes after the user's last
 connection to the case closes, and when the API restarts.
+
+## CT calibration curves
+
+**CT calibration** (an administrator page, next to **Plugins**) holds the curves that convert CT numbers (HU) to mass density and
+material (elemental composition) for dose calculation. Viewing the list is open to every role; creating,
+activating, retiring and deleting curves require the administrator role and are recorded in the audit log.
+
+- **Built-in curve.** Schneider W, Bortfeld T, Schlegel W, *Phys Med Biol* 2000;45:459–478: seven density
+  segments and 25 material bins (air, lung, adipose and soft tissue, connective tissue, bone mixtures,
+  titanium), with values taken from OpenTOPAS (`examples/Patient/HUtoMaterialSchneider.txt`, MIT). The
+  density correction factors in that file, which were tuned to a particular planning system, are not used.
+  It represents no particular scanner and is marked **Demo**; it is used whenever no active curve matches.
+- **Your curves.** Paste a phantom table, one `HU, density (g/cm³)` point per line with HU increasing; a
+  header line and `#` comments are ignored. Densities between points are interpolated linearly; values
+  outside the table are clamped to its ends and counted. Elemental compositions follow the 25 built-in
+  material bins by HU. **Preview** checks the table and draws the curve; **Save as draft** stores it.
+- **Matching.** Each curve has a match rule of manufacturer, model and kVp (empty fields are not compared;
+  at least one is required). For a CT series, RT-Gaia reads these from the first image and picks the
+  active curve with the most specific matching rule, the most recently activated one on a tie. When nothing
+  matches, the built-in curve is used and the reason is given. CBCT is matched the same way, with a note
+  that CBCT HU values are usually inaccurate.
+- **Lifecycle.** A draft can be deleted or **Activate**d. Activating retires any other active curve with
+  the same rule. An active curve cannot be changed or deleted, only **Retire**d, so earlier results can
+  still name the curve they used. To change a curve, add a new one and activate it.
+
+The curves are stored in the `app_setting` table under the key `ct_calibrations` and are included in
+database backups.
 
 ## Resource limits
 

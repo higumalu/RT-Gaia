@@ -205,6 +205,14 @@ def required_role_for(method: str, path: str) -> str | None:
         return "admin"  # 完整性巡檢（看、跑、重設基準）是系統管理；容量 status 所有人都能看
     if path.startswith("/api/v1/trash/library"):
         return "admin"  # 資料頁移除的 DICOM：跟 DELETE /catalog 一樣只有管理者
+    if path == "/api/v1/ct-calibrations/preview":
+        return "viewer"  # 只檢查點表、回畫圖用的取樣，不存
+    if (
+        path.startswith("/api/v1/ct-calibrations")
+        and method not in ("GET", "HEAD", "OPTIONS")
+        and path != "/api/v1/ct-calibrations/preview"
+    ):
+        return "admin"  # CT 校正曲線是劑量計算的設定：新增、啟用、停用、刪都是管理者；預覽只是檢查與畫圖
     if method == "DELETE" and path.startswith("/api/v1/catalog/"):
         return "admin"  # 從資料庫移除資料（2026-09-15）：只有管理者
     if (

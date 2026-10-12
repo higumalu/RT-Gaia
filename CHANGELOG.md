@@ -61,6 +61,9 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   step and cap): a gamma map with a pass/fail colormap and γ = 1 line, pass rate, an explanation of where
   failures lie (high-gradient or flat regions, evaluated high or low), a histogram and per-structure pass
   rates.
+- CT calibration curves for dose calculation (HU → mass density and material): a built-in generic
+  Schneider 2000 curve marked as demo, administrator-managed curves from phantom tables with draft, active
+  and retired states, and matching by scanner manufacturer, model and kVp with the reason shown.
 - Plan display (view only): beam table, isocenter markers, beam's-eye view with jaws and MLC, a
   control-point timeline, arc ticks on axial images, beams in 3D, a gantry and couch sketch, and a DRR
   computed from the planning CT.

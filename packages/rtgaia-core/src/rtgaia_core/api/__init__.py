@@ -24,6 +24,7 @@ from . import (
     routes_auth,
     routes_cases,
     routes_catalog,
+    routes_ct_calibration,
     routes_dimse,
     routes_dose,
     routes_dose_ops,
@@ -596,6 +597,7 @@ def create_app(
 
     for module in (
         routes_grids,
+        routes_ct_calibration,  # 比 routes_series 先（/series/{id}/ct-calibration）
         routes_series,
         routes_temporal_structures,  # 比 routes_structures 先（/studies/{id}/structures/… 的子路徑）
         routes_structures,
