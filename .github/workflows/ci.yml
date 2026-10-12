@@ -158,6 +158,9 @@ jobs:
           RTGAIA_TEST_DB_URL: postgresql+asyncpg://rtgaia:rtgaia@127.0.0.1:5432/rtgaia_test
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: xvfb-run -a uv run pytest
+      # γ 跟另一套獨立的實作（pymedphys，Apache-2.0）交叉比對；pymedphys 不是專案依賴，臨時裝
+      - name: γ 交叉比對（pymedphys）
+        run: uv run --with pymedphys==0.41.0 --with numba==0.68.0 python scripts/crosscheck-gamma-pymedphys.py
       # 效能預算的後端那一半（首張畫面 lod 2、全解析度 lod 0、單結構後處理往返；Tier C）。
       # 合成 512×512×160 CT、冷快取；超過預算 × slack → 紅。GitHub runner 比開發機慢，slack 1.5。
       - name: 效能門檻（後端）

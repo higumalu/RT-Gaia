@@ -17,8 +17,11 @@
 
 ## 準確度
 
-格點化的搜尋只會**高估** γ（真正的最小值可能落在格點之間）；誤差上限約為 ½ × 格距 ÷ DTA ＝ 1 ÷ (2 × `resolution`)
-（`resolution` 5 → 0.1）。TG-218 建議被評估劑量的取樣間距 ≤ DTA ÷ 3；這裡預設 5。三線性內插對線性劑量場是精確的
+格點化的搜尋只會**高估** γ（真正的最小值可能落在格點之間）。誤差**不只**是距離項的 ½ 格距 ÷ DTA：
+最近的格點離真正的最佳位置最多 √3／2 格距，劑量陡、ΔD 小的地方（局部正規化、雜訊）劑量項因此可以差很多
+（pymedphys 交叉比對時查到：局部 3%/2 mm、加雜訊的高斯團差到 0.15）。所以格點搜完之後在最佳位置附近
+**再細找 `REFINE_ROUNDS` 輪**（每輪格距 ÷ 3、試周圍 26 點，不超出搜尋半徑），結果貼近連續的最小值。
+TG-218 建議被評估劑量的取樣間距 ≤ DTA ÷ 3；這裡預設 5。三線性內插對線性劑量場是精確的
 （測試用線性梯度的解析解核對）。
 
 ## 失敗點的說明
@@ -50,6 +53,10 @@ MAX_OFFSETS = 40_000
 CHUNK_POINTS = 400_000
 """一次處理的參考點數（記憶體 ≈ 點數 × 3 個 float64 座標）。"""
 HISTOGRAM_BINS = 40
+REFINE_ROUNDS = 2
+_NEIGHBORS = np.array(
+    [(a, b, c) for a in (-1, 0, 1) for b in (-1, 0, 1) for c in (-1, 0, 1) if (a, b, c) != (0, 0, 0)], dtype=np.float64
+)
 
 
 @dataclass(frozen=True)
@@ -184,6 +191,9 @@ def gamma_3d(
     offsets_idx = (lin @ (ref_dir @ offsets_mm.T)).T  # (M, 3) ijk
     dist2 = (np.linalg.norm(offsets_mm, axis=1) / c.dta_mm) ** 2
     gmax2 = c.max_gamma**2
+    to_idx = lin @ ref_dir  # 參考網格軸上的 mm 位移 → eval 索引位移
+    step = c.dta_mm / c.resolution
+    radius = c.max_gamma * c.dta_mm
     gamma2_all = np.empty(n, dtype=np.float64)
     zero_diff = np.full(n, np.nan, dtype=np.float64)
     for start in range(0, n, CHUNK_POINTS):
@@ -194,6 +204,7 @@ def gamma_3d(
         inv_dd2 = 1.0 / np.maximum(dd, 1e-12) ** 2
         base = m[:3, :3] @ np.stack([pi, pj, pk]).astype(np.float64) + m[:3, 3:4]  # (3, N) ijk
         best = np.full(r.size, np.inf)
+        best_off = np.zeros((r.size, 3))
         seen = np.zeros(r.size, dtype=bool)
         active = np.arange(r.size)
         for o in range(offsets_idx.shape[0]):
@@ -217,7 +228,30 @@ def gamma_3d(
             idx = active[ok]
             g2 = d2 + (e[ok] - r[idx]) ** 2 * inv_dd2[idx]
             seen[idx] = True
-            best[idx] = np.minimum(best[idx], g2)
+            better = g2 < best[idx]
+            best[idx[better]] = g2[better]
+            best_off[idx[better]] = offsets_mm[o]
+        # 在最佳格點附近細找（只找 0 < γ < 上限的點：0 不會更好、上限以上照記上限）
+        for k in range(1, REFINE_ROUNDS + 1):
+            pts = np.nonzero(seen & (best > 0) & (best < gmax2))[0]
+            if pts.size == 0:
+                break
+            h = step / 3**k
+            for nb in _NEIGHBORS:
+                cand = best_off[pts] + nb * h
+                d2c = np.sum(cand**2, axis=1) / c.dta_mm**2
+                inside = (d2c <= (radius / c.dta_mm) ** 2 + 1e-12) & (d2c < best[pts])
+                if not inside.any():
+                    continue
+                p_in = pts[inside]
+                q = base[:, p_in] + to_idx @ cand[inside].T
+                e = map_coordinates(ev, [q[2], q[1], q[0]], order=1, mode="constant", cval=np.nan, prefilter=False)
+                ok = np.isfinite(e)
+                g2 = d2c[inside][ok] + (e[ok] - r[p_in[ok]]) ** 2 * inv_dd2[p_in[ok]]
+                better = g2 < best[p_in[ok]]
+                upd = p_in[ok][better]
+                best[upd] = g2[better]
+                best_off[upd] = cand[inside][ok][better]
         best = np.where(seen, np.minimum(best, gmax2), np.nan)
         gamma2_all[sl] = best
     gamma = np.sqrt(gamma2_all)

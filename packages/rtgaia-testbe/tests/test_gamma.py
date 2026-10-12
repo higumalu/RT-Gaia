@@ -146,13 +146,15 @@ def test_cap_at_max_gamma() -> None:
     assert r.stats["capped"] == r.stats["evaluated"]
 
 
-def test_early_stop_equals_exhaustive() -> None:
-    """提早停止的結果跟「全部格點都搜」一樣。"""
+def test_early_stop_equals_exhaustive_and_refinement_only_lowers(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """不細找時，提早停止的結果跟「全部格點都搜」一樣；細找只會更低（更接近連續的最小值），不會更高。"""
     rng = np.random.default_rng(0)
     g = _grid(size=(14, 12, 10))
     ref = rng.uniform(1.0, 3.0, size=(10, 12, 14)).astype(np.float32)
     ev = (ref + rng.normal(0, 0.08, size=ref.shape)).astype(np.float32)
     c = gm.GammaCriteria(threshold_pct=0, resolution=3)
+    refined = gm.gamma_3d(ref, g, ev, g, np.eye(4), c).gamma_kji
+    monkeypatch.setattr(gm, "REFINE_ROUNDS", 0)
     fast = gm.gamma_3d(ref, g, ev, g, np.eye(4), c).gamma_kji
     from scipy.ndimage import map_coordinates
 
@@ -168,6 +170,8 @@ def test_early_stop_equals_exhaustive() -> None:
         best = np.fmin(best, g2)
     slow = np.sqrt(np.minimum(best, c.max_gamma**2)).reshape(ref.shape)
     assert np.allclose(fast, slow, atol=1e-5)
+    assert np.all(refined <= slow + 1e-6)
+    assert (refined < slow - 1e-3).mean() > 0.3, "雜訊場裡細找應該常常找到更好的點"
 
 
 def test_high_gradient_failure_classified() -> None:
