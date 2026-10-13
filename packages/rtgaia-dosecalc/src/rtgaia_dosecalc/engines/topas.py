@@ -33,6 +33,7 @@ import re
 import shutil
 import subprocess
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -317,16 +318,26 @@ def _extent(cp: ControlPoint, beam: Beam) -> tuple[float, float]:
     return x, y
 
 
-def beam_parameters(
-    beam: Beam, model: dict[str, Any], histories: int, *, iso: tuple[float, float, float], world_hl_mm: float
-) -> tuple[str, int, float]:
-    """一個射束的參數檔（不含病人與通用的部分）；回 (文字, 實際歷史數, 換算到參考錐角的歷史數 M)。
+@dataclass
+class SourcePlan:
+    """一個射束怎麼發射：每一小段（控制點之間切出來的）的狀態、錐角（Marsaglia 座標）、歷史數、換算 M。
+    OpenTOPAS 與 GPU 引擎共用 —— 兩個引擎的射源一樣，MU 換算才能互相比。"""
 
-    原射源與機頭散射射源各自的錐角只蓋到會透光的範圍（省歷史數）；每個射源的歷史數 ∝ 權重 × 錐角內的機率質量，
+    states: list[tuple[ControlPoint, float]]
+    cones_p: list[tuple[float, float]]
+    cones_e: list[tuple[float, float]]
+    hist_pr: list[int]
+    hist_ef: list[int]
+    m_equiv: float
+    z_ef: float
+    """機頭散射射源的高度（距等中心平面，mm；跟 BLD 的 z 同向）。"""
+
+
+def source_plan(beam: Beam, model: dict[str, Any], histories: int) -> SourcePlan:
+    """原射源與機頭散射射源各自的錐角只蓋到會透光的範圍（省歷史數）；每個射源的歷史數 ∝ 權重 × 錐角內的機率質量，
     M ＝ N ／ Σ 權重 × 質量比 —— 劑量 ÷ M 就跟錐角大小無關（MU 校正與計畫的錐角不同也能互換）。"""
     p = model["params"]
     states = _states(beam)
-    n_steps = len(states)
     ef = p.get("extra_focal") or {}
     ef_frac = float(ef.get("fraction") or 0.0)
     sad = beam.sad_mm
@@ -353,6 +364,7 @@ def beam_parameters(
             cones_e.append((a_e, b_e))
             shares_e.append(ef_frac * _mass(a_e, b_e, None) / ref_e)
         else:
+            cones_e.append((0.0, 0.0))
             shares_e.append(0.0)
     share = [sp + se for sp, se in zip(shares_p, shares_e, strict=True)]
     # 每一小段的歷史數 ∝ MU × 錐角內的質量 → 換算到參考錐角後每段的「每 MU 歷史數」一樣，總劑量可以一次換算
@@ -360,6 +372,24 @@ def beam_parameters(
     hist_ef = [int(round(h * se / sh)) if sh > 0 else 0 for h, se, sh in zip(hist, shares_e, share, strict=True)]
     hist_pr = [h - e for h, e in zip(hist, hist_ef, strict=True)]
     m_equiv = sum(h / sh for h, sh in zip(hist, share, strict=True) if sh > 0)
+    return SourcePlan(states, cones_p, cones_e, hist_pr, hist_ef, m_equiv, z_ef)
+
+
+def beam_parameters(
+    beam: Beam, model: dict[str, Any], histories: int, *, iso: tuple[float, float, float], world_hl_mm: float
+) -> tuple[str, int, float]:
+    """一個射束的參數檔（不含病人與通用的部分）；回 (文字, 實際歷史數, 換算到參考錐角的歷史數 M)，見 `source_plan`。"""
+    p = model["params"]
+    plan = source_plan(beam, model, histories)
+    states, cones_p, cones_e, hist_pr, hist_ef, m_equiv = (
+        plan.states, plan.cones_p, plan.cones_e, plan.hist_pr, plan.hist_ef, plan.m_equiv,
+    )  # fmt: skip
+    n_steps = len(states)
+    ef = p.get("extra_focal") or {}
+    ef_frac = float(ef.get("fraction") or 0.0)
+    sad = beam.sad_mm
+    z_ef = plan.z_ef
+    hist = [a + b for a, b in zip(hist_pr, hist_ef, strict=True)]
     rx, ry, rz = [], [], []
     for cp, _ in states:
         a, b, c = topas_euler(bld_to_lps(cp.gantry_deg, cp.collimator_deg, cp.couch_deg, beam.patient_position))
@@ -768,19 +798,12 @@ def cached_calibration(model: dict[str, Any], cache_dir: Path) -> dict[str, Any]
         return None
 
 
-def calibration(model: dict[str, Any], cache_dir: Path, *, progress: Any = None, label: str = "calibration") -> float:
-    """每 MU 幾個歷史：參考條件（`model["calibration"]`）水中 dmax 的劑量 ＝ `gy_per_mu`。快取。"""
-    key = calibration_key(model)
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    cached = cache_dir / f"{key}.json"
-    if cached.exists():
-        return float(json.loads(cached.read_text(encoding="utf-8"))["histories_per_mu"])
+def reference_beam(model: dict[str, Any]) -> Beam:
+    """MU 校正的參考射束：`model["calibration"]` 的射野（jaw；沒有 jaw 的機型用 MLC 開）、SSD ＝ SAD、機架 0°、HFS、
+    等中心在原點（水面）、1 MU。OpenTOPAS 與 GPU 引擎共用。"""
     c = model["calibration"]
-    field = float(c["field_mm"])
+    half = float(c["field_mm"]) / 2
     ssd = float(c["ssd_mm"])
-    wd = cache_dir / key
-    wd.mkdir(parents=True, exist_ok=True)
-    half = field / 2
     ref_beam = Beam(
         number=1, name="calibration", energy_mv=model["energy_mv"], fluence_mode=model["fluence_mode"], sad_mm=ssd,
         isocenter_lps=(0.0, 0.0, 0.0), patient_position="HFS", mu=1.0,
@@ -803,6 +826,21 @@ def calibration(model: dict[str, Any], cache_dir: Path, *, progress: Any = None,
         for cp in ref_beam.control_points:
             cp.mlc_a, cp.mlc_b = opening(leaves["MLCX1"])
             cp.mlc2_a, cp.mlc2_b = opening(leaves["MLCX2"])
+    return ref_beam
+
+
+def calibration(model: dict[str, Any], cache_dir: Path, *, progress: Any = None, label: str = "calibration") -> float:
+    """每 MU 幾個歷史：參考條件（`model["calibration"]`）水中 dmax 的劑量 ＝ `gy_per_mu`。快取。"""
+    key = calibration_key(model)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cached = cache_dir / f"{key}.json"
+    if cached.exists():
+        return float(json.loads(cached.read_text(encoding="utf-8"))["histories_per_mu"])
+    c = model["calibration"]
+    ssd = float(c["ssd_mm"])
+    wd = cache_dir / key
+    wd.mkdir(parents=True, exist_ok=True)
+    ref_beam = reference_beam(model)
     text, n_hist, m_equiv = beam_parameters(
         ref_beam, model, CALIBRATION_HISTORIES, iso=(0.0, 0.0, 0.0), world_hl_mm=ssd + 600.0
     )

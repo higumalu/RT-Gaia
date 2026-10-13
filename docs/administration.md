@@ -1056,6 +1056,19 @@ directory. The Monte Carlo engine is OpenTOPAS (Geant4), run in its official con
 Cancelling a job stops its containers (they carry the label `rtgaia.dosecalc=<job>`). Calculations run one at a
 time per worker.
 
+### GPU Monte Carlo engine
+
+The GPU engine (`gpu`) runs on an NVIDIA GPU through CuPy. It is optional and not part of the RT-Gaia images:
+
+- Install the extra on the worker host: `uv sync --all-packages --extra gpu` (CuPy with the CUDA runtime and NVRTC
+  from wheels; a system CUDA toolkit is not needed). The NVIDIA driver must support CUDA 13.
+- The engine builds its physics tables (cross sections and stopping powers of the CT calibration materials, water
+  and tungsten) once with Geant4 inside the OpenTOPAS image and caches them under `RTGAIA_DATA_DIR/dosecalc/gpumc/`;
+  docker, the image and `RTGAIA_G4DATA` must therefore be available as for the OpenTOPAS engine.
+- Its MU calibration is cached under `RTGAIA_DATA_DIR/dosecalc/calibration/` (`gpu-…` files) and takes a few seconds.
+- When the GPU engine is available it is listed first and offered by default; OpenTOPAS stays available as the
+  reference engine.
+
 ### Beam models
 
 **Admin → Beam models** lists the beam models used by the dose calculation; the model for a beam is chosen from

@@ -70,6 +70,9 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   statistical uncertainty in the high-dose region with a warning when it is too noisy for a 3% comparison.
   Loading a result also adds a per-voxel uncertainty map, and gamma comparisons note when Monte Carlo noise
   is large compared with the dose criterion.
+- GPU Monte Carlo dose engine (optional `gpu` extra, NVIDIA GPU): coupled photon–electron transport with physics
+  tables from Geant4, the same beam, source and patient model as the OpenTOPAS engine, and about a hundred times
+  more histories per second; it is offered by default when available.
 - A loaded dose recalculation can be compared with the plan's TPS dose in one click: gamma (3%/2 mm, TG-218)
   and a DVH with both doses.
 - Admin page **Beam models**: the parameters of each dose calculation beam model (spectrum, source, collimators),

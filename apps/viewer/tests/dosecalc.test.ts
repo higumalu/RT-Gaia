@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { isActive, jobsForPlan, jobStatusText, summaryNotes, tpsDvhDoseIds, tpsGammaBody, uncertaintyNotes, type DosecalcJob, type DosecalcSummary } from '../src/react/modules/plan/dosecalcModel';
+import { historyPresets, isActive, jobsForPlan, jobStatusText, summaryNotes, tpsDvhDoseIds, tpsGammaBody, uncertaintyNotes, type DosecalcJob, type DosecalcSummary } from '../src/react/modules/plan/dosecalcModel';
 
 const summary: DosecalcSummary = {
   plan_sop_uid: 'P',
@@ -57,5 +57,10 @@ describe('重算劑量', () => {
     expect(tpsGammaBody(job({ summary: withTps, loaded: [] }))).toBeNull();
     expect(tpsGammaBody(job({ loaded: ['TOTAL'] }))).toBeNull();
     expect(tpsDvhDoseIds(job({ summary: withTps, loaded: ['TOTAL'] }), ['X', 'TPS'])).toEqual(['X', 'TPS', 'TOTAL']);
+  });
+  it('統計量的選項依引擎：GPU 大一百倍', () => {
+    expect(historyPresets('topas')[1]!.value).toBe(20_000_000);
+    expect(historyPresets('gpu')[1]!.value).toBe(1_000_000_000);
+    expect(historyPresets('gpu').every((p) => p.value >= 100_000_000)).toBe(true);
   });
 });

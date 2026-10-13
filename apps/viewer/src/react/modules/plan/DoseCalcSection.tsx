@@ -12,7 +12,7 @@ import { gammaSummaryText, gammaVerdict, type GammaStats } from '../doseops/gamm
 import type { DoseOpResult } from '../doseops/model';
 import { DVH_MODE } from '../dvh/mode';
 import { DVH_MODULE_ID, type DvhModuleState } from '../dvh/model';
-import { CALC_SPACINGS, engineLabel, HISTORY_PRESETS, isActive, jobsForPlan, jobStatusText, summaryNotes, tpsDvhDoseIds, tpsGammaBody, uncertaintyNotes, type DosecalcEngine, type DosecalcJob } from './dosecalcModel';
+import { CALC_SPACINGS, engineLabel, historyPresets, HISTORY_PRESETS, isActive, jobsForPlan, jobStatusText, summaryNotes, tpsDvhDoseIds, tpsGammaBody, uncertaintyNotes, type DosecalcEngine, type DosecalcJob } from './dosecalcModel';
 
 const POLL_MS = 2000;
 
@@ -123,7 +123,15 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
         <p className="muted small">{t('讀取引擎…')}</p>
       ) : (
         <div className="slab-row plan-dosecalc-form">
-          <select value={engine} onChange={(e) => setEngine(e.target.value)} aria-label={t('引擎')} data-field="dosecalc-engine">
+          <select
+            value={engine}
+            onChange={(e) => {
+              setEngine(e.target.value);
+              setHistories(historyPresets(e.target.value)[1]!.value);
+            }}
+            aria-label={t('引擎')}
+            data-field="dosecalc-engine"
+          >
             {engines.map((e) => (
               <option key={e.name} value={e.name} disabled={!e.ready} title={e.reason || undefined}>
                 {engineLabel(e.name)}
@@ -137,7 +145,7 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
           </select>
           {!chosen?.test_only && (
             <select value={histories} onChange={(e) => setHistories(Number(e.target.value))} aria-label={t('統計量')} data-field="dosecalc-histories" title={t('歷史數越多，統計不確定度越小、計算越久')}>
-              {HISTORY_PRESETS.map((h) => (
+              {historyPresets(engine).map((h) => (
                 <option key={h.value} value={h.value}>
                   {t(h.label)}
                 </option>

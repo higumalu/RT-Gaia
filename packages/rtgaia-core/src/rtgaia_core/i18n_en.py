@@ -759,6 +759,8 @@ EN: dict[str, str] = {
     "不確定度圖不是劑量": "An uncertainty map is not a dose",
     "沒有安裝 CuPy（uv sync --all-packages --extra gpu）": "CuPy is not installed (uv sync --all-packages --extra gpu)",
     "沒有 NVIDIA GPU": "No NVIDIA GPU",
+    "物理表要用 OpenTOPAS 映像產生：{p0}": "The physics tables are built with the OpenTOPAS image: {p0}",
+    "GPU Monte Carlo：機頭只算鎢的衰減，沒有準直器散射與電子污染（跟 OpenTOPAS 的機頭模擬比，絕對劑量約高 1.5%）": "GPU Monte Carlo: the collimators only attenuate (no collimator scatter or electron contamination); compared with the OpenTOPAS head simulation the absolute dose is about 1.5% higher",
     "GPU 不能用：{exc}": "The GPU cannot be used: {exc}",
     "g4tables 失敗（exit {returncode}）：{p1}": "g4tables failed (exit {returncode}): {p1}",
     "g4tables 少了材質 {missing}": "g4tables is missing materials {missing}",

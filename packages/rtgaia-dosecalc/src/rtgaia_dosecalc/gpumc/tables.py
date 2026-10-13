@@ -1,4 +1,4 @@
-"""GPU Monte Carlo 的物理資料表：Schneider 25 段材質 × 對數能量格子的截面與阻擋本領。
+"""GPU Monte Carlo 的物理資料表：Schneider 25 段材質（＋水、鎢）× 對數能量格子的截面與阻擋本領。
 
 由 `g4tables/g4tables.cc` 在 OpenTOPAS 的官方映像裡產生（同一版 Geant4、同一套 G4EMLOW、同一個物理列表
 G4EmStandardPhysics_option4 —— 跟參考引擎 OpenTOPAS 一樣），快取在資料目錄。表是「參考密度」下的每單位長度值；
@@ -23,8 +23,10 @@ import numpy as np
 from ..ct_calibration import _SCHNEIDER_MATERIAL_BOUNDS, _SCHNEIDER_WEIGHTS, ELEMENTS, builtin_calibration, convert
 
 SOURCE_DIR = Path(__file__).parent / "g4tables"
-TABLES_VERSION = 1
+TABLES_VERSION = 3
 """表的內容或格式改了就加一（快取鍵的一部分）。"""
+TUNGSTEN_DENSITY = 19.3
+"""g/cm³：jaw 與 MLC 的鎢（Geant4 G4_W 的密度）。"""
 DELTA_CUT_MEV = 0.1
 """δ 射線（Møller／Bhabha）的門檻：以上當離散事件、以下算進受限阻擋本領。"""
 BREM_CUT_MEV = 0.05
@@ -71,6 +73,8 @@ class Tables:
     """(nmat,) g/cm³。"""
     se_total: np.ndarray
     """(nmat, ne) 電子的總阻擋本領（MeV/mm，驗證與射程用）。"""
+    mu_tungsten: np.ndarray
+    """(ne,) 鎢（19.3 g/cm³）的光子總衰減係數 1/mm（光電＋康普頓＋成對＋雷利）：準直器的穿透。"""
     info: dict[str, Any]
 
     @property
@@ -89,11 +93,24 @@ def reference_densities() -> list[float]:
     return [float(v) for v in convert(builtin_calibration(), centers.astype(np.float32)).density]
 
 
-def material_lines() -> list[str]:
+WATER = 25
+"""材質編號：Schneider 25 段（0–24）之後是水（G4_WATER 的組成，MU 校正的水箱跟 TOPAS 一樣用它）。"""
+
+
+def materials() -> list[tuple[str, float, dict[str, float]]]:
+    """(名稱, 參考密度 g/cm³, 元素質量分率)：Schneider 25 段 ＋ 水。"""
     out = []
     for i, (w, rho) in enumerate(zip(_SCHNEIDER_WEIGHTS, reference_densities(), strict=True)):
-        parts = [f"{e} {f:g}" for e, f in zip(ELEMENTS, w, strict=True) if f > 0]
-        out.append(f"material s{i} {rho:.6g} {len(parts)} " + " ".join(parts))
+        out.append((f"s{i}", rho, {e: f for e, f in zip(ELEMENTS, w, strict=True) if f > 0}))
+    out.append(("water", 1.0, {"H": 0.111894, "O": 0.888106}))
+    return out
+
+
+def material_lines() -> list[str]:
+    out = []
+    for name, rho, comp in materials():
+        out.append(f"material {name} {rho:.6g} {len(comp)} " + " ".join(f"{e} {f:g}" for e, f in comp.items()))
+    out.append(f"material w {TUNGSTEN_DENSITY} 1 W 1")  # 準直器
     return out
 
 
@@ -165,13 +182,14 @@ def build(cache_dir: Path, *, image: str, g4data: Path) -> Tables:
         )
         text = _docker(image, g4data, [(SOURCE_DIR, "/src", "ro"), (bdir, "/work", "rw")], script, stdin)
         parsed = parse(text)
-        names = [f"s{i}" for i in range(len(_SCHNEIDER_WEIGHTS))]
-        missing = [m for m in names if m not in parsed]
+        names = [m[0] for m in materials()]
+        missing = [m for m in [*names, "w"] if m not in parsed]
         if missing:
             raise RuntimeError(f"g4tables 少了材質 {missing}")
         arr = np.stack([parsed[m] for m in names])  # (nmat, ne, ncol)
         np.savez(
-            path, table=arr, rho=np.asarray([parsed["__rho__"][m] for m in names]), columns=np.asarray(_COLUMNS),
+            path, table=arr, tungsten=parsed["w"],
+            rho=np.asarray([parsed["__rho__"][m] for m in names]), columns=np.asarray(_COLUMNS),
             info=json.dumps({"image": image, "key": key, "cuts_mev": [DELTA_CUT_MEV, BREM_CUT_MEV], "grid": GRID}),
         )  # fmt: skip
         shutil.rmtree(bdir, ignore_errors=True)
@@ -217,11 +235,9 @@ def elastic(energies: np.ndarray, tr: np.ndarray, rho_ref: np.ndarray, positron:
     sig_el = np.zeros((nmat, ne))
     sig_1 = np.zeros((nmat, ne))
     zeff = np.zeros(nmat)
-    for m, w in enumerate(_SCHNEIDER_WEIGHTS):
+    for m, (_name, _rho, comp) in enumerate(materials()):
         num = den = 0.0
-        for sym, frac in zip(ELEMENTS, w, strict=True):
-            if frac <= 0:
-                continue
+        for sym, frac in comp.items():
             z, amass = ATOMIC[sym]
             n = float(rho_ref[m]) * 1e-3 * frac / amass * NA  # 原子／mm³
             a = (
@@ -270,8 +286,8 @@ def load(path: Path) -> Tables:
     # Bohr：受限（< δ 門檻）碰撞的能量損失變異數 dΩ²/ds ＝ 2π r_e² mc² n_e · T_cut (1 − β²/2)／β²；這裡存前面的常數
     ne_mm3 = np.array(
         [
-            float(rho[m]) * 1e-3 * NA * sum(f * ATOMIC[e][0] / ATOMIC[e][1] for e, f in zip(ELEMENTS, w, strict=True))
-            for m, w in enumerate(_SCHNEIDER_WEIGHTS)
+            float(rho[m]) * 1e-3 * NA * sum(f * ATOMIC[e][0] / ATOMIC[e][1] for e, f in comp.items())
+            for m, (_name, _rho, comp) in enumerate(materials())
         ]
     )
     derived["bohr"] = np.repeat((2 * np.pi * RE_MM**2 * ME_MEV * ne_mm3)[:, None], len(energies), axis=1)
@@ -281,5 +297,8 @@ def load(path: Path) -> Tables:
         values=np.ascontiguousarray(values),
         rho_ref=z["rho"].astype(np.float32),
         se_total=arr[:, :, cols.index("se_total")].astype(np.float32),
+        mu_tungsten=z["tungsten"][:, [cols.index(c) for c in ("phot", "compt", "conv", "rayl")]]
+        .sum(axis=1)
+        .astype(np.float32),
         info=json.loads(str(z["info"])),
     )

@@ -476,3 +476,142 @@ extern "C" __global__ void run(unsigned long long *edep, unsigned int *lost, con
     }
   }
 }
+
+// ── 臨床射束（跟 OpenTOPAS 引擎同一個射源模型；`engines/topas.py` 的 source_plan）──────────────────────────────
+//
+// 射束限制裝置座標（BLD，z 朝射源、等中心在原點）：
+//   原射源在 z ＝ sad，機頭散射射源在 z ＝ z_ef；位置是高斯（σ），截在 3σ 的圓
+//   方向用 Marsaglia 座標 (mx, my)：均勻 ＝ 橢圓錐 (a, b) 內等向；高斯 ＝ mx、my 各自 N(0, m_s) 再截在橢圓
+//   方向 ＝ (2·mx·t, 2·my·t, −(1 − 2r²))，t ＝ √(1 − r²)
+// 每一小段（state）：旋轉 R（BLD → LPS，列優先）、錐角、歷史數（累積）、其中幾個是機頭散射
+// 準直器（device）：葉片沿 x（axis 0）或 y（axis 1）移動；上表面距靶 top、厚度 thick；leaf 的邊界與每一小段的
+//   開口（等中心投影值，跟 DICOM 一樣）。光子在上中下三個高度取樣，被擋的比例 × 厚度 ／ |cos| ＝ 鎢裡的路徑長，
+//   穿透機率 exp(−μ_W·ℓ)。準直器本身的散射不模擬（TOPAS 有）。
+#define MAXDEV 6
+
+struct Dev {
+  int axis, nleaf, boff, poff;
+  float top, thick;
+};
+
+__device__ bool collimate(Rng &r, float px, float py, float pz, float dx, float dy, float dz, float e, float sad,
+                          int st, int ndev, const int *dev_i, const float *dev_f, const float *bounds,
+                          const float *pos, const Tab &tb, const float *mu_w) {
+  float path = 0.0f;
+  for (int d = 0; d < ndev; d++) {
+    int axis = dev_i[4 * d], nleaf = dev_i[4 * d + 1], boff = dev_i[4 * d + 2], poff = dev_i[4 * d + 3];
+    float top = dev_f[2 * d], thick = dev_f[2 * d + 1];
+    int blocked = 0;
+    for (int k = 0; k < 3; k++) {
+      float depth = top + thick * (k + 0.5f) / 3.0f;  // 距靶
+      float z = sad - depth;
+      float lam = (pz - z) / (-dz);
+      float x = px + lam * dx, y = py + lam * dy;
+      float sc = sad / depth;  // 投影到等中心平面
+      float xp = x * sc, yp = y * sc;
+      float across = axis == 0 ? yp : xp, along = axis == 0 ? xp : yp;
+      const float *bd = bounds + boff;
+      if (across < bd[0] || across >= bd[nleaf]) continue;  // 準直器的寬度外：沒有鎢
+      int lo = 0, hi = nleaf - 1;
+      while (lo < hi) {
+        int mid = (lo + hi + 1) / 2;
+        if (bd[mid] <= across) lo = mid; else hi = mid - 1;
+      }
+      const float *pp = pos + poff + ((size_t)st * nleaf + lo) * 2;
+      if (along < pp[0] || along > pp[1]) blocked++;
+    }
+    if (blocked) path += thick * blocked / 3.0f / fabsf(dz);
+  }
+  if (path <= 0.0f) return true;
+  float f = (logf(e) - tb.lne0) / tb.dlne;
+  f = fminf(fmaxf(f, 0.0f), (float)(tb.ne - 1) - 1e-3f);
+  int i = (int)f;
+  float mu = mu_w[i] + (f - i) * (mu_w[i + 1] - mu_w[i]);
+  return rnd(r) < expf(-mu * path);
+}
+
+extern "C" __global__ void run_beam(unsigned long long *edep, unsigned int *lost, const unsigned char *mat, const float *rho,
+                                    int nx, int ny, int nz, float dx, float dy, float dz, float ox, float oy, float oz,
+                                    const float *tab, const float *mumax, const float *rho_ref, const float *mu_w, int nmat,
+                                    int ne, float lne0, float dlne, int nstate, const unsigned long long *st_cum,
+                                    const int *st_nef, const float *st_rot, const float *st_cone, float iso_x, float iso_y,
+                                    float iso_z, float sad, float z_ef, float sig_f, float sig_ef, float m_spread,
+                                    int ndev, const int *dev_i, const float *dev_f, const float *bounds, const float *pos,
+                                    const float *spec_e, const float *spec_cdf, int nspec, unsigned long long seed,
+                                    unsigned long long h0, unsigned long long nhist, float escale, float pcut, float ecut,
+                                    float tcut, float kcut, float smax_geo, float frac_e, unsigned int *absorbed) {
+  Tab tb = {tab, mumax, rho_ref, nmat, ne, lne0, dlne};
+  Geo g = {nx, ny, nz, dx, dy, dz, ox, oy, oz};
+  P stack[STACK];
+  for (unsigned long long idx = blockIdx.x * (unsigned long long)blockDim.x + threadIdx.x; idx < nhist;
+       idx += (unsigned long long)gridDim.x * blockDim.x) {
+    unsigned long long h = h0 + idx;
+    unsigned long long sm = seed ^ (h * 0xD1B54A32D192ED03ULL);
+    Rng r;
+    r.s0 = splitmix(sm);
+    r.s1 = splitmix(sm);
+    // 這個歷史屬於哪一小段（累積歷史數二分搜尋）、是不是機頭散射
+    int lo = 0, hi = nstate - 1;
+    while (lo < hi) {
+      int mid = (lo + hi + 1) / 2;
+      if (st_cum[mid] <= idx) lo = mid; else hi = mid - 1;
+    }
+    int st = lo;
+    bool ef = (idx - st_cum[st]) < (unsigned long long)st_nef[st];
+    float zs = ef ? z_ef : sad, sig = ef ? sig_ef : sig_f;
+    float ca = st_cone[4 * st + (ef ? 2 : 0)], cb = st_cone[4 * st + (ef ? 3 : 1)];
+    // 射源位置
+    float gx, gy;
+    do {
+      gx = sig * gauss(r);
+      gy = sig * gauss(r);
+    } while (gx * gx + gy * gy > 9.0f * sig * sig && sig > 0.0f);
+    if (sig <= 0.0f) gx = gy = 0.0f;
+    // 方向（Marsaglia）
+    float mx, my;
+    for (int it = 0; it < 10000; it++) {
+      if (!ef && m_spread > 0.0f) {
+        mx = m_spread * gauss(r);
+        my = m_spread * gauss(r);
+      } else {
+        mx = (2.0f * rnd(r) - 1.0f) * ca;
+        my = (2.0f * rnd(r) - 1.0f) * cb;
+      }
+      if ((mx * mx) / (ca * ca) + (my * my) / (cb * cb) <= 1.0f) break;
+    }
+    float r2 = mx * mx + my * my, t = sqrtf(fmaxf(0.0f, 1.0f - r2));
+    float bdx = 2.0f * mx * t, bdy = 2.0f * my * t, bdz = -(1.0f - 2.0f * r2);
+    // 能量
+    float xi = rnd(r);
+    int a = 0, b = nspec - 1;
+    while (a < b) {
+      int mid = (a + b) / 2;
+      if (spec_cdf[mid] < xi) a = mid + 1; else b = mid;
+    }
+    float e = spec_e[a];
+    if (!collimate(r, gx, gy, zs, bdx, bdy, bdz, e, sad, st, ndev, dev_i, dev_f, bounds, pos, tb, mu_w)) {
+      atomicAdd(absorbed, 1u);
+      continue;
+    }
+    // BLD → LPS
+    const float *R = st_rot + 9 * st;
+    P p;
+    p.x = iso_x + R[0] * gx + R[1] * gy + R[2] * zs;
+    p.y = iso_y + R[3] * gx + R[4] * gy + R[5] * zs;
+    p.z = iso_z + R[6] * gx + R[7] * gy + R[8] * zs;
+    p.u = R[0] * bdx + R[1] * bdy + R[2] * bdz;
+    p.v = R[3] * bdx + R[4] * bdy + R[5] * bdz;
+    p.w = R[6] * bdx + R[7] * bdy + R[8] * bdz;
+    p.e = e;
+    p.type = T_PHOTON;
+    int n = 0;
+    stack[n++] = p;
+    while (n > 0) {
+      P q = stack[--n];
+      if (q.type == T_PHOTON)
+        photon(q, stack, n, r, g, tb, mat, rho, edep, escale, pcut, lost);
+      else
+        charged(q, stack, n, r, g, tb, mat, rho, edep, escale, ecut, tcut, kcut, smax_geo, frac_e, lost);
+    }
+  }
+}

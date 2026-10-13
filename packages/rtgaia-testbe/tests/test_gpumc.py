@@ -183,3 +183,69 @@ def test_electron_range_matches_topas(tb, tmp_path: Path) -> None:  # type: igno
 
     assert r50(eg) == pytest.approx(r50(et), abs=0.2), f"R50 GPU {r50(eg):.2f} TOPAS {r50(et):.2f} mm"
     assert eg.sum() == pytest.approx(et.sum(), rel=0.02), "總沉積能量（反散射、制動輻射逃出）"
+
+
+def test_engine_mu_calibration_and_depth_dose(tmp_path: Path) -> None:
+    """引擎 `gpu`：10 × 10、SSD 100、水中 —— dmax 的劑量 ≈ 1 cGy／MU（自己的 MU 校正）、dmax 在 1–2.5 cm、
+    PDD(10 cm) 在 6 MV 的典型範圍。"""
+    from rtgaia_dosecalc.delivery import Beam, ControlPoint
+    from rtgaia_dosecalc.gpumc import engine
+    from rtgaia_geom import Grid
+
+    water = {"calibration_id": "water", "name": "water", "demo": False,
+             "density": {"type": "points", "points": [[-1000, 0.0012], [0, 1.0], [3000, 2.8]]},
+             "materials": {"type": "schneider2000"}}  # fmt: skip
+    cps = [ControlPoint(m, 0.0, 0.0, 0.0, (-50.0, 50.0), (-50.0, 50.0)) for m in (0.0, 100.0)]
+    beam = Beam(1, "B", 6.0, "STANDARD", 1000.0, (0.0, -150.0, 0.0), "HFS", 100.0, cps)  # 等中心在水面
+    hu, g = phantoms.water_box((300.0, 300.0, 300.0), 5.0, air_margin_mm=20.0)
+    grid = Grid(size=(60, 60, 60), spacing=(5.0,) * 3, origin=(-147.5,) * 3, direction=(1, 0, 0, 0, 1, 0, 0, 0, 1),
+                frame_of_reference_uid=g.frame_of_reference_uid)  # fmt: skip
+    inp = CalcInput(
+        engine="gpu", delivery=Delivery([beam], fractions=1), ct_hu=hu, ct_grid=g, dose_grid=grid,
+        calibration=water, beam_model=beam_models.demo_6x(), options={"histories": 100_000_000},
+    )  # fmt: skip
+    res = engine.run(inp, tmp_path / "job" / "out", lambda *_a: None)
+    dose = np.nan_to_num(res.dose_gy)
+    axis = dose[28:32, :, 28:32].mean(axis=(0, 2))
+    smooth = np.convolve(axis, np.ones(3) / 3, mode="same")
+    j = int(np.argmax(smooth[1:-1])) + 1
+    assert 10 <= 2.5 + 5 * j <= 25
+    assert smooth[j] == pytest.approx(1.0, rel=0.03), "100 MU、SSD 100、10 × 10 的 dmax ≈ 1 Gy"
+    assert 0.62 <= axis[20] / smooth[j] <= 0.72
+    assert res.info["engine"] == "gpu" and res.info["histories_per_mu"] > 0
+    assert float(np.nanmedian(res.uncertainty[28:32, 3:10, 28:32])) < 0.02
+
+
+def test_engine_plan_matches_topas(tmp_path: Path) -> None:
+    """合成 6X 計畫（靜態、MLC 圓、VMAT）：每個射束高劑量區 GPU／TOPAS 的中位數在 0.97–1.05（GPU 的機頭沒有準直器
+    散射與電子污染，MU 校正約差 2%）、50% 範圍重疊 ≥ 0.9。"""
+    from rtgaia_dosecalc.from_rtplan import read_delivery
+    from rtgaia_dosecalc.gpumc import engine
+    from rtgaia_geom import Grid
+    from rtgaia_testbe.fixtures import synth_plan
+
+    case = synth_plan.build(tmp_path / "case")
+    d, problems = read_delivery(next((case.root / "RP").glob("*.dcm")))
+    assert d is not None, problems
+    geom = synth_plan.GEOM
+    ct = np.stack([synth_plan._hu(k) for k in range(geom.size[2])]).astype(np.float32)
+    ct_grid = Grid(size=geom.size, spacing=geom.spacing, origin=geom.origin, direction=(1, 0, 0, 0, 1, 0, 0, 0, 1),
+                   frame_of_reference_uid="x")  # fmt: skip
+    dose_grid = Grid(size=(64, 48, 36), spacing=(5.0,) * 3, origin=(-157.5, -117.5, -87.5),
+                     direction=(1, 0, 0, 0, 1, 0, 0, 0, 1), frame_of_reference_uid="x")  # fmt: skip
+    out = {}
+    for name, run, hist in (("gpu", engine.run, 200_000_000), ("topas", topas.run, 20_000_000)):
+        inp = CalcInput(
+            engine=name, delivery=d, ct_hu=ct, ct_grid=ct_grid, dose_grid=dose_grid,
+            calibration=builtin_calibration(), beam_model=beam_models.demo_6x(), options={"histories": hist},
+        )  # fmt: skip
+        out[name] = run(inp, tmp_path / name / "job" / "out", lambda *_a: None)
+    for n in (1, 2, 3):
+        a, b = np.nan_to_num(out["gpu"].per_beam_gy[n]), np.nan_to_num(out["topas"].per_beam_gy[n])
+        hi = b > 0.5 * np.percentile(b, 99.5)
+        ma = a > 0.5 * np.percentile(a, 99.5)
+        dice = 2 * (ma & hi).sum() / (ma.sum() + hi.sum())
+        ratio = float(np.median(a[hi] / b[hi]))
+        assert 0.97 <= ratio <= 1.05, f"射束 {n} GPU／TOPAS {ratio:.3f}"
+        assert dice >= 0.9, f"射束 {n} 50% 範圍重疊 {dice:.2f}"
+    assert out["gpu"].info["seconds"] < out["topas"].info["seconds"]

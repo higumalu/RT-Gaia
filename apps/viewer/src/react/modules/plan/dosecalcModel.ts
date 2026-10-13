@@ -51,6 +51,7 @@ export interface DosecalcJob {
 
 export const ENGINE_LABEL: Record<string, string> = {
   topas: msg('OpenTOPAS（Geant4）Monte Carlo'),
+  gpu: msg('GPU Monte Carlo（RT-Gaia）'),
   'pipeline-test': msg('流程測試引擎（不是劑量計算）'),
 };
 
@@ -58,12 +59,21 @@ export function engineLabel(name: string): string {
   return ENGINE_LABEL[name] ? t(ENGINE_LABEL[name]) : name;
 }
 
-/** 統計量：歷史數越多不確定度越小、越慢（大約跟歷史數成正比）。 */
+/** 統計量：歷史數越多不確定度越小、越慢（大約跟歷史數成正比）。GPU 每秒能跑的歷史數是 OpenTOPAS 的百倍上下，選項也大一百倍。 */
 export const HISTORY_PRESETS: readonly { value: number; label: string }[] = [
   { value: 2_000_000, label: msg('快速（2 百萬個歷史）') },
   { value: 20_000_000, label: msg('標準（2 千萬個歷史）') },
   { value: 100_000_000, label: msg('精細（1 億個歷史）') },
 ];
+export const GPU_HISTORY_PRESETS: readonly { value: number; label: string }[] = [
+  { value: 200_000_000, label: msg('快速（2 億個歷史）') },
+  { value: 1_000_000_000, label: msg('標準（10 億個歷史）') },
+  { value: 4_000_000_000, label: msg('精細（40 億個歷史）') },
+];
+
+export function historyPresets(engine: string): readonly { value: number; label: string }[] {
+  return engine === 'gpu' ? GPU_HISTORY_PRESETS : HISTORY_PRESETS;
+}
 
 /** Monte Carlo 計分網格：粗一點雜訊少（∝ 體素體積的 −1/2 次方）、跑得快，結果內插回劑量網格；`null` ＝ 直接算在劑量網格上。 */
 export const CALC_SPACINGS: readonly { value: number | null; label: string }[] = [

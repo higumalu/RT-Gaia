@@ -50,8 +50,9 @@ def work_root() -> Path:
 
 
 def engine_choice(requested: str | None) -> str:
-    avail = {e["name"]: e for e in engines.available()}
-    name = requested or engines.TOPAS
+    rows = engines.available()
+    avail = {e["name"]: e for e in rows}
+    name = requested or next((e["name"] for e in rows if e.get("ready") and not e.get("test_only")), engines.TOPAS)
     e = avail.get(name)
     if e is None:
         raise PrepareError("NO_ENGINE", [f"沒有引擎 {name}"])
