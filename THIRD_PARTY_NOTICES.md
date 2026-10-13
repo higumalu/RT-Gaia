@@ -108,13 +108,15 @@ The kernel has no third-party crate dependencies.
 - **OpenTOPAS and Geant4.** The Monte Carlo dose engine runs the official OpenTOPAS container image
   (`opentopas/opentopas`, OpenTOPAS under the MIT license), which contains Geant4 (Geant4 Software License 1.0)
   and GDCM. The image and the Geant4 datasets are pulled and installed by the administrator; they are not part
-  of the RT-Gaia images. This product includes software developed by Members of the Geant4 Collaboration
-  (http://cern.ch/geant4).
+  of the RT-Gaia images. The GPU Monte Carlo engine builds its cross-section and stopping-power tables with the
+  same Geant4 inside that image. This product includes software developed by Members of the Geant4
+  Collaboration (http://cern.ch/geant4).
+- **GPU Monte Carlo (optional).** The `gpu` extra of `rtgaia-dosecalc` installs CuPy (MIT) with the NVIDIA CUDA
+  runtime and NVRTC wheels (NVIDIA Software License Agreement); it is not installed in the RT-Gaia images.
 - **Physics data.** The built-in CT calibration uses values from Schneider, Bortfeld and Schlegel (Phys Med Biol
   2000;45:459) as tabulated in OpenTOPAS (`examples/Patient/HUtoMaterialSchneider.txt`, MIT). The demo 6 MV beam
   model uses the Mohan, Chui and Lidofsky 6 MV spectrum (Med Phys 1985;12:592) as tabulated in EGSnrc
   (`mohan6.spectrum`).
-
 - **Example plugins** under `examples/` have their own dependencies. `examples/plugin-nnunet` installs
   nnU-Net, PyTorch and TotalSegmentator at plugin build time and downloads model weights at run time;
   some TotalSegmentator tasks are licensed for non-commercial use only. Check the upstream licenses

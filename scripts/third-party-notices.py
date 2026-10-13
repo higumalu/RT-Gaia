@@ -57,21 +57,44 @@ IMAGE_ENV = {
 }
 
 CONTAINERS = [
-    ("python:3.12-slim-bookworm", "Runtime image (API, worker, DICOM receiver)",
-     "PSF-2.0 (Python); Debian packages under their own licenses"),
-    ("nginx:1.27-alpine", "`web` image (static frontend, reverse proxy)",
-     "BSD-2-Clause (nginx); Alpine packages under their own licenses"),
+    (
+        "python:3.12-slim-bookworm",
+        "Runtime image (API, worker, DICOM receiver)",
+        "PSF-2.0 (Python); Debian packages under their own licenses",
+    ),
+    (
+        "nginx:1.27-alpine",
+        "`web` image (static frontend, reverse proxy)",
+        "BSD-2-Clause (nginx); Alpine packages under their own licenses",
+    ),
     ("postgres:16", "Database service in `deploy/docker-compose.yml`", "PostgreSQL License"),
-    ("rust:1.83-bookworm, node:22-bookworm", "Build stages only; not part of the shipped images",
-     "MIT / Apache-2.0 (Rust), MIT (Node.js)"),
+    (
+        "rust:1.83-bookworm, node:22-bookworm",
+        "Build stages only; not part of the shipped images",
+        "MIT / Apache-2.0 (Rust), MIT (Node.js)",
+    ),
 ]
 
 
 def python_packages() -> list[tuple[str, str, str, str]]:
     exported = subprocess.run(
-        ["uv", "export", "--all-packages", "--no-dev", "--frozen", "--format", "requirements-txt",
-         "--no-hashes", "--no-header", "--no-annotate", "--no-emit-workspace"],
-        cwd=ROOT, check=True, capture_output=True, text=True,
+        [
+            "uv",
+            "export",
+            "--all-packages",
+            "--no-dev",
+            "--frozen",
+            "--format",
+            "requirements-txt",
+            "--no-hashes",
+            "--no-header",
+            "--no-annotate",
+            "--no-emit-workspace",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
     rows = []
     for line in exported.splitlines():
@@ -104,8 +127,11 @@ def python_license(name: str) -> tuple[str, str]:
     declared = (meta.get("License") or "").strip()
     if declared and "\n" not in declared and len(declared) <= 60 and declared.upper() != "UNKNOWN":
         return declared, url
-    found = [CLASSIFIERS.get(c.split(" :: ")[-1], c.split(" :: ")[-1])
-             for c in meta.get_all("Classifier") or [] if c.startswith("License ::")]
+    found = [
+        CLASSIFIERS.get(c.split(" :: ")[-1], c.split(" :: ")[-1])
+        for c in meta.get_all("Classifier") or []
+        if c.startswith("License ::")
+    ]
     found = [f for f in found if f != "OSI Approved"]
     if found:
         return " OR ".join(dict.fromkeys(found)), url
@@ -119,16 +145,23 @@ def npm_packages() -> list[tuple[str, str, str, str]]:
         if not path or entry.get("dev") or entry.get("devOptional"):
             continue
         name = path.split("node_modules/")[-1]
-        rows.append((name, entry.get("version", ""), entry.get("license") or "Unknown", f"https://www.npmjs.com/package/{name}"))
+        rows.append(
+            (name, entry.get("version", ""), entry.get("license") or "Unknown", f"https://www.npmjs.com/package/{name}")
+        )
     return sorted(rows, key=lambda r: r[0].lower())
 
 
 def rust_packages() -> list[tuple[str, str, str, str]]:
     cargo = shutil.which("cargo") or str(Path.home() / ".cargo/bin/cargo")
-    meta = json.loads(subprocess.run(
-        [cargo, "metadata", "--format-version", "1", "--manifest-path", "packages/rtgaia-reslice/Cargo.toml"],
-        cwd=ROOT, check=True, capture_output=True, text=True,
-    ).stdout)
+    meta = json.loads(
+        subprocess.run(
+            [cargo, "metadata", "--format-version", "1", "--manifest-path", "packages/rtgaia-reslice/Cargo.toml"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    )
     by_id = {p["id"]: p for p in meta["packages"]}
     nodes = {n["id"]: n for n in meta["resolve"]["nodes"]}
     root = meta["resolve"]["root"]
@@ -138,8 +171,10 @@ def rust_packages() -> list[tuple[str, str, str, str]]:
             if any(k["kind"] is None for k in dep["dep_kinds"]) and dep["pkg"] not in seen:
                 seen.add(dep["pkg"])
                 stack.append(dep["pkg"])
-    rows = [(by_id[i]["name"], by_id[i]["version"], by_id[i].get("license") or "Unknown",
-             by_id[i].get("repository") or "") for i in seen]
+    rows = [
+        (by_id[i]["name"], by_id[i]["version"], by_id[i].get("license") or "Unknown", by_id[i].get("repository") or "")
+        for i in seen
+    ]
     return sorted(rows, key=lambda r: r[0].lower())
 
 
@@ -151,6 +186,23 @@ def table(rows: list[tuple[str, str, str, str]], empty: str = "None.") -> list[s
         source = f"<{url}>" if url else ""
         lines.append(f"| {name} | {version} | {lic} | {source} |")
     return [*lines, ""]
+
+
+NOT_BUNDLED = """\
+- **OpenTOPAS and Geant4.** The Monte Carlo dose engine runs the official OpenTOPAS container image
+  (`opentopas/opentopas`, OpenTOPAS under the MIT license), which contains Geant4 (Geant4 Software License 1.0)
+  and GDCM. The image and the Geant4 datasets are pulled and installed by the administrator; they are not part
+  of the RT-Gaia images. The GPU Monte Carlo engine builds its cross-section and stopping-power tables with the
+  same Geant4 inside that image. This product includes software developed by Members of the Geant4
+  Collaboration (http://cern.ch/geant4).
+- **GPU Monte Carlo (optional).** The `gpu` extra of `rtgaia-dosecalc` installs CuPy (MIT) with the NVIDIA CUDA
+  runtime and NVRTC wheels (NVIDIA Software License Agreement); it is not installed in the RT-Gaia images.
+- **Physics data.** The built-in CT calibration uses values from Schneider, Bortfeld and Schlegel (Phys Med Biol
+  2000;45:459) as tabulated in OpenTOPAS (`examples/Patient/HUtoMaterialSchneider.txt`, MIT). The demo 6 MV beam
+  model uses the Mohan, Chui and Lidofsky 6 MV spectrum (Med Phys 1985;12:592) as tabulated in EGSnrc
+  (`mohan6.spectrum`).
+"""
+"""Dose calculation components that RT-Gaia uses but does not ship (rendered under "Not bundled")."""
 
 
 def render() -> str:
@@ -190,6 +242,7 @@ def render() -> str:
         "",
         "## Not bundled",
         "",
+        *NOT_BUNDLED.splitlines(),
         "- **Example plugins** under `examples/` have their own dependencies. `examples/plugin-nnunet` installs",
         "  nnU-Net, PyTorch and TotalSegmentator at plugin build time and downloads model weights at run time;",
         "  some TotalSegmentator tasks are licensed for non-commercial use only. Check the upstream licenses",
