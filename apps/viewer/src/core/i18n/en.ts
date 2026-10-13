@@ -2367,4 +2367,13 @@ export const EN: Readonly<Record<string, MessageEntry>> = {
   "精細（1 億個歷史）": "Fine (100 million histories)",
   "歷史數越多，統計不確定度越小、計算越久": "More histories give a smaller statistical uncertainty and take longer",
   "統計量": "Statistics",
+  "計算網格": "Calculation grid",
+  "統計不確定度（1σ，劑量 ≥ 50% 的區域）：中位數 {med}%、最大 {max}%": "Statistical uncertainty (1σ, where dose ≥ 50%): median {med}%, max {max}%",
+  "雜訊偏大：γ 的失敗有一部分是統計雜訊。可以加歷史數或用較粗的計算網格再算一次": "The result is noisy: some γ failures come from statistical noise. Run again with more histories or a coarser calculation grid",
+  "計算網格 4 mm（建議）": "Calculation grid 4 mm (recommended)",
+  "計算網格 3 mm": "Calculation grid 3 mm",
+  "計算網格 5 mm": "Calculation grid 5 mm",
+  "計算網格跟劑量網格相同": "Calculation grid same as the dose grid",
+  "Monte Carlo 計分的網格：粗一點雜訊少、跑得快，半影會被平均掉一點": "Grid the Monte Carlo dose is scored on: coarser means less noise and a faster run, with the penumbra slightly averaged",
+  "Monte Carlo 算在 {mm} mm 的網格上，再內插回劑量網格": "Monte Carlo scored on a {mm} mm grid, then interpolated to the dose grid",
 };

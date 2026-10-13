@@ -193,3 +193,18 @@ def test_check_criteria_rejects_bad_input() -> None:
     assert gm.check_criteria({"resolution": 4})[1]
     assert gm.check_criteria({"max_gamma": 3, "resolution": 10, "dta_mm": 2})[1], "搜尋格點太多"
     assert gm.check_criteria({"norm_gy": -1})[1]
+
+
+def test_threads_give_identical_results(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """分塊多執行緒跟單執行緒逐位元相同（每塊各自獨立）。"""
+    rng = np.random.default_rng(3)
+    g = _grid(size=(40, 30, 24))
+    ref = rng.uniform(1.0, 3.0, size=(24, 30, 40)).astype(np.float32)
+    ev = (ref + rng.normal(0, 0.08, size=ref.shape)).astype(np.float32)
+    monkeypatch.setattr(gm, "CHUNK_POINTS", 2000)
+    monkeypatch.setenv("RTGAIA_GAMMA_THREADS", "1")
+    one = gm.gamma_3d(ref, g, ev, g, np.eye(4), gm.GammaCriteria(threshold_pct=0))
+    monkeypatch.setenv("RTGAIA_GAMMA_THREADS", "6")
+    many = gm.gamma_3d(ref, g, ev, g, np.eye(4), gm.GammaCriteria(threshold_pct=0))
+    assert np.array_equal(one.gamma_kji, many.gamma_kji, equal_nan=True)
+    assert one.stats == many.stats

@@ -1051,6 +1051,7 @@ directory. The Monte Carlo engine is OpenTOPAS (Geant4), run in its official con
 | `RTGAIA_G4DATA` | `~/.geant4_pybind` | Directory with the Geant4 datasets, mounted read-only into the container. |
 | `RTGAIA_TOPAS_THREADS` | number of CPUs | Geant4 worker threads per calculation. |
 | `RTGAIA_DOSECALC_TEST_ENGINE` | unset | `1` also offers the pipeline test engine (not a dose calculation) for testing. |
+| `RTGAIA_GAMMA_THREADS` | half the CPUs, at most 16 | Threads for a gamma comparison (it runs in the API process). |
 
 Cancelling a job stops its containers (they carry the label `rtgaia.dosecalc=<job>`). Calculations run one at a
 time per worker.

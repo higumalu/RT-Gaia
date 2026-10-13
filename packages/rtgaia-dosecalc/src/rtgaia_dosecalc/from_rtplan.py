@@ -6,7 +6,8 @@
 * 沒有 X jaw → 用 MLC 的最外側葉片；沒有 Y jaw → 用葉片邊界的兩端；都沒有 → 擋。
 
 **擋下的**：非光子；楔形板、擋塊、補償器、bolus、施照筒；機架俯仰、床 pitch／roll 不為 0；一個射束裡准直器或床角
-會變；沒有 MU；擺位不是 HFS／HFP／FFS／FFP。
+會變；沒有 MU；擺位不是 HFS／HFP／FFS／FFP；MLCY、不認得的裝置。
+雙層 MLC（Halcyon 的 MLCX1 ＋ MLCX2）：第一層放在 `mlc_a／mlc_b`、第二層 `mlc2_a／mlc2_b`，兩層都開才透光。
 """
 
 from __future__ import annotations
@@ -110,11 +111,15 @@ def _beam(b: Any, number: int, name: str, mu: float | None, setups: dict[int, st
     if position not in PATIENT_TO_LPS:
         why.append(f"病人擺位 {position or '(缺)'}：只支援 HFS／HFP／FFS／FFP")
     devices = {_s(d.get("RTBeamLimitingDeviceType")): d for d in b.get("BeamLimitingDeviceSequence") or []}
-    mlc_dev = next((d for k, d in devices.items() if k in MLC_X), None)
+    dual = "MLCX1" in devices or "MLCX2" in devices
+    mlc_dev = devices.get("MLCX1") if dual else next((d for k, d in devices.items() if k in MLC_X), None)
+    mlc2_dev = devices.get("MLCX2") if dual else None
     if any(k.startswith("MLCY") for k in devices):
         why.append("MLCY（沿 Y 的 MLC）：還不支援")
-    if any(k in ("MLCX1", "MLCX2") for k in devices):
-        why.append("雙層 MLC（MLCX1／MLCX2，例如 Halcyon）：還不支援")
+    if dual and not ("MLCX1" in devices and "MLCX2" in devices):
+        why.append("只有一層的雙層 MLC（MLCX1／MLCX2 只出現一個）：不知道怎麼算")
+    if dual and "MLCX" in devices:
+        why.append("同時有 MLCX 與 MLCX1／MLCX2：不知道怎麼算")
     unknown = sorted(
         k for k in devices if k not in JAW_X | JAW_Y | MLC_X | {"MLCX1", "MLCX2"} and not k.startswith("MLCY")
     )
@@ -123,6 +128,11 @@ def _beam(b: Any, number: int, name: str, mu: float | None, setups: dict[int, st
     bounds = (
         [float(v) for v in mlc_dev.LeafPositionBoundaries]
         if mlc_dev is not None and mlc_dev.get("LeafPositionBoundaries")
+        else None
+    )
+    bounds2 = (
+        [float(v) for v in mlc2_dev.LeafPositionBoundaries]
+        if mlc2_dev is not None and mlc2_dev.get("LeafPositionBoundaries")
         else None
     )
     final = _f(b.get("FinalCumulativeMetersetWeight"))
@@ -142,6 +152,7 @@ def _beam(b: Any, number: int, name: str, mu: float | None, setups: dict[int, st
         "x": None,
         "y": None,
         "mlc": None,
+        "mlc2": None,
         "energy": None,
     }
     cps: list[ControlPoint] = []
@@ -170,9 +181,12 @@ def _beam(b: Any, number: int, name: str, mu: float | None, setups: dict[int, st
                 state["x"] = (values[0], values[1])
             elif kind in JAW_Y and len(values) == 2:
                 state["y"] = (values[0], values[1])
-            elif kind in MLC_X and values and len(values) % 2 == 0:
+            elif kind in (MLC_X | {"MLCX1"}) and values and len(values) % 2 == 0:
                 n = len(values) // 2
                 state["mlc"] = (values[:n], values[n:])
+            elif kind == "MLCX2" and values and len(values) % 2 == 0:
+                n = len(values) // 2
+                state["mlc2"] = (values[:n], values[n:])
         if None in (state["gantry"], state["weight"]):
             why.append("控制點缺機架角或累積權重")
             break
@@ -194,6 +208,8 @@ def _beam(b: Any, number: int, name: str, mu: float | None, setups: dict[int, st
                 jaw_y=jaw_y,
                 mlc_a=list(state["mlc"][0]) if state["mlc"] is not None else None,
                 mlc_b=list(state["mlc"][1]) if state["mlc"] is not None else None,
+                mlc2_a=list(state["mlc2"][0]) if state["mlc2"] is not None else None,
+                mlc2_b=list(state["mlc2"][1]) if state["mlc2"] is not None else None,
             )
         )
     if len(cps) < 2 and not why:
@@ -226,6 +242,8 @@ def _beam(b: Any, number: int, name: str, mu: float | None, setups: dict[int, st
             control_points=cps,
             leaf_boundaries_mm=bounds,
             machine=_s(b.get("TreatmentMachineName")),
+            mlc_devices=["MLCX1", "MLCX2"] if dual else (["MLCX"] if mlc_dev is not None else []),
+            leaf2_boundaries_mm=bounds2,
         ),
         [],
     )

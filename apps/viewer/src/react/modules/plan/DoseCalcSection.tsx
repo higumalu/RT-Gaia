@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { t } from '../../../core/i18n';
 import type { ViewerPanelProps } from '../../panels/types';
 import type { PlanInfo } from './model';
-import { engineLabel, HISTORY_PRESETS, isActive, jobsForPlan, jobStatusText, summaryNotes, type DosecalcEngine, type DosecalcJob } from './dosecalcModel';
+import { CALC_SPACINGS, engineLabel, HISTORY_PRESETS, isActive, jobsForPlan, jobStatusText, summaryNotes, uncertaintyNotes, type DosecalcEngine, type DosecalcJob } from './dosecalcModel';
 
 const POLL_MS = 2000;
 
@@ -19,6 +19,7 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
   const [engine, setEngine] = useState('');
   const [grid, setGrid] = useState<'tps' | 'ct'>('tps');
   const [histories, setHistories] = useState<number>(HISTORY_PRESETS[1]!.value);
+  const [spacing, setSpacing] = useState<number | null>(CALC_SPACINGS[0]!.value);
   const [jobs, setJobs] = useState<DosecalcJob[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -61,7 +62,7 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
     setBusy('submit');
     setProblem(null);
     try {
-      await http.postJson(base, { plan_sop_uid: planSop, engine, grid, ...(chosen?.test_only ? {} : { histories }) });
+      await http.postJson(base, { plan_sop_uid: planSop, engine, grid, ...(chosen?.test_only ? {} : { histories, calc_spacing_mm: spacing }) });
       await reload();
     } catch (e) {
       setProblem(e instanceof Error ? e.message : String(e));
@@ -119,6 +120,15 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
               ))}
             </select>
           )}
+          {!chosen?.test_only && (
+            <select value={spacing ?? ''} onChange={(e) => setSpacing(e.target.value === '' ? null : Number(e.target.value))} aria-label={t('計算網格')} data-field="dosecalc-calc-spacing" title={t('Monte Carlo 計分的網格：粗一點雜訊少、跑得快，半影會被平均掉一點')}>
+              {CALC_SPACINGS.map((c) => (
+                <option key={String(c.value)} value={c.value ?? ''}>
+                  {t(c.label)}
+                </option>
+              ))}
+            </select>
+          )}
           <button type="button" className="primary" disabled={busy !== null || !chosen?.ready} onClick={() => void submit()} data-action="dosecalc-submit" title={chosen && !chosen.ready ? chosen.reason : undefined}>
             {busy === 'submit' ? t('準備中…') : t('重算劑量')}
           </button>
@@ -140,6 +150,11 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
                   <li key={n}>{n}</li>
                 ))}
               </ul>
+              {uncertaintyNotes(j).map((n) => (
+                <p key={n.text} className={n.noisy ? 'warning small dosecalc-noise' : 'small dosecalc-uncertainty'}>
+                  {n.text}
+                </p>
+              ))}
               <div className="buttons small">
                 {isActive(j) && (
                   <button type="button" onClick={() => void cancel(j)} data-action="dosecalc-cancel">

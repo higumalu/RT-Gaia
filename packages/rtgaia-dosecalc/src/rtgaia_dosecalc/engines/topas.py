@@ -25,6 +25,7 @@ TOPAS 算的是「N 個歷史的劑量」。MU 校正（`beam_models` 的 `calib
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import math
 import os
@@ -36,6 +37,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from rtgaia_geom import Grid
 from scipy.ndimage import map_coordinates
 
 from .. import beam_models
@@ -44,7 +46,7 @@ from ..delivery import Beam, ControlPoint, bld_to_lps, interpolate, segments
 from ..package import CalcInput, CalcResult
 
 IMAGE = os.environ.get("RTGAIA_TOPAS_IMAGE", "opentopas/opentopas:v4.3.0-geant4-11.4.2")
-ENGINE_VERSION = f"opentopas {IMAGE.rsplit(':', 1)[-1]} / rtgaia-topas 1"
+ENGINE_VERSION = f"opentopas {IMAGE.rsplit(':', 1)[-1]} / rtgaia-topas 3"
 DENSITY_STEP = 0.002
 DENSITY_BINS = 2600
 """每段 2600 格 × 0.002 g/cm³ ＝ 0–5.2 g/cm³（鈦 4.54）；更密的夾到上限並計數。"""
@@ -150,6 +152,44 @@ def patient_on_grid(inp: CalcInput) -> tuple[np.ndarray, np.ndarray, np.ndarray,
     return codes, rho, mat, info
 
 
+def calc_grid(out: Grid, spacing_mm: float | None) -> Grid:
+    """Monte Carlo 計分用的網格：跟輸出網格同一個範圍與方向、每軸 `spacing_mm` 的立方體素；
+    沒指定或不比輸出粗就用輸出網格本身。"""
+    if not spacing_mm or spacing_mm <= max(out.spacing) + 1e-6:
+        return out
+    size = np.asarray(out.size) * np.asarray(out.spacing)
+    n = np.maximum(1, np.ceil(size / spacing_mm - 1e-6)).astype(int)
+    center = np.asarray(out.origin) + (np.asarray(out.size) - 1) / 2 * np.asarray(out.spacing)
+    origin = center - (n - 1) / 2 * spacing_mm
+    return Grid(
+        size=(int(n[0]), int(n[1]), int(n[2])),
+        spacing=(float(spacing_mm),) * 3,
+        origin=(float(origin[0]), float(origin[1]), float(origin[2])),
+        direction=out.direction,
+        frame_of_reference_uid=out.frame_of_reference_uid,
+    )
+
+
+def to_output(values: list[np.ndarray], src: Grid, out: Grid) -> list[np.ndarray]:
+    """計分網格 (k, j, i) → 輸出網格的三線性內插；NaN（空氣）不參與 —— 權重只算有值的鄰居，
+    鄰居全是 NaN 的點是 NaN。兩個網格都跟 LPS 軸對齊（`patient_on_grid` 已經擋過斜的）。"""
+    ni, nj, nk = out.size
+    pts = [np.asarray(out.origin[a]) + np.arange(out.size[a]) * out.spacing[a] for a in range(3)]
+    fi, fj, fk = ((pts[a] - src.origin[a]) / src.spacing[a] for a in range(3))
+    kk, jj, ii = np.meshgrid(fk, fj, fi, indexing="ij")
+    coords = [kk.ravel(), jj.ravel(), ii.ravel()]
+    valid = np.isfinite(values[0])
+    w = map_coordinates(valid.astype(np.float32), coords, order=1, mode="nearest", prefilter=False)
+    res = []
+    for v in values:
+        num = map_coordinates(
+            np.where(valid, v, 0).astype(np.float32), coords, order=1, mode="nearest", prefilter=False
+        )
+        with np.errstate(invalid="ignore", divide="ignore"):
+            res.append(np.where(w > 1e-6, num / w, np.nan).reshape(nk, nj, ni).astype(np.float32))
+    return res
+
+
 def schneider_parameters(component: str = "Patient") -> str:
     n = len(_SCHNEIDER_WEIGHTS)
     bounds = [CODE_OFFSET + m * DENSITY_BINS for m in range(n + 1)]
@@ -225,22 +265,97 @@ def _step(name: str, values: list[float], unit: str, kind: str = "dv") -> list[s
     ]
 
 
+REFERENCE_FIELD_HALF_MM = 200.0
+"""射源的「每個歷史」以等中心平面 40 × 40 cm 的參考錐角為準（MU 校正與計畫都換算到這個錐角）。"""
+
+
+def _ellipse(ext_x: float, ext_y: float, z_mm: float) -> tuple[float, float]:
+    """矩形 ±ext_x × ±ext_y（距射源 z_mm 的平面）在 TOPAS 的 Marsaglia 座標裡**外接**的橢圓半軸 (a, b)。
+
+    TOPAS 的角度抽樣：在 Marsaglia 座標 m ＝ sin(θ／2) 上抽、只留橢圓內的（`TsGeneratorBeam::SetDirection`）。
+    橢圓內切矩形會漏掉射野四角 → 半軸取 √2 倍，四角剛好在橢圓上。"""
+    mx = math.sin(math.atan(ext_x / z_mm) / 2)
+    my = math.sin(math.atan(ext_y / z_mm) / 2)
+    return mx * math.sqrt(2.0), my * math.sqrt(2.0)
+
+
+def _cutoff_deg(m: float) -> float:
+    return math.degrees(2 * math.asin(min(m, 0.99)))
+
+
+def _mass(a: float, b: float, sigma_deg: float | None) -> float:
+    """角分佈落在 Marsaglia 橢圓 (a, b) 裡的機率質量（相對值）。均勻 ＝ 橢圓面積；高斯（σ 是角度）＝ 二維常態在橢圓內的
+    積分：P ＝ ab／(2πσ²) ∫₀^{2π} (1 − e^{−k})／(2k) dφ，k ＝ (a²cos²φ ＋ b²sin²φ)／(2σ²)。"""
+    if not sigma_deg:
+        return a * b
+    s = math.sin(math.radians(sigma_deg) / 2)
+    phi = np.linspace(0, 2 * math.pi, 2049)[:-1]
+    k = (a * a * np.cos(phi) ** 2 + b * b * np.sin(phi) ** 2) / (2 * s * s)
+    f = np.where(k > 1e-12, (1 - np.exp(-k)) / (2 * k), 0.5)
+    return float(a * b / (2 * math.pi * s * s) * f.mean() * 2 * math.pi)
+
+
+def _extent(cp: ControlPoint, beam: Beam) -> tuple[float, float]:
+    """這一小段會透光的範圍（等中心平面 mm，對稱的半寬）：jaw ∩ 每一層 MLC 打開的葉片。"""
+    x = max(abs(cp.jaw_x[0]), abs(cp.jaw_x[1]))
+    y = max(abs(cp.jaw_y[0]), abs(cp.jaw_y[1]))
+    for bounds, a_, b_ in (
+        (beam.leaf_boundaries_mm, cp.mlc_a, cp.mlc_b),
+        (beam.leaf2_boundaries_mm, cp.mlc2_a, cp.mlc2_b),
+    ):
+        if not bounds or a_ is None or b_ is None:
+            continue
+        rows = [i for i, (u, v) in enumerate(zip(a_, b_, strict=True)) if v - u > 0.5]
+        if not rows:
+            continue
+        x = min(x, max(max(abs(a_[i]), abs(b_[i])) for i in rows))
+        y = min(y, max(max(abs(bounds[i]), abs(bounds[i + 1])) for i in rows))
+    return x, y
+
+
 def beam_parameters(
     beam: Beam, model: dict[str, Any], histories: int, *, iso: tuple[float, float, float], world_hl_mm: float
-) -> tuple[str, int]:
-    """一個射束的參數檔（不含病人與通用的部分）；回 (文字, 實際歷史數)。"""
+) -> tuple[str, int, float]:
+    """一個射束的參數檔（不含病人與通用的部分）；回 (文字, 實際歷史數, 換算到參考錐角的歷史數 M)。
+
+    原射源與機頭散射射源各自的錐角只蓋到會透光的範圍（省歷史數）；每個射源的歷史數 ∝ 權重 × 錐角內的機率質量，
+    M ＝ N ／ Σ 權重 × 質量比 —— 劑量 ÷ M 就跟錐角大小無關（MU 校正與計畫的錐角不同也能互換）。"""
     p = model["params"]
     states = _states(beam)
     n_steps = len(states)
-    hist = _split(histories, [mu for _cp, mu in states])
     ef = p.get("extra_focal") or {}
     ef_frac = float(ef.get("fraction") or 0.0)
-    hist_ef = [int(round(h * ef_frac)) for h in hist]
-    hist_pr = [h - e for h, e in zip(hist, hist_ef, strict=True)]
     sad = beam.sad_mm
     margin = float(p.get("field_margin_mm", 10.0))
-    ext_x = max(max(abs(cp.jaw_x[0]), abs(cp.jaw_x[1])) for cp, _ in states) + margin
-    ext_y = max(max(abs(cp.jaw_y[0]), abs(cp.jaw_y[1])) for cp, _ in states) + margin
+    sig = p.get("angular_sigma_deg")
+    ref_p = _mass(*_ellipse(REFERENCE_FIELD_HALF_MM, REFERENCE_FIELD_HALF_MM, sad), sig)
+    z_ef = sad - float(ef.get("distance_below_target_mm") or 0.0)
+    sig_ef_mm = 3 * float(ef.get("sigma_mm") or 0.0)
+    ref_e = (
+        _mass(*_ellipse(REFERENCE_FIELD_HALF_MM + sig_ef_mm, REFERENCE_FIELD_HALF_MM + sig_ef_mm, z_ef), None)
+        if ef_frac > 0
+        else 1.0
+    )
+    # 每一小段自己的錐角（VMAT 的開口小、射束的包絡大 —— 用包絡的話大部分粒子打在 MLC 上）
+    cones_p, cones_e, shares_p, shares_e = [], [], [], []
+    for cp, _mu in states:
+        ex, ey = _extent(cp, beam)
+        ex, ey = ex + margin, ey + margin
+        a_p, b_p = _ellipse(ex, ey, sad)
+        cones_p.append((a_p, b_p))
+        shares_p.append((1 - ef_frac) * _mass(a_p, b_p, sig) / ref_p)
+        if ef_frac > 0:
+            a_e, b_e = _ellipse(ex + sig_ef_mm, ey + sig_ef_mm, z_ef)
+            cones_e.append((a_e, b_e))
+            shares_e.append(ef_frac * _mass(a_e, b_e, None) / ref_e)
+        else:
+            shares_e.append(0.0)
+    share = [sp + se for sp, se in zip(shares_p, shares_e, strict=True)]
+    # 每一小段的歷史數 ∝ MU × 錐角內的質量 → 換算到參考錐角後每段的「每 MU 歷史數」一樣，總劑量可以一次換算
+    hist = _split(histories, [mu * sh for (_cp, mu), sh in zip(states, share, strict=True)])
+    hist_ef = [int(round(h * se / sh)) if sh > 0 else 0 for h, se, sh in zip(hist, shares_e, share, strict=True)]
+    hist_pr = [h - e for h, e in zip(hist, hist_ef, strict=True)]
+    m_equiv = sum(h / sh for h, sh in zip(hist, share, strict=True) if sh > 0)
     rx, ry, rz = [], [], []
     for cp, _ in states:
         a, b, c = topas_euler(bld_to_lps(cp.gantry_deg, cp.collimator_deg, cp.couch_deg, beam.patient_position))
@@ -274,10 +389,14 @@ def beam_parameters(
             "d:Ge/Head/RotY = Tf/HeadRotY/Value deg",
             "d:Ge/Head/RotZ = Tf/HeadRotZ/Value deg",
         ]
-    energies, weights = p["spectrum_mev"], p["spectrum_weights"]
+    # 最前面補一個權重 0 的能階：TOPAS 4.3 離散能譜抽樣在亂數落在第一格時會讀到陣列的第 −1 個值
+    # （`TsVGenerator::SetEnergy` 的 while 先比較再檢查 j ≥ 0），讀到的垃圾值偶爾讓能量變負、整個執行中止
+    # （2026-10-12 實測）。第一格權重 0 → 累積值 0 < 亂數，迴圈一定停在 j ＝ 0；抽到的分佈不變
+    energies = [float(p["spectrum_mev"][0]), *p["spectrum_mev"]]
+    weights = [0.0, *p["spectrum_weights"]]
 
     def source(
-        name: str, z_mm: float, sigma_mm: float, half_x_deg: float, half_y_deg: float, counts: list[int]
+        name: str, z_mm: float, sigma_mm: float, cones: list[tuple[float, float]], counts: list[int]
     ) -> list[str]:
         out = [
             f's:Ge/{name}Pos/Type = "Group"',
@@ -296,10 +415,29 @@ def beam_parameters(
             f"d:So/{name}/BeamPositionCutoffY = {3 * sigma_mm} mm",
             f"d:So/{name}/BeamPositionSpreadX = {sigma_mm} mm",
             f"d:So/{name}/BeamPositionSpreadY = {sigma_mm} mm",
-            f's:So/{name}/BeamAngularDistribution = "Flat"',
-            f"d:So/{name}/BeamAngularCutoffX = {half_x_deg:.6f} deg",
-            f"d:So/{name}/BeamAngularCutoffY = {half_y_deg:.6f} deg",
         ]
+        if n_steps == 1:
+            out += [
+                f"d:So/{name}/BeamAngularCutoffX = {_cutoff_deg(cones[0][0]):.6f} deg",
+                f"d:So/{name}/BeamAngularCutoffY = {_cutoff_deg(cones[0][1]):.6f} deg",
+            ]
+        else:
+            out += _step(f"{name}ConeX", [_cutoff_deg(c[0]) for c in cones], "deg")
+            out += _step(f"{name}ConeY", [_cutoff_deg(c[1]) for c in cones], "deg")
+            out += [
+                f"d:So/{name}/BeamAngularCutoffX = Tf/{name}ConeX/Value deg",
+                f"d:So/{name}/BeamAngularCutoffY = Tf/{name}ConeY/Value deg",
+            ]
+        if name == "Primary" and p.get("angular_sigma_deg"):
+            # FFF：通量往外掉 —— 高斯角分佈（σ 是模型參數），範圍外截斷
+            sig = float(p["angular_sigma_deg"])
+            out += [
+                f's:So/{name}/BeamAngularDistribution = "Gaussian"',
+                f"d:So/{name}/BeamAngularSpreadX = {sig} deg",
+                f"d:So/{name}/BeamAngularSpreadY = {sig} deg",
+            ]
+        else:
+            out.append(f's:So/{name}/BeamAngularDistribution = "Flat"')
         if n_steps == 1:
             out.append(f"i:So/{name}/NumberOfHistoriesInRun = {counts[0]}")
         else:
@@ -308,25 +446,9 @@ def beam_parameters(
             out.append(f"i:So/{name}/NumberOfHistoriesInRun = Tf/{name}Count/Value")
         return out
 
-    deg = math.degrees
-    L += source(
-        "Primary",
-        sad,
-        float(p["focal_spot_sigma_mm"]),
-        deg(math.atan(ext_x / sad)),
-        deg(math.atan(ext_y / sad)),
-        hist_pr,
-    )
+    L += source("Primary", sad, float(p["focal_spot_sigma_mm"]), cones_p, hist_pr)
     if ef_frac > 0:
-        z_ef = sad - float(ef["distance_below_target_mm"])
-        L += source(
-            "ExtraFocal",
-            z_ef,
-            float(ef["sigma_mm"]),
-            deg(math.atan((ext_x + 3 * ef["sigma_mm"]) / z_ef)),
-            deg(math.atan((ext_y + 3 * ef["sigma_mm"]) / z_ef)),
-            hist_ef,
-        )
+        L += source("ExtraFocal", z_ef, float(ef["sigma_mm"]), cones_e, hist_ef)
     col = p["collimators"]
 
     def jaw(name: str, spec: dict[str, Any], axis: str, neg: list[float], pos: list[float]) -> list[str]:
@@ -343,7 +465,7 @@ def beam_parameters(
             f"d:Ge/{name}/TransZ = {sad - susd - thick / 2} mm",
             f"d:Ge/{name}/RotZ = {0 if axis == 'x' else -90} deg",
         ]
-        if n_steps == 1:
+        if n_steps == 1 or (len(set(neg)) == 1 and len(set(pos)) == 1):
             out += [
                 f"d:Ge/{name}/NegativeFieldSetting = {neg[0]} mm",
                 f"d:Ge/{name}/PositiveFieldSetting = {pos[0]} mm",
@@ -356,50 +478,75 @@ def beam_parameters(
             ]
         return out
 
-    L += jaw("JawY", col["jaw_y"], "y", [cp.jaw_y[0] for cp, _ in states], [cp.jaw_y[1] for cp, _ in states])
-    L += jaw("JawX", col["jaw_x"], "x", [cp.jaw_x[0] for cp, _ in states], [cp.jaw_x[1] for cp, _ in states])
-    if beam.leaf_boundaries_mm and states[0][0].mlc_a is not None:
-        spec = col["mlc"]
-        bounds = beam.leaf_boundaries_mm
+    for key, axis in (("fixed_y", "y"), ("fixed_x", "x")):
+        if key in col:  # 固定的主準直器：開口不跟控制點走
+            h = float(col[key]["half_field_mm"])
+            L += jaw("Fixed" + axis.upper(), col[key], axis, [-h] * n_steps, [h] * n_steps)
+    if "jaw_y" in col:
+        L += jaw("JawY", col["jaw_y"], "y", [cp.jaw_y[0] for cp, _ in states], [cp.jaw_y[1] for cp, _ in states])
+    if "jaw_x" in col:
+        L += jaw("JawX", col["jaw_x"], "x", [cp.jaw_x[0] for cp, _ in states], [cp.jaw_x[1] for cp, _ in states])
+
+    def mlc(
+        name: str, spec: dict[str, Any], bounds: list[float], rows_a: list[list[float]], rows_b: list[list[float]]
+    ) -> list[str]:
         if abs(bounds[0] + bounds[-1]) > 1e-3:
             raise ValueError("MLC 葉片邊界不對稱：還不支援")
         widths = [b - a for a, b in zip(bounds, bounds[1:], strict=False)]
         n_leaves = len(widths)
         susd, thick = float(spec["source_to_upstream_mm"]), float(spec["thickness_mm"])
-        L += [
-            's:Ge/MLC/Type = "TsDivergingMLC"',
-            's:Ge/MLC/Parent = "Head"',
-            f's:Ge/MLC/Material = "{spec["material"]}"',
-            f"d:Ge/MLC/SAD = {sad} mm",
-            f"d:Ge/MLC/SourceToUpstreamSurfaceDistance = {susd} mm",
-            f"d:Ge/MLC/Thickness = {thick} mm",
-            f"d:Ge/MLC/Length = {spec['leaf_length_mm']} mm",
-            "d:Ge/MLC/MaximumLeafOpen = 250 mm",
-            's:Ge/MLC/LeafTravelAxis = "Xb"',
-            "d:Ge/MLC/RotZ = 0 deg",
-            f"d:Ge/MLC/TransZ = {sad - susd - thick / 2} mm",
-            f"dv:Ge/MLC/LeafWidths = {n_leaves} " + " ".join(f"{w:g}" for w in widths) + " mm",
+        out = [
+            f's:Ge/{name}/Type = "TsDivergingMLC"',
+            f's:Ge/{name}/Parent = "Head"',
+            f's:Ge/{name}/Material = "{spec["material"]}"',
+            f"d:Ge/{name}/SAD = {sad} mm",
+            f"d:Ge/{name}/SourceToUpstreamSurfaceDistance = {susd} mm",
+            f"d:Ge/{name}/Thickness = {thick} mm",
+            f"d:Ge/{name}/Length = {spec['leaf_length_mm']} mm",
+            f"d:Ge/{name}/MaximumLeafOpen = 250 mm",
+            f's:Ge/{name}/LeafTravelAxis = "Xb"',
+            f"d:Ge/{name}/RotZ = 0 deg",
+            f"d:Ge/{name}/TransZ = {sad - susd - thick / 2} mm",
+            f"dv:Ge/{name}/LeafWidths = {n_leaves} " + " ".join(f"{w:g}" for w in widths) + " mm",
         ]
-        neg_rows = [[min(a, b) for a, b in zip(cp.mlc_a, cp.mlc_b, strict=True)] for cp, _ in states]  # type: ignore[arg-type]
-        pos_rows = [[max(a, b) for a, b in zip(cp.mlc_a, cp.mlc_b, strict=True)] for cp, _ in states]  # type: ignore[arg-type]
+        neg_rows = [[min(a, b) for a, b in zip(ra, rb, strict=True)] for ra, rb in zip(rows_a, rows_b, strict=True)]
+        pos_rows = [[max(a, b) for a, b in zip(ra, rb, strict=True)] for ra, rb in zip(rows_a, rows_b, strict=True)]
         if n_steps == 1:
-            L += [
-                f"dv:Ge/MLC/NegativeFieldSetting = {n_leaves} " + " ".join(f"{v:.4g}" for v in neg_rows[0]) + " mm",
-                f"dv:Ge/MLC/PositiveFieldSetting = {n_leaves} " + " ".join(f"{v:.4g}" for v in pos_rows[0]) + " mm",
+            out += [
+                f"dv:Ge/{name}/NegativeFieldSetting = {n_leaves} " + " ".join(f"{v:.4g}" for v in neg_rows[0]) + " mm",
+                f"dv:Ge/{name}/PositiveFieldSetting = {n_leaves} " + " ".join(f"{v:.4g}" for v in pos_rows[0]) + " mm",
             ]
         else:
             neg_refs, pos_refs = [], []
             for leaf in range(n_leaves):
-                L += _step(f"LeafN{leaf}", [r[leaf] for r in neg_rows], "mm") + _step(
-                    f"LeafP{leaf}", [r[leaf] for r in pos_rows], "mm"
-                )
-                neg_refs.append(f"Tf/LeafN{leaf}/Value")
-                pos_refs.append(f"Tf/LeafP{leaf}/Value")
-            L += [
-                f"dv:Ge/MLC/NegativeFieldSetting = {n_leaves} " + " ".join(neg_refs) + " mm",
-                f"dv:Ge/MLC/PositiveFieldSetting = {n_leaves} " + " ".join(pos_refs) + " mm",
+                out += _step(f"{name}N{leaf}", [r[leaf] for r in neg_rows], "mm")
+                out += _step(f"{name}P{leaf}", [r[leaf] for r in pos_rows], "mm")
+                neg_refs.append(f"Tf/{name}N{leaf}/Value")
+                pos_refs.append(f"Tf/{name}P{leaf}/Value")
+            out += [
+                f"dv:Ge/{name}/NegativeFieldSetting = {n_leaves} " + " ".join(neg_refs) + " mm",
+                f"dv:Ge/{name}/PositiveFieldSetting = {n_leaves} " + " ".join(pos_refs) + " mm",
             ]
-    return "\n".join(L), sum(hist)
+        return out
+
+    devices = beam.mlc_devices or (["MLCX"] if beam.leaf_boundaries_mm else [])
+    if beam.leaf_boundaries_mm and states[0][0].mlc_a is not None:
+        L += mlc(
+            "MLC",
+            col[devices[0]],
+            beam.leaf_boundaries_mm,
+            [cp.mlc_a for cp, _ in states],
+            [cp.mlc_b for cp, _ in states],
+        )  # type: ignore[misc]
+    if beam.leaf2_boundaries_mm and states[0][0].mlc2_a is not None:
+        L += mlc(
+            "MLC2",
+            col["MLCX2"],
+            beam.leaf2_boundaries_mm,
+            [cp.mlc2_a for cp, _ in states],
+            [cp.mlc2_b for cp, _ in states],
+        )  # type: ignore[misc]
+    return "\n".join(L), sum(hist), m_equiv
 
 
 def patient_parameters(inp: CalcInput, data_file: str) -> str:
@@ -506,6 +653,9 @@ def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
     seed = int(inp.options.get("seed") or 1)
     nthreads = threads()
     progress("preparing", 0.0, "patient")
+    out_grid = inp.dose_grid
+    grid = calc_grid(out_grid, inp.options.get("calc_spacing_mm"))
+    inp = dataclasses.replace(inp, dose_grid=grid)
     codes, rho, mat, pinfo = patient_on_grid(inp)
     codes.tofile(wd / "patient.dat")
     shape = codes.shape
@@ -525,7 +675,7 @@ def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
     world_hl = float(max(np.abs(corners).max(), np.abs(iso_all).max()) + max(b.sad_mm for b in beams) + 300.0)
     lost_hits, lost_mev = 0, 0.0
     for beam in beams:
-        text, n_hist = beam_parameters(
+        text, n_hist, m_equiv = beam_parameters(
             beam, model, per_beam_hist[beam.number], iso=tuple(beam.isocenter_lps), world_hl_mm=world_hl
         )
         name = f"beam_{beam.number}"
@@ -546,18 +696,28 @@ def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
         if not (wd / f"{name}.bin").exists():
             raise RuntimeError(f"OpenTOPAS 沒有寫出 {name} 的劑量")
         s, sd = read_dose(wd / f"{name}.bin", shape)
-        scale = beam.mu * hpm / n_hist * inp.delivery.fractions
+        scale = beam.mu * hpm / m_equiv * inp.delivery.fractions
         per_beam[beam.number] = (s * scale).astype(np.float32)
         var_total += (sd * math.sqrt(n_hist) * scale) ** 2
         done_before += n_hist
-    dose = np.sum(list(per_beam.values()), axis=0)
-    with np.errstate(invalid="ignore", divide="ignore"):
-        unc = np.where(dose > 0, np.sqrt(var_total) / dose, np.nan).astype(np.float32)
     # 中心是空氣（Schneider 第 1 段）的邊緣體素也不報：半空氣、質量小、雜訊大
     air = (rho < AIR_DENSITY_LIMIT) | (mat == 0)
-    dose = np.where(air, np.nan, dose)
-    unc = np.where(air, np.nan, unc)
-    per_beam = {n: np.where(air, np.nan, v).astype(np.float32) for n, v in per_beam.items()}
+    numbers = list(per_beam)
+    dose = np.where(air, np.nan, np.sum(list(per_beam.values()), axis=0))
+    sigma = np.where(air, np.nan, np.sqrt(var_total))
+    per_list = [np.where(air, np.nan, per_beam[n]) for n in numbers]
+    if grid is not out_grid:
+        # 粗網格 → 輸出網格。σ 直接內插是保守的（相鄰體素的雜訊獨立，內插值的 σ 其實更小）；
+        # 空氣再照輸出網格自己的密度判一次
+        dose, sigma, *per_list = to_output([dose, sigma, *per_list], grid, out_grid)
+        _c, rho_o, mat_o, _i = patient_on_grid(dataclasses.replace(inp, dose_grid=out_grid))
+        air = (rho_o < AIR_DENSITY_LIMIT) | (mat_o == 0)
+        dose = np.where(air, np.nan, dose)
+        per_list = [np.where(air, np.nan, v) for v in per_list]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        unc = np.where(dose > 0, sigma / dose, np.nan).astype(np.float32)
+    unc = np.where(np.isnan(dose), np.nan, unc).astype(np.float32)
+    per_beam = {n: v.astype(np.float32) for n, v in zip(numbers, per_list, strict=True)}
     return CalcResult(
         dose_gy=dose.astype(np.float32),
         uncertainty=unc,
@@ -575,6 +735,7 @@ def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
             "unscored_hits": lost_hits,
             "unscored_mev": lost_mev,
             "air_voxels": int(air.sum()),
+            "calc_grid": {"size": list(grid.size), "spacing_mm": list(grid.spacing)},
             "notes": [AIR_NOTE],
         },
     )
@@ -604,7 +765,23 @@ def calibration(model: dict[str, Any], cache_dir: Path, *, progress: Any = None,
             ControlPoint(1.0, 0.0, 0.0, 0.0, (-half, half), (-half, half)),
         ],
     )  # fmt: skip
-    text, n_hist = beam_parameters(ref_beam, model, CALIBRATION_HISTORIES, iso=(0.0, 0.0, 0.0), world_hl_mm=ssd + 600.0)
+    if "jaw_x" not in model["params"]["collimators"]:
+        # 沒有 jaw 的機型（雙層 MLC）：參考射野用 MLC 開出來，兩層都開 ±half
+        leaves = model["params"]["calibration_leaves"]
+        ref_beam.mlc_devices = list(model.get("mlc_devices") or [])
+
+        def opening(bounds: list[float]) -> tuple[list[float], list[float]]:
+            mids = [(a + b) / 2 for a, b in zip(bounds, bounds[1:], strict=False)]
+            return [-half if abs(m) < half else 0.0 for m in mids], [half if abs(m) < half else 0.0 for m in mids]
+
+        ref_beam.leaf_boundaries_mm = leaves["MLCX1"]
+        ref_beam.leaf2_boundaries_mm = leaves["MLCX2"]
+        for cp in ref_beam.control_points:
+            cp.mlc_a, cp.mlc_b = opening(leaves["MLCX1"])
+            cp.mlc2_a, cp.mlc2_b = opening(leaves["MLCX2"])
+    text, n_hist, m_equiv = beam_parameters(
+        ref_beam, model, CALIBRATION_HISTORIES, iso=(0.0, 0.0, 0.0), world_hl_mm=ssd + 600.0
+    )
     # 水箱 40 × 40 × 30 cm，表面在等中心（SSD ＝ SAD）；射束往 LPS +y（機架 0°、HFS），深度沿 +y
     phantom = "\n".join(
         [
@@ -640,7 +817,7 @@ def calibration(model: dict[str, Any], cache_dir: Path, *, progress: Any = None,
     axis = s[19:21, :, 19:21].mean(axis=(0, 2))  # 每 2 mm 深度
     smooth = np.convolve(axis, np.ones(3) / 3, mode="same")
     j = int(np.argmax(smooth[1:-1])) + 1
-    d_per_hist = float(smooth[j]) / n_hist
+    d_per_hist = float(smooth[j]) / m_equiv  # 每個「參考錐角」歷史的劑量
     hpm = float(c["gy_per_mu"]) / d_per_hist
     doc = {
         "model_id": model["model_id"],

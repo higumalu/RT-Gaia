@@ -24,6 +24,7 @@ export interface DosecalcSummary {
   readonly beam_model: { readonly model_id: string; readonly name: string; readonly demo: boolean };
   readonly dose_grid: 'tps' | 'ct';
   readonly dose_grid_voxels: number;
+  readonly calc_spacing_mm?: number | null;
   readonly engine: string;
 }
 
@@ -38,7 +39,12 @@ export interface DosecalcJob {
   readonly finished_at: string | null;
   readonly summary: DosecalcSummary;
   readonly loaded: readonly string[];
-  readonly dosecalc?: { readonly engine: string; readonly seconds: number; readonly histories: number };
+  readonly dosecalc?: {
+    readonly engine: string;
+    readonly seconds: number;
+    readonly histories: number;
+    readonly uncertainty?: { readonly median_rel_50: number | null; readonly max_rel_50: number | null } | null;
+  };
 }
 
 export const ENGINE_LABEL: Record<string, string> = {
@@ -55,6 +61,14 @@ export const HISTORY_PRESETS: readonly { value: number; label: string }[] = [
   { value: 2_000_000, label: msg('快速（2 百萬個歷史）') },
   { value: 20_000_000, label: msg('標準（2 千萬個歷史）') },
   { value: 100_000_000, label: msg('精細（1 億個歷史）') },
+];
+
+/** Monte Carlo 計分網格：粗一點雜訊少（∝ 體素體積的 −1/2 次方）、跑得快，結果內插回劑量網格；`null` ＝ 直接算在劑量網格上。 */
+export const CALC_SPACINGS: readonly { value: number | null; label: string }[] = [
+  { value: 4, label: msg('計算網格 4 mm（建議）') },
+  { value: 3, label: msg('計算網格 3 mm') },
+  { value: 5, label: msg('計算網格 5 mm') },
+  { value: null, label: msg('計算網格跟劑量網格相同') },
 ];
 
 /** 這份計畫的工作，最新的在前。 */
@@ -81,6 +95,20 @@ export function summaryNotes(s: DosecalcSummary): string[] {
   out.push(t('射束模型：{name}', { name: s.beam_model.name }) + (s.beam_model.demo ? t('（示範用，不代表任何實機）') : ''));
   out.push(t('CT 校正曲線：{name}', { name: s.calibration.name }) + (s.calibration_fallback ? ` — ${s.calibration_reason}` : ''));
   out.push(s.dose_grid === 'tps' ? t('劑量網格：跟 TPS 劑量相同（{n} 個體素）', { n: s.dose_grid_voxels.toLocaleString() }) : t('劑量網格：CT 範圍（{n} 個體素）', { n: s.dose_grid_voxels.toLocaleString() }));
+  if (s.calc_spacing_mm) out.push(t('Monte Carlo 算在 {mm} mm 的網格上，再內插回劑量網格', { mm: s.calc_spacing_mm }));
   out.push(t('{beams} 個射束、共 {mu} MU、{fx} 次（結果是全部分次的劑量）', { beams: s.beams.length, mu: Math.round(s.total_mu), fx: s.fractions }));
+  return out;
+}
+
+/** 統計不確定度的中位數超過這個值就提醒：γ 3% 的判準下，雜訊本身就會造成失敗。 */
+export const NOISY_UNCERTAINTY = 0.03;
+
+/** 完成的工作的統計不確定度（高劑量區）：一行說明 ＋ 雜訊偏大時的提醒。沒有（測試引擎、舊工作）回空陣列。 */
+export function uncertaintyNotes(j: Pick<DosecalcJob, 'status' | 'dosecalc'>): { text: string; noisy: boolean }[] {
+  const u = j.status === 'done' ? j.dosecalc?.uncertainty : null;
+  if (!u || u.median_rel_50 === null || u.max_rel_50 === null) return [];
+  const pct = (v: number): string => (v * 100).toFixed(1);
+  const out = [{ text: t('統計不確定度（1σ，劑量 ≥ 50% 的區域）：中位數 {med}%、最大 {max}%', { med: pct(u.median_rel_50), max: pct(u.max_rel_50) }), noisy: false }];
+  if (u.median_rel_50 > NOISY_UNCERTAINTY) out.push({ text: t('雜訊偏大：γ 的失敗有一部分是統計雜訊。可以加歷史數或用較粗的計算網格再算一次'), noisy: true });
   return out;
 }

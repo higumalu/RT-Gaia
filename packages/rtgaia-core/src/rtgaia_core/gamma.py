@@ -50,8 +50,20 @@ DEFAULT_MAX_GAMMA = 2.0
 DEFAULT_RESOLUTION = 5
 MAX_OFFSETS = 40_000
 """搜尋球的格點數上限（`max_gamma` 3、`resolution` 10 → 約 11 萬點，擋掉）。"""
-CHUNK_POINTS = 400_000
-"""一次處理的參考點數（記憶體 ≈ 點數 × 3 個 float64 座標）。"""
+CHUNK_POINTS = 50_000
+"""一塊的參考點數（一個執行緒一次處理一塊；記憶體 ≈ 點數 × 3 個 float64 座標）。"""
+
+
+def threads() -> int:
+    """γ 用幾個執行緒（`RTGAIA_GAMMA_THREADS`，預設 CPU 數的一半、最多 16）。"""
+    import os
+
+    raw = os.environ.get("RTGAIA_GAMMA_THREADS", "").strip()
+    if raw.isdigit() and int(raw) > 0:
+        return int(raw)
+    return max(1, min(16, (os.cpu_count() or 2) // 2))
+
+
 HISTOGRAM_BINS = 40
 REFINE_ROUNDS = 2
 _NEIGHBORS = np.array(
@@ -196,7 +208,8 @@ def gamma_3d(
     radius = c.max_gamma * c.dta_mm
     gamma2_all = np.empty(n, dtype=np.float64)
     zero_diff = np.full(n, np.nan, dtype=np.float64)
-    for start in range(0, n, CHUNK_POINTS):
+
+    def chunk(start: int) -> None:
         sl = slice(start, min(n, start + CHUNK_POINTS))
         pk, pj, pi = kk[sl], jj[sl], ii[sl]
         r = ref[pk, pj, pi].astype(np.float64)
@@ -254,6 +267,18 @@ def gamma_3d(
                 best_off[upd] = cand[inside][ok][better]
         best = np.where(seen, np.minimum(best, gmax2), np.nan)
         gamma2_all[sl] = best
+
+    # 每塊各自獨立（只寫自己那一段），scipy 的內插會釋放 GIL → 多執行緒真的平行；結果跟單執行緒逐位元相同
+    starts = list(range(0, n, CHUNK_POINTS))
+    workers = max(1, min(threads(), len(starts)))
+    if workers == 1:
+        for st in starts:
+            chunk(st)
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(workers) as ex:
+            list(ex.map(chunk, starts))
     gamma = np.sqrt(gamma2_all)
     out[kk, jj, ii] = gamma.astype(np.float32)
     # 失敗點的說明：參考劑量的梯度（Gy／mm）

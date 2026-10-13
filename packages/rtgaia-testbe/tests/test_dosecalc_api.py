@@ -57,6 +57,7 @@ def test_submit_run_load_gamma_and_save(case, env) -> None:  # type: ignore[no-u
         assert summ["fractions"] == 2 and summ["total_mu"] == 750 and len(summ["beams"]) == 3
         assert summ["calibration_fallback"] is True and summ["beam_model"]["demo"] is True
         assert summ["dose_grid"] == "ct" and "通用曲線" in summ["calibration_reason"]
+        assert summ["calc_spacing_mm"] == 4.0, "預設在 4 mm 網格上算、再內插回輸出網格"
         row = _wait(s, base, job["job_id"])
         assert row["status"] == "done", row
         assert row["dosecalc"]["engine"] == "pipeline-test" and row["dosecalc"]["beams"] == [1, 2, 3]
@@ -113,6 +114,8 @@ def test_refusals_and_cancel(case, env, tmp_path: Path) -> None:  # type: ignore
             ({"plan_sop_uid": plan, "engine": "nope"}, "422"),
             ({"plan_sop_uid": plan, "engine": "pipeline-test", "histories": 5}, "422"),
             ({"plan_sop_uid": plan, "engine": "pipeline-test", "grid": "x"}, "422"),
+            ({"plan_sop_uid": plan, "engine": "pipeline-test", "calc_spacing_mm": 20}, "422"),
+            ({"plan_sop_uid": plan, "engine": "pipeline-test", "calc_spacing_mm": "4"}, "422"),
             ({}, "422"),
         ):
             with pytest.raises(RuntimeError, match=code):

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { isActive, jobsForPlan, jobStatusText, summaryNotes, type DosecalcJob, type DosecalcSummary } from '../src/react/modules/plan/dosecalcModel';
+import { isActive, jobsForPlan, jobStatusText, summaryNotes, uncertaintyNotes, type DosecalcJob, type DosecalcSummary } from '../src/react/modules/plan/dosecalcModel';
 
 const summary: DosecalcSummary = {
   plan_sop_uid: 'P',
@@ -38,5 +38,17 @@ describe('重算劑量', () => {
     expect(notes[1]).toContain('沒有符合的曲線');
     expect(notes[2]).toContain('TPS');
     expect(notes[3]).toContain('2 次');
+    const coarse = summaryNotes({ ...summary, calc_spacing_mm: 4 });
+    expect(coarse[3]).toContain('4 mm');
+    expect(coarse[4]).toContain('2 次');
+  });
+  it('統計不確定度：中位數與最大；超過 3% 提醒雜訊', () => {
+    const done = (median: number) => job({ dosecalc: { engine: 'topas', seconds: 1, histories: 1, uncertainty: { median_rel_50: median, max_rel_50: 0.2 } } });
+    expect(uncertaintyNotes(done(0.012)).map((n) => n.text)).toEqual([expect.stringContaining('1.2%')]);
+    const noisy = uncertaintyNotes(done(0.08));
+    expect(noisy).toHaveLength(2);
+    expect(noisy[1]!.noisy).toBe(true);
+    expect(uncertaintyNotes(job({ status: 'running' }))).toEqual([]);
+    expect(uncertaintyNotes(job({ dosecalc: { engine: 'pipeline-test', seconds: 1, histories: 1, uncertainty: null } }))).toEqual([]);
   });
 });

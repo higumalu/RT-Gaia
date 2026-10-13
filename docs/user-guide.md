@@ -577,10 +577,12 @@ With **Show ISO on images** (on by default), isocenters are drawn in every 2D ce
 - Choose the engine: **OpenTOPAS (Geant4) Monte Carlo**, or the **Pipeline test engine (not a dose calculation)** when the administrator has enabled it for testing. An engine that is not available on the server is listed with the reason.
 - **Dose grid**: **Same grid as the TPS dose** (when the case contains a dose that references the plan) or **CT extent, 2.5 mm**.
 - **Statistics**: **Quick (2 million histories)**, **Standard (20 million histories)** or **Fine (100 million histories)**. More histories give a smaller statistical uncertainty and take longer, roughly in proportion. Use Standard or Fine for comparisons; Quick results are noisy, especially on a 2.5 mm grid.
+- **Calculation grid**: **4 mm (recommended)**, **3 mm**, **5 mm** or **same as the dose grid**. The Monte Carlo dose is scored on this grid and then interpolated to the dose grid. The statistical noise falls with the voxel volume (a 4 mm grid has about half the noise of a 2.5 mm grid for the same histories) and the run is faster; the cost is that the penumbra is averaged over the larger voxels.
 - Click **Recalculate dose**. The job lists what it uses: the beam model, the CT calibration (and why it was chosen), the dose grid, and the beams, MU and fractions. The calculation runs on the server; the progress bar follows it and **Cancel** stops it.
-- When it is done, **Load result** adds the dose of all fractions to the **Dose** panel as a temporary result, plus one dose per beam (hidden) when the plan has several beams. Compare it with the TPS dose with **Gamma comparison**, add both to the DVH, or save it as RTDOSE (the derivation description names the engine, beam model, CT calibration and number of histories).
+- When it is done, the job shows the statistical uncertainty (1σ) where the dose is at least 50% of the maximum: the median and the maximum. When the median is above 3% it warns that the result is noisy, because noise alone then makes points fail a 3% gamma criterion; run again with more histories or a coarser calculation grid.
+- **Load result** adds the dose of all fractions to the **Dose** panel as a temporary result, plus one dose per beam (hidden) when the plan has several beams. Compare it with the TPS dose with **Gamma comparison**, add both to the DVH, or save it as RTDOSE (the derivation description names the engine, beam model, CT calibration and number of histories).
 
-Plans that cannot be calculated are refused with every reason listed: non-photon beams, wedges, blocks, compensators, bolus, applicators, gantry pitch, couch pitch or roll, collimator or couch angles that change within a beam, dual-layer MLCs (for example Halcyon), unknown beam limiting devices, beams without MU, unsupported patient positions, and beams whose energy and fluence mode have no beam model (the built-in model is 6 MV with a flattening filter). No dose is reported in voxels whose centre is air.
+The built-in demo beam models are 6 MV with a flattening filter (single-layer MLC and jaws), 6 MV flattening-filter-free with a single-layer MLC and jaws, and 6 MV flattening-filter-free with a dual-layer MLC and no jaws (Halcyon-type, with a fixed primary collimator limiting the field to 28 × 28 cm); the model is chosen from the beam's energy, fluence mode and MLC type. Plans that cannot be calculated are refused with every reason listed: non-photon beams, wedges, blocks, compensators, bolus, applicators, gantry pitch, couch pitch or roll, collimator or couch angles that change within a beam, MLCs along Y, unknown beam limiting devices, beams without MU, unsupported patient positions, and beams with no matching beam model. No dose is reported in voxels whose centre is air.
 
 ### Gamma Knife plans
 
@@ -588,7 +590,7 @@ For a Gamma Knife plan the panel shows a shot table (beam-on time, relative weig
 
 ### Limitations
 
-- Plans are shown for review only. RT-Gaia does not calculate dose, does not simulate delivery (leaf speed and dose rate are ignored) and does not check collisions; the gantry sketch is schematic.
+- Apart from **Recalculate dose**, plans are shown for review only: RT-Gaia does not simulate delivery (leaf speed and dose rate are ignored) and does not check collisions; the gantry sketch is schematic.
 - Gantry pitch, couch pitch or roll and unrecognized patient positions are not supported for the DRR; RT-Gaia says so instead of drawing a wrong image.
 
 ## 3D view

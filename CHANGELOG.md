@@ -64,7 +64,10 @@ First public release candidate. RT-Gaia is research software; it is not a medica
 - Dose recalculation of photon plans with OpenTOPAS (Geant4) Monte Carlo in a container: static, step-and-shoot
   and VMAT beams with jaws and MLC, MU-weighted control points, MU calibration from a simulated reference field,
   per-beam doses and per-voxel statistical uncertainty; results load as temporary doses for gamma, DVH and RTDOSE
-  export. Ships with a demo 6 MV beam model only; unsupported plan features are refused with reasons.
+  export. Ships with demo 6 MV beam models (flattened, flattening-filter-free, and flattening-filter-free with a
+  dual-layer MLC); unsupported plan features are refused with reasons. The Monte Carlo dose is scored on a
+  coarser calculation grid (4 mm by default) and interpolated to the dose grid, and each job reports the
+  statistical uncertainty in the high-dose region with a warning when it is too noisy for a 3% comparison.
 - CT calibration curves for dose calculation (HU → mass density and material): a built-in generic
   Schneider 2000 curve marked as demo, administrator-managed curves from phantom tables with draft, active
   and retired states, and matching by scanner manufacturer, model and kVp with the reason shown.

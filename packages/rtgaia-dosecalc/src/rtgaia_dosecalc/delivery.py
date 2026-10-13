@@ -57,8 +57,11 @@ class ControlPoint:
     """X1、X2（等中心平面 mm；X1 是負側）。"""
     jaw_y: tuple[float, float]
     mlc_a: list[float] | None = None
-    """每一對葉片 A 側（X1 側）的位置；None ＝ 沒有 MLC。"""
+    """每一對葉片 A 側（X1 側）的位置；None ＝ 沒有 MLC。雙層 MLC 時是第一層（MLCX1）。"""
     mlc_b: list[float] | None = None
+    mlc2_a: list[float] | None = None
+    """雙層 MLC 的第二層（MLCX2，Halcyon 的上層、跟第一層錯開半片）；單層 MLC 是 None。"""
+    mlc2_b: list[float] | None = None
 
 
 @dataclass
@@ -74,8 +77,11 @@ class Beam:
     mu: float
     control_points: list[ControlPoint]
     leaf_boundaries_mm: list[float] | None = None
-    """MLC 葉片的邊界（沿 y，`N+1` 個值）。"""
+    """MLC 葉片的邊界（沿 y，`N+1` 個值）。雙層 MLC 時是第一層。"""
     machine: str = ""
+    mlc_devices: list[str] = field(default_factory=list)
+    """這個射束的 MLC 裝置（`["MLCX"]`、`["MLCX1", "MLCX2"]` 或空）—— 挑射束模型時要對得上。"""
+    leaf2_boundaries_mm: list[float] | None = None
 
     def source_lps(self, cp: ControlPoint) -> np.ndarray:
         r = bld_to_lps(cp.gantry_deg, 0.0, cp.couch_deg, self.patient_position)
@@ -150,18 +156,26 @@ def interpolate(a: ControlPoint, b: ControlPoint, t: float) -> ControlPoint:
         jaw_y=tuple(lerp(a.jaw_y, b.jaw_y)),  # type: ignore[arg-type]
         mlc_a=lerp(a.mlc_a, b.mlc_a),
         mlc_b=lerp(a.mlc_b, b.mlc_b),
+        mlc2_a=lerp(a.mlc2_a, b.mlc2_a),
+        mlc2_b=lerp(a.mlc2_b, b.mlc2_b),
     )
 
 
 def aperture_open(beam: Beam, cp: ControlPoint, x_iso: np.ndarray, y_iso: np.ndarray) -> np.ndarray:
-    """等中心平面上的點 (x, y)（BLD，mm）在不在開口裡：jaw 的矩形 ∩ MLC 那一列的開口。"""
+    """等中心平面上的點 (x, y)（BLD，mm）在不在開口裡：jaw 的矩形 ∩ 每一層 MLC 那一列的開口
+    （雙層 MLC：兩層都開才算開）。"""
     inside = (x_iso >= cp.jaw_x[0]) & (x_iso <= cp.jaw_x[1]) & (y_iso >= cp.jaw_y[0]) & (y_iso <= cp.jaw_y[1])
-    if cp.mlc_a is None or cp.mlc_b is None or not beam.leaf_boundaries_mm:
-        return inside
-    bounds = np.asarray(beam.leaf_boundaries_mm, dtype=np.float64)
-    row = np.searchsorted(bounds, y_iso, side="right") - 1
-    valid = (row >= 0) & (row < len(cp.mlc_a))
-    rc = np.clip(row, 0, len(cp.mlc_a) - 1)
-    a = np.asarray(cp.mlc_a, dtype=np.float64)[rc]
-    b = np.asarray(cp.mlc_b, dtype=np.float64)[rc]
-    return inside & valid & (x_iso >= a) & (x_iso <= b)
+    for bounds_, a_, b_ in (
+        (beam.leaf_boundaries_mm, cp.mlc_a, cp.mlc_b),
+        (beam.leaf2_boundaries_mm, cp.mlc2_a, cp.mlc2_b),
+    ):
+        if a_ is None or b_ is None or not bounds_:
+            continue
+        bounds = np.asarray(bounds_, dtype=np.float64)
+        row = np.searchsorted(bounds, y_iso, side="right") - 1
+        valid = (row >= 0) & (row < len(a_))
+        rc = np.clip(row, 0, len(a_) - 1)
+        a = np.asarray(a_, dtype=np.float64)[rc]
+        b = np.asarray(b_, dtype=np.float64)[rc]
+        inside = inside & valid & (x_iso >= a) & (x_iso <= b)
+    return inside

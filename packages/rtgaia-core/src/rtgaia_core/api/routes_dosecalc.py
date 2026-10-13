@@ -1,7 +1,8 @@
 """劑量計算（重算 TPS 的計畫）：引擎清單、送出、工作清單、載回結果、取消。
 
 * `GET    /dosecalc/engines`                         ：這台機器上能用的引擎、射束模型
-* `POST   /studies/{study_id}/dosecalc`              ：`{plan_sop_uid, engine?, histories?, grid?}` → `dosecalc` job
+* `POST   /studies/{study_id}/dosecalc`              ：`{plan_sop_uid, engine?, histories?, grid?, calc_spacing_mm?}`
+  → `dosecalc` job
 * `GET    /studies/{study_id}/dosecalc`              ：這個病例的劑量計算工作（狀態、摘要、載回了沒）
 * `POST   /studies/{study_id}/dosecalc/{job_id}/load`：完成的結果 → 暫存劑量（只有發起的人看得到）
 * `DELETE /studies/{study_id}/dosecalc/{job_id}`     ：取消（排隊中或計算中）
@@ -72,6 +73,12 @@ async def submit_dosecalc(study_id: str, body: dict[str, Any], request: Request,
     if grid not in ("tps", "ct"):
         raise _reject("BAD_GRID", ["grid 要是 tps 或 ct"])
     options["grid"] = grid
+    spacing = body.get("calc_spacing_mm", dosecalc_jobs.DEFAULT_CALC_SPACING_MM)
+    if spacing is not None and (
+        isinstance(spacing, bool) or not isinstance(spacing, int | float) or not 1 <= spacing <= 10
+    ):
+        raise _reject("BAD_CALC_SPACING", ["calc_spacing_mm 要是 1–10 的數字，或 null（跟輸出網格相同）"])
+    options["calc_spacing_mm"] = float(spacing) if spacing is not None else None
     calibrations = await calibration_items(app)
     try:
         engine = dosecalc_jobs.engine_choice(body.get("engine"))

@@ -7,8 +7,9 @@
 * 方向：機架 0° 從前（−y）、90° 從病人左（+x）；X1 −50、X2 0 只照病人右（−x）
 * 不確定度：總和的 1σ 由 TOPAS 的每歷史標準差 × √N 換算，數量級對
 * 計畫：合成 6X 計畫（MLC 圓、VMAT 61 個控制點）每個射束的 50% 範圍跟幾何測試引擎重疊 ≥ 0.8
+* 錐角：MU 換算跟發射錐角大小無關；沒有 jaw 的雙層 MLC，MLC 總寬度外面由固定的主準直器擋住
 
-跑法：`uv run pytest packages/rtgaia-testbe/tests/test_dosecalc_topas.py`（約 4 分鐘，24 核）。
+跑法：`uv run pytest packages/rtgaia-testbe/tests/test_dosecalc_topas.py`（約 6 分鐘，24 核）。
 """
 
 from __future__ import annotations
@@ -92,6 +93,21 @@ def test_mu_calibration_and_depth_dose(ap) -> None:  # type: ignore[no-untyped-d
     assert np.all(np.isfinite(u)) and 0.005 < float(np.median(u)) < 0.2
 
 
+def test_dose_does_not_depend_on_the_emission_cone(tmp_path: Path, monkeypatch, ap) -> None:  # type: ignore[no-untyped-def]
+    """同一個 10 × 10 射野，MU 校正用預設的錐角、射束的錐角邊界從 10 mm 放到 60 mm（多出來的粒子打在 jaw 上）
+    → dmax 劑量不變。以前每個歷史的通量跟錐角大小成反比、MU 換算卻沒有扣回來 —— 科部的 Halcyon 計畫因此只算出一半。"""
+    default = beam_models.demo_6x()
+    hpm = topas.calibration(default, tmp_path / "calibration")
+    monkeypatch.setattr(topas, "calibration", lambda *_a, **_k: hpm)
+    wide = beam_models.demo_6x()
+    wide["params"]["field_margin_mm"] = 60.0
+    monkeypatch.setattr(beam_models, "demo_6x", lambda: wide)
+    dose, _ = _water(tmp_path, _water_beam(0.0), 4_000_000)
+    axis = dose[29:31, :, 29:31].mean(axis=(0, 2))
+    smooth = np.convolve(axis, np.ones(3) / 3, mode="same")
+    assert smooth[1:8].max() == pytest.approx(1.0, rel=0.06)
+
+
 def test_field_edges(ap) -> None:  # type: ignore[no-untyped-def]
     dose, _ = ap
     prof = dose[29:31, 20, :].mean(axis=0)  # 深度 102.5 mm、沿 x
@@ -150,3 +166,38 @@ def test_synth_plan_field_shapes_match_geometry(tmp_path: Path) -> None:
     assert np.allclose(mc.dose_gy, sum(mc.per_beam_gy.values()), rtol=1e-5, equal_nan=True)
     assert mc.info["air_voxels"] > 0 and np.isnan(mc.dose_gy[0, 0, 0]), "角落是空氣：不報劑量"
     assert mc.info["unscored_mev"] < 1e-3, "沒計到分的能量應該可以忽略"
+
+
+def test_dual_layer_blocks_outside_the_mlc(tmp_path: Path) -> None:
+    """沒有 jaw 的雙層 MLC：細長射野（x ± 20、y ± 130）的發射錐角是外接橢圓，沿 y 會超出 MLC 的總寬度（± 145）——
+    那裡要靠固定的主準直器擋。以前沒有模型，這段粒子直接打進病人：科部的 Halcyon 計畫在射野兩端多算了 40–60%。"""
+    hu, g = phantoms.water_box((200.0, 200.0, 440.0), 5.0, air_margin_mm=20.0)
+    b1 = [float(v) for v in range(-140, 141, 10)]
+    b2 = [float(v) for v in range(-145, 146, 10)]
+
+    def bank(bounds: list[float]) -> tuple[list[float], list[float]]:
+        rows = [(lo + hi) / 2 for lo, hi in zip(bounds, bounds[1:], strict=False)]
+        return [-20.0 if abs(c) < 130 else 0.0 for c in rows], [20.0 if abs(c) < 130 else 0.0 for c in rows]
+
+    a1, c1 = bank(b1)
+    a2, c2 = bank(b2)
+    cps = [
+        ControlPoint(0.0, 0.0, 0.0, 0.0, (-140.0, 140.0), (-140.0, 140.0), a1, c1, a2, c2),
+        ControlPoint(100.0, 0.0, 0.0, 0.0, (-140.0, 140.0), (-140.0, 140.0), a1, c1, a2, c2),
+    ]
+    beam = Beam(
+        1, "LONG", 6.0, "FFF", 1000.0, (0.0, -100.0, 0.0), "HFS", 100.0, cps,
+        leaf_boundaries_mm=b1, mlc_devices=["MLCX1", "MLCX2"], leaf2_boundaries_mm=b2,
+    )  # fmt: skip
+    inp = CalcInput(
+        engine="topas", delivery=Delivery([beam], fractions=1), ct_hu=hu, ct_grid=g, dose_grid=g,
+        calibration=WATER, beam_model=beam_models.demo_6xfff_dual(), options={"histories": 2_000_000},
+    )  # fmt: skip
+    res = topas.run(inp, tmp_path / "job" / "out", lambda *_a: None)
+    dose = np.nan_to_num(res.dose_gy)
+    z = np.asarray(g.origin[2]) + 5.0 * np.arange(g.size[2])
+    i0 = g.size[0] // 2
+    depth = int(round((-100.0 + 50.0 - g.origin[1]) / 5.0))  # 水下 5 cm
+    prof = dose[:, depth - 1 : depth + 2, i0 - 1 : i0 + 1].mean(axis=(1, 2))
+    inside, outside = prof[np.abs(z) < 100].mean(), prof[(np.abs(z) > 165) & (np.abs(z) < 195)].mean()
+    assert outside < 0.05 * inside, f"MLC 範圍外 {outside:.3f} Gy，射野內 {inside:.3f} Gy"

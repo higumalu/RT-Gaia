@@ -32,6 +32,9 @@ from .blobs import blob_root
 
 DEFAULT_SPACING_MM = 2.5
 MAX_DOSE_VOXELS = 16_000_000
+DEFAULT_CALC_SPACING_MM: float | None = 4.0
+"""Monte Carlo 計分網格的預設間距（mm）：結果再內插回輸出網格（TPS 劑量的網格）。統計雜訊 ∝ 體素體積的 −1/2 次方，
+2.5 mm → 4 mm 雜訊約少一半、病人體素少四倍也跑得快；代價是半影被 4 mm 體素平均掉一點。None ＝ 直接算在輸出網格上。"""
 PROGRESS_EVERY_SECONDS = 1.0
 
 
@@ -92,7 +95,7 @@ def prepare(
     resolved = cc.resolve(calibrations, scanner)
     models = []
     for b in delivery.beams:
-        m, why = beam_models.model_for(b.energy_mv, b.fluence_mode, options.get("beam_model_id"))
+        m, why = beam_models.model_for(b.energy_mv, b.fluence_mode, options.get("beam_model_id"), b.mlc_devices)
         if m is None:
             problems.append(f"{b.name}：{why}")
         else:
@@ -126,7 +129,11 @@ def prepare(
         dose_grid=dose_grid,
         calibration=resolved["calibration"],
         beam_model=model,
-        options={k: v for k, v in options.items() if k in ("histories", "seed", "workers", "target_uncertainty")},
+        options={
+            k: v
+            for k, v in options.items()
+            if k in ("histories", "seed", "workers", "target_uncertainty", "calc_spacing_mm")
+        },
         meta={"plan_sop_uid": plan_sop_uid, "ct_series_id": ct.series_id},
     )
     summary = {
@@ -146,6 +153,7 @@ def prepare(
         "beam_model": {k: model[k] for k in ("model_id", "name", "demo", "energy_mv", "fluence_mode")},
         "dose_grid": "tps" if tps is not None and options.get("grid", "tps") == "tps" else "ct",
         "dose_grid_voxels": dose_grid.voxel_count,
+        "calc_spacing_mm": options.get("calc_spacing_mm"),
         "tps_dose_series_id": tps.series_id if tps is not None else None,
         "engine": engine,
     }
@@ -227,11 +235,15 @@ async def run_dosecalc(app: Any, job: Any) -> None:
         )
         raise RuntimeError(f"劑量計算失敗：{message}")
     result = json.loads((out / "result.json").read_text(encoding="utf-8"))
+    unc = await asyncio.to_thread(
+        lambda: uncertainty_summary(np.load(out / "dose.npy"), np.load(out / "uncertainty.npy"))
+    )
     job.result = {
         **job.result,
         "dosecalc": {
-            k: result.get(k)
-            for k in ("engine", "engine_version", "seconds", "histories", "beams", "uncertainty", "notes")
+            **{k: result.get(k) for k in ("engine", "engine_version", "seconds", "histories", "beams", "notes")},
+            "uncertainty": unc,
+            "calc_grid": result.get("calc_grid"),
         },
     }
 
@@ -244,10 +256,13 @@ def read_result(job: Any) -> CalcResult:
 
 
 def uncertainty_summary(dose: np.ndarray, unc: np.ndarray) -> dict[str, Any]:
-    """不確定度摘要：劑量 ≥ 50% 最大值的體素裡的平均與最大（臨床上看的是高劑量區）。"""
+    """不確定度摘要：劑量 ≥ 50% 參考最大值的體素裡的平均、中位數與最大（臨床上看的是高劑量區）。
+    參考最大值取第 99.5 百分位 —— Monte Carlo 的最大值本身就是雜訊撐出來的，拿它當 100% 會只剩幾個熱點。"""
     finite = np.isfinite(dose) & np.isfinite(unc)
     if not finite.any() or float(np.nanmax(dose)) <= 0:
-        return {"mean_rel_50": None, "max_rel_50": None}
-    hi = finite & (dose >= 0.5 * float(np.nanmax(dose)))
+        return {"mean_rel_50": None, "median_rel_50": None, "max_rel_50": None}
+    hi = finite & (dose >= 0.5 * float(np.percentile(dose[finite], 99.5)))
     u = unc[hi]
-    return {"mean_rel_50": float(u.mean()) if u.size else None, "max_rel_50": float(u.max()) if u.size else None}
+    if not u.size:
+        return {"mean_rel_50": None, "median_rel_50": None, "max_rel_50": None}
+    return {"mean_rel_50": float(u.mean()), "median_rel_50": float(np.median(u)), "max_rel_50": float(u.max())}
