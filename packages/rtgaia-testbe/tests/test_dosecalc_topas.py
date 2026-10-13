@@ -4,10 +4,11 @@
 * MU 校正自洽：10 × 10、SSD 100、水中 dmax 的劑量 ≈ 1 cGy／MU（校正用的就是這個條件）
 * 深度劑量：dmax 在 1–2.5 cm、10 cm 深處約 dmax 的 60–72%（6 MV 典型值）
 * 射野邊緣：10 cm 深處的 50% 在幾何投影 ±55 mm（±1 個 5 mm 體素）
-* 方向：機架 0° 從前（−y）、90° 從病人左（+x）；X1 −50、X2 0 只照病人右（−x）
+* 方向：機架 0° 從前（−y）、90° 從病人左（+x）；X1 −50、X2 0 只照病人右（−x）；Y1 −50、Y2 0 只照下方（−z）
 * 不確定度：總和的 1σ 由 TOPAS 的每歷史標準差 × √N 換算，數量級對
 * 計畫：合成 6X 計畫（MLC 圓、VMAT 61 個控制點）每個射束的 50% 範圍跟幾何測試引擎重疊 ≥ 0.8
 * 錐角：MU 換算跟發射錐角大小無關；沒有 jaw 的雙層 MLC，MLC 總寬度外面由固定的主準直器擋住
+* 動態：機架在轉、jaw 又在動時，動態算一次 ＝ 逐步靜態加總
 
 跑法：`uv run pytest packages/rtgaia-testbe/tests/test_dosecalc_topas.py`（約 6 分鐘，24 核）。
 """
@@ -132,6 +133,18 @@ def test_asymmetric_jaw_opens_patient_right(tmp_path: Path) -> None:
     assert row[(x > -40) & (x < -10)].mean() > 10 * row[(x > 15) & (x < 45)].mean()
 
 
+def test_asymmetric_y_jaw_opens_patient_inferior(tmp_path: Path) -> None:
+    """Y1 −50、Y2 0：HFS、機架 0° 時 BLD −y ＝ 病人下方（−z）。"""
+    beam = _water_beam(0.0)
+    beam.control_points = [
+        ControlPoint(cp.cumulative_mu, 0.0, 0.0, 0.0, (-50.0, 50.0), (-50.0, 0.0)) for cp in beam.control_points
+    ]
+    dose, _ = _water(tmp_path, beam, 1_000_000)
+    col = dose[:, 10, 29:31].mean(axis=1)
+    z = -147.5 + 5 * np.arange(60)
+    assert col[(z > -40) & (z < -10)].mean() > 10 * col[(z > 15) & (z < 45)].mean()
+
+
 def test_synth_plan_field_shapes_match_geometry(tmp_path: Path) -> None:
     case = synth_plan.build(tmp_path / "case")
     d, problems = read_delivery(next((case.root / "RP").glob("*.dcm")))
@@ -201,3 +214,33 @@ def test_dual_layer_blocks_outside_the_mlc(tmp_path: Path) -> None:
     prof = dose[:, depth - 1 : depth + 2, i0 - 1 : i0 + 1].mean(axis=(1, 2))
     inside, outside = prof[np.abs(z) < 100].mean(), prof[(np.abs(z) > 165) & (np.abs(z) < 195)].mean()
     assert outside < 0.05 * inside, f"MLC 範圍外 {outside:.3f} Gy，射野內 {inside:.3f} Gy"
+
+
+def test_jaws_follow_the_gantry_while_they_move(tmp_path: Path) -> None:
+    """機架在轉、jaw 又在動（jaw tracking）：動態算一次 ＝ 每一小段拆成靜態射野分開算再加總。
+    以前用 TOPAS 的 TsJaws：開口一變就整個重建、重建時用射束頭上一步的旋轉 → jaw 落在錯的位置，
+    PROTEAS 的 SRS 計畫只算出 TPS 的 1/4（同一段動態對靜態 0.41）。"""
+    import dataclasses
+
+    hu, g = phantoms.water_box((200.0, 200.0, 200.0), 5.0, air_margin_mm=10.0)
+    jaws = [((-30.0, -5.0), (-20.0, 10.0)), ((-20.0, 5.0), (-10.0, 20.0)), ((-10.0, 15.0), (0.0, 30.0))]
+    cps = [ControlPoint(50.0 * i, 170.0 + 10.0 * i, 0.0, 0.0, jx, jy) for i, (jx, jy) in enumerate(jaws)]
+    beam = Beam(1, "JT", 6.0, "STANDARD", 1000.0, (0.0, 0.0, 0.0), "HFS", 100.0, cps)
+
+    def dose(b: Beam, tag: str, histories: int) -> np.ndarray:
+        inp = CalcInput(
+            engine="topas", delivery=Delivery([b], fractions=1), ct_hu=hu, ct_grid=g, dose_grid=g,
+            calibration=WATER, beam_model=beam_models.demo_6x(), options={"histories": histories},
+        )  # fmt: skip
+        return np.nan_to_num(topas.run(inp, tmp_path / tag / "job" / "out", lambda *_a: None).dose_gy)
+
+    dynamic = dose(beam, "dynamic", 1_500_000)
+    states = topas._states(beam)
+    static = np.zeros_like(dynamic)
+    for n, (cp, mu) in enumerate(states):
+        cps_n = [dataclasses.replace(cp, cumulative_mu=0.0), dataclasses.replace(cp, cumulative_mu=mu)]
+        static += dose(dataclasses.replace(beam, control_points=cps_n, mu=mu), f"s{n}", 300_000)
+    assert len(states) == 10
+    assert dynamic.sum() == pytest.approx(static.sum(), rel=0.05), "動態跟逐步靜態的總劑量一樣"
+    hot = static > 0.5 * static.max()
+    assert float(np.median(dynamic[hot] / static[hot])) == pytest.approx(1.0, abs=0.08)

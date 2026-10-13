@@ -295,10 +295,11 @@ def test_topas_parameters_dual_layer_without_jaws(plan_case: Path, tmp_path: Pat
     text, n, _m = beam_parameters(
         d.beams[2], beam_models.demo_6xfff_dual(), 100_000, iso=(0.0, 0.0, 0.0), world_hl_mm=2000.0
     )
-    assert "Ge/JawX/" not in text and "Ge/JawY/" not in text and text.count('Type = "TsDivergingMLC"') == 2
-    # 固定的主準直器：兩組 TsJaws、開口 ± 140 不跟控制點走（沒有時間序列）
-    assert text.count('Type = "TsJaws"') == 2 and "d:Ge/FixedY/NegativeFieldSetting = -140.0 mm" in text
-    assert "Tf/FixedX" not in text and "d:Ge/FixedX/PositiveFieldSetting = 140.0 mm" in text
+    assert "Ge/JawX/" not in text and "Ge/JawY/" not in text and "TsJaws" not in text
+    # 兩層 MLC ＋ 固定的主準直器（兩對單片的 TsDivergingMLC、開口 ± 140 不跟控制點走，沒有時間序列）
+    assert text.count('Type = "TsDivergingMLC"') == 4
+    assert "dv:Ge/FixedY/NegativeFieldSetting = 1 -140.0 mm" in text and 's:Ge/FixedY/LeafTravelAxis = "Yb"' in text
+    assert "Tf/FixedX" not in text and "dv:Ge/FixedX/PositiveFieldSetting = 1 140.0 mm" in text
     assert "Ge/MLC2/LeafWidths = 29" in text and "Ge/MLC/LeafWidths = 28" in text
     assert 's:So/Primary/BeamAngularDistribution = "Gaussian"' in text and n == 100_000
     text6, _, _ = beam_parameters(
@@ -308,7 +309,9 @@ def test_topas_parameters_dual_layer_without_jaws(plan_case: Path, tmp_path: Pat
         iso=(0.0, 0.0, 0.0),
         world_hl_mm=2000.0,
     )
-    assert text6.count('Type = "TsJaws"') == 2 and '"Flat"' in text6
+    # jaw 也是 TsDivergingMLC（單片；TsJaws 重建時會落在上一步的旋轉）
+    assert "TsJaws" not in text6 and text6.count('Type = "TsDivergingMLC"') == 3 and '"Flat"' in text6
+    assert 's:Ge/JawY/LeafTravelAxis = "Yb"' in text6 and 's:Ge/JawX/LeafTravelAxis = "Xb"' in text6
 
 
 def test_cone_geometry_and_mass() -> None:

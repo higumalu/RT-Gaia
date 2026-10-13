@@ -11,8 +11,8 @@ CT（HU）經 CT 校正曲線 → 每個 CT 體素的質量密度與材質（Sch
 ## 射束
 
 每個射束一個 TOPAS 參數檔、一次執行。世界座標 ＝ 病人 LPS（mm）。一個 Group 放在等中心，旋轉成這個控制點的
-射束限制裝置座標（`delivery.bld_to_lps`），裡面：靶上的原射源與機頭散射的第二射源（往 −z 射）、Y jaw、X jaw、
-TsDivergingMLC（葉寬與開口都是投影到等中心平面的值，跟 DICOM 同定義）。
+射束限制裝置座標（`delivery.bld_to_lps`），裡面：靶上的原射源與機頭散射的第二射源（往 −z 射）、Y jaw、X jaw
+（都用只有一片葉片的 TsDivergingMLC，見 `jaw`）、TsDivergingMLC（葉寬與開口都是投影到等中心平面的值，跟 DICOM 同定義）。
 控制點之間（VMAT）切成機架每 `ARC_STEP_DEG` 一小段，每段在中點內插機架、jaw、葉片；**每段的歷史數 ∝ 這一段的 MU**
 （TOPAS 的循序時間 ＋ Step 時間序列）。
 
@@ -46,7 +46,7 @@ from ..delivery import Beam, ControlPoint, bld_to_lps, interpolate, segments
 from ..package import CalcInput, CalcResult
 
 IMAGE = os.environ.get("RTGAIA_TOPAS_IMAGE", "opentopas/opentopas:v4.3.0-geant4-11.4.2")
-ENGINE_VERSION = f"opentopas {IMAGE.rsplit(':', 1)[-1]} / rtgaia-topas 3"
+ENGINE_VERSION = f"opentopas {IMAGE.rsplit(':', 1)[-1]} / rtgaia-topas 4"
 DENSITY_STEP = 0.002
 DENSITY_BINS = 2600
 """每段 2600 格 × 0.002 g/cm³ ＝ 0–5.2 g/cm³（鈦 4.54）；更密的夾到上限並計數。"""
@@ -62,6 +62,10 @@ DEFAULT_HISTORIES = 20_000_000
 MIN_HISTORIES_PER_BEAM = 100_000
 CALIBRATION_HISTORIES = 10_000_000
 CUT_MM = 0.5
+JAW_LENGTH_MM = 400.0
+"""jaw 沿移動方向的長度（等中心投影）：關到射野一邊，身後還擋得到另一邊（± 200 mm）。"""
+JAW_WIDTH_MM = 500.0
+"""jaw 垂直於移動方向的寬度（等中心投影）：蓋住整個射野（± 250 mm）。"""
 LABEL = "rtgaia.dosecalc"
 G4_ELEMENT = {
     "H": "Hydrogen", "C": "Carbon", "N": "Nitrogen", "O": "Oxygen", "Mg": "Magnesium", "P": "Phosphorus",
@@ -452,29 +456,36 @@ def beam_parameters(
     col = p["collimators"]
 
     def jaw(name: str, spec: dict[str, Any], axis: str, neg: list[float], pos: list[float]) -> list[str]:
+        """一對 jaw ＝ 只有一片「葉片」的 TsDivergingMLC（沿 x 或 y 移動、端面對準射源）。
+
+        不用 TOPAS 的 TsJaws：它的開口一變就整個重建，重建時用的是射束頭**上一步**的旋轉 —— 機架在轉、jaw 又在動
+        （jaw tracking）時，jaw 落在錯的位置（2026-10-13 實測：PROTEAS 的 SRS 計畫只算出 TPS 的 1/4；同一段
+        「動態」對「逐步靜態」0.41，jaw 固定就 0.99）。TsDivergingMLC 的葉片是就地移動，不重建，沒有這個問題。"""
         susd, thick = float(spec["source_to_upstream_mm"]), float(spec["thickness_mm"])
         out = [
-            f's:Ge/{name}/Type = "TsJaws"',
+            f's:Ge/{name}/Type = "TsDivergingMLC"',
             f's:Ge/{name}/Parent = "Head"',
             f's:Ge/{name}/Material = "{spec["material"]}"',
-            f"d:Ge/{name}/LX = 200 mm",
-            f"d:Ge/{name}/LY = 400 mm",
-            f"d:Ge/{name}/LZ = {thick} mm",
-            f"d:Ge/{name}/SourceToUpstreamSurfaceDistance = {susd} mm",
             f"d:Ge/{name}/SAD = {sad} mm",
+            f"d:Ge/{name}/SourceToUpstreamSurfaceDistance = {susd} mm",
+            f"d:Ge/{name}/Thickness = {thick} mm",
+            f"d:Ge/{name}/Length = {JAW_LENGTH_MM} mm",
+            f"d:Ge/{name}/MaximumLeafOpen = 250 mm",
+            f's:Ge/{name}/LeafTravelAxis = "{"Xb" if axis == "x" else "Yb"}"',
+            f"d:Ge/{name}/RotZ = 0 deg",
             f"d:Ge/{name}/TransZ = {sad - susd - thick / 2} mm",
-            f"d:Ge/{name}/RotZ = {0 if axis == 'x' else -90} deg",
+            f"dv:Ge/{name}/LeafWidths = 1 {JAW_WIDTH_MM} mm",
         ]
         if n_steps == 1 or (len(set(neg)) == 1 and len(set(pos)) == 1):
             out += [
-                f"d:Ge/{name}/NegativeFieldSetting = {neg[0]} mm",
-                f"d:Ge/{name}/PositiveFieldSetting = {pos[0]} mm",
+                f"dv:Ge/{name}/NegativeFieldSetting = 1 {neg[0]} mm",
+                f"dv:Ge/{name}/PositiveFieldSetting = 1 {pos[0]} mm",
             ]
         else:
             out += _step(f"{name}Neg", neg, "mm") + _step(f"{name}Pos", pos, "mm")
             out += [
-                f"d:Ge/{name}/NegativeFieldSetting = Tf/{name}Neg/Value mm",
-                f"d:Ge/{name}/PositiveFieldSetting = Tf/{name}Pos/Value mm",
+                f"dv:Ge/{name}/NegativeFieldSetting = 1 Tf/{name}Neg/Value mm",
+                f"dv:Ge/{name}/PositiveFieldSetting = 1 Tf/{name}Pos/Value mm",
             ]
         return out
 
