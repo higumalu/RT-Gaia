@@ -66,8 +66,8 @@ export interface DoseOpResult {
   readonly plan_sop_uids: readonly string[];
   readonly registration_sop_uids: readonly string[];
   readonly layer_id?: string;
-  /** `gamma` ＝ γ 比較的結果（不是劑量：不能運算、不畫 DVH、不存成 RTDOSE）。 */
-  readonly quantity?: 'dose' | 'gamma';
+  /** `gamma` ＝ γ 比較的結果、`uncertainty` ＝ 劑量計算的統計不確定度（都不是劑量：不能運算、不畫 DVH、不存成 RTDOSE）。 */
+  readonly quantity?: 'dose' | 'gamma' | 'uncertainty';
   readonly gamma?: GammaStats;
 }
 
@@ -145,8 +145,9 @@ export function formProblem(a: DoseOpSource | undefined, op: DoseOp, b: DoseOpSo
 }
 
 /** 一行摘要：「−2.24 … 20.00 Gy · 平均 3.10 Gy · 有資料 87%」。 */
-export function summaryText(r: Pick<DoseOpResult, 'summary' | 'signed'>): string {
+export function summaryText(r: Pick<DoseOpResult, 'summary' | 'signed' | 'quantity'>): string {
   const s = r.summary;
+  if (r.quantity === 'uncertainty') return t('統計不確定度 1σ：最大 {max}%、平均 {mean}%', { max: s.max_gy.toFixed(1), mean: (s.mean_gy ?? 0).toFixed(1) });
   const parts = [r.signed ? t('{min} … {max} Gy', { min: s.min_gy.toFixed(2), max: s.max_gy.toFixed(2) }) : `Dmax ${s.max_gy.toFixed(2)} Gy`];
   if (s.mean_gy !== null) parts.push(t('平均 {mean} Gy', { mean: s.mean_gy.toFixed(2) }));
   if (s.covered_fraction < 0.999) parts.push(t('有資料 {pct}%', { pct: (s.covered_fraction * 100).toFixed(0) }));

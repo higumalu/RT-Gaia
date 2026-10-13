@@ -755,6 +755,10 @@ EN: dict[str, str] = {
     "device 只能是 {p0}": "device must be one of {p0}",
     # γ 比較
     "γ 圖不是劑量，不能存成 RTDOSE": "A gamma map is not a dose and cannot be saved as RTDOSE",
+    "不確定度圖不是劑量，不能存成 RTDOSE": "An uncertainty map is not a dose and cannot be saved as RTDOSE",
+    "不確定度圖不是劑量": "An uncertainty map is not a dose",
+    "參考劑量是 Monte Carlo 重算，高劑量區的統計不確定度（1σ）中位數 {pct}%：平坦區的失敗有一部分是雜訊": "The reference dose is a Monte Carlo recalculation with a median statistical uncertainty (1σ) of {pct}% in the high-dose region: some failures in flat regions are noise",
+    "被評估劑量是 Monte Carlo 重算，高劑量區的統計不確定度（1σ）中位數 {pct}%：平坦區的失敗有一部分是雜訊": "The evaluated dose is a Monte Carlo recalculation with a median statistical uncertainty (1σ) of {pct}% in the high-dose region: some failures in flat regions are noise",
     "參考與被評估是同一個劑量": "The reference and evaluated doses are the same dose",
     "參考與被評估不在同一個空間：先對其中一個套用 REG，把它搬到另一個的空間": (
         "The reference and evaluated doses are not in the same space: apply a REG to one of them first"

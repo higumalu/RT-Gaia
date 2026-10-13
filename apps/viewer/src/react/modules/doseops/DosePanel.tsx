@@ -40,12 +40,13 @@ import {
 } from './model';
 import { joinClauses, t } from '../../../core/i18n';
 import { GammaForm, GammaObject } from './Gamma';
+import { UncertaintyObject } from './Uncertainty';
 
 export function DosePanel({ api }: ViewerPanelProps): React.JSX.Element | null {
   const { layers, frameGroups, studyId } = api.state;
   const doses = layers.filter((l) => l.kind === 'dose');
   const doseKey = layers
-    .filter((l) => l.kind === 'dose' || l.kind === 'gamma')
+    .filter((l) => l.kind === 'dose' || l.kind === 'gamma' || l.kind === 'uncertainty')
     .map((l) => l.layerId)
     .join('|');
   const [sources, setSources] = useState<DoseOpSource[]>([]);
@@ -74,12 +75,12 @@ export function DosePanel({ api }: ViewerPanelProps): React.JSX.Element | null {
   const spaces = useMemo(
     () =>
       groupLayersByFrame(layers, frameGroups)
-        .filter((g) => g.doses.length > 0 || g.gammas.length > 0)
-        .map((g) => ({ forUid: g.frameOfReferenceUid, title: `${g.title}${g.role === 'primary' ? t('（主要）') : ''}`, doses: g.doses, gammas: g.gammas })),
+        .filter((g) => g.doses.length > 0 || g.gammas.length > 0 || g.uncertainties.length > 0)
+        .map((g) => ({ forUid: g.frameOfReferenceUid, title: `${g.title}${g.role === 'primary' ? t('（主要）') : ''}`, doses: g.doses, gammas: g.gammas, uncertainties: g.uncertainties })),
     [layers, frameGroups],
   );
   if (doses.length === 0) return null;
-  const sel = selected !== null && layers.some((l) => (l.kind === 'dose' || l.kind === 'gamma') && l.contentRef === selected) ? selected : null;
+  const sel = selected !== null && layers.some((l) => (l.kind === 'dose' || l.kind === 'gamma' || l.kind === 'uncertainty') && l.contentRef === selected) ? selected : null;
   const beamSum = async (g: BeamGroup): Promise<void> => {
     if (!studyId) return;
     setSumming(g.plan_sop_uid);
@@ -155,6 +156,24 @@ export function DosePanel({ api }: ViewerPanelProps): React.JSX.Element | null {
             <ul className="dose-objects gamma-objects" aria-label={t('γ 比較')}>
               {sp.gammas.map((layer) => (
                 <GammaObject
+                  key={layer.layerId}
+                  api={api}
+                  layer={layer}
+                  result={results.find((r) => r.series_id === layer.contentRef)}
+                  selected={sel === layer.contentRef}
+                  onSelect={() => setSelected(sel === layer.contentRef ? null : layer.contentRef)}
+                  onDiscarded={() => {
+                    setSelected(null);
+                    void reload();
+                  }}
+                />
+              ))}
+            </ul>
+          )}
+          {sp.uncertainties.length > 0 && (
+            <ul className="dose-objects uncertainty-objects" aria-label={t('統計不確定度')}>
+              {sp.uncertainties.map((layer) => (
+                <UncertaintyObject
                   key={layer.layerId}
                   api={api}
                   layer={layer}

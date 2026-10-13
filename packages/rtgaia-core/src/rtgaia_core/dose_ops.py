@@ -170,8 +170,8 @@ def operand_check(series: Any, frame_groups: tuple[Any, ...], plan_sops_in_case:
     if series.kind != "dose":
         out.problems.append("不是劑量")
         return out
-    if is_gamma(series):
-        out.problems.append("γ 圖不是劑量")
+    if (why := not_dose_problem(series)) is not None:
+        out.problems.append(why)
         return out
     units = str(p.get("units") or "").upper()
     if units != "GY":
@@ -201,9 +201,29 @@ def operand_check(series: Any, frame_groups: tuple[Any, ...], plan_sops_in_case:
     return out
 
 
+NON_DOSE_QUANTITIES = ("gamma", "uncertainty")
+"""跟劑量走同一套暫存與體素傳輸、但不是劑量的純量場（不能運算、不畫 DVH、不存成 RTDOSE）：
+γ 分析的結果、劑量計算的統計不確定度。"""
+
+
+def quantity_of(series: Any) -> str:
+    """`dose`、`gamma` 或 `uncertainty`。"""
+    q = str((series.params or {}).get("quantity") or "")
+    return q if q in NON_DOSE_QUANTITIES else "dose"
+
+
 def is_gamma(series: Any) -> bool:
-    """γ 分析的結果：跟劑量走同一套暫存與體素傳輸，但不是劑量（不能運算、不畫 DVH、不存成 RTDOSE）。"""
-    return str((series.params or {}).get("quantity") or "") == "gamma"
+    return quantity_of(series) == "gamma"
+
+
+def not_dose_problem(series: Any) -> str | None:
+    """不是劑量的純量場 → 一句說明；是劑量 → None。"""
+    q = quantity_of(series)
+    if q == "gamma":
+        return "γ 圖不是劑量"
+    if q == "uncertainty":
+        return "不確定度圖不是劑量"
+    return None
 
 
 def gamma_operand_problems(series: Any) -> list[str]:
@@ -211,8 +231,8 @@ def gamma_operand_problems(series: Any) -> list[str]:
     p = series.params or {}
     if series.kind != "dose":
         return ["不是劑量"]
-    if is_gamma(series):
-        return ["γ 圖不是劑量"]
+    if (why := not_dose_problem(series)) is not None:
+        return [why]
     out: list[str] = []
     units = str(p.get("units") or "").upper()
     if units != "GY":

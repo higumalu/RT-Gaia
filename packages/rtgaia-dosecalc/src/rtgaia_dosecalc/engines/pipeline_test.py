@@ -25,6 +25,7 @@ TRANSMISSION = 0.015
 STEP_MM = 5.0
 MAX_SAMPLES = 24
 ENGINE_VERSION = "pipeline-test 1"
+FAKE_UNCERTAINTY = 0.01
 
 
 def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
@@ -57,7 +58,8 @@ def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
             progress("calculating", 100.0 * done / max(1, total_samples), f"{beam.name}")
         per_beam[beam.number] = (acc * MU_PER_GY * inp.delivery.fractions).reshape(nk, nj, ni).astype(np.float32)
     dose = np.sum(list(per_beam.values()), axis=0) if per_beam else np.zeros((nk, nj, ni), np.float32)
-    unc = np.where(dose > 0, 0.0, np.nan).astype(np.float32)
+    # 不確定度是假的（固定 1%）：只為了讓載回、摘要、不確定度圖這條路在沒有 Monte Carlo 的地方也走得到
+    unc = np.where(dose > 0, FAKE_UNCERTAINTY, np.nan).astype(np.float32)
     return CalcResult(
         dose_gy=dose.astype(np.float32),
         uncertainty=unc,

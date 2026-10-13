@@ -125,7 +125,9 @@ async def dose_op_sources(study_id: str, request: Request, app: AppState = Depen
     user = actor(request)
     return {
         "study_id": study_id,
-        "sources": [_source_row(session, s) for s in _visible_doses(session, user) if not dose_ops.is_gamma(s)],
+        "sources": [
+            _source_row(session, s) for s in _visible_doses(session, user) if dose_ops.quantity_of(s) == "dose"
+        ],
         "beam_groups": await run_cpu(lambda: _beam_groups(session, user)),
     }
 
@@ -157,7 +159,7 @@ def _result_row(series: Any) -> dict[str, Any]:
         "plan_sop_uids": dose_ops.plan_union(chain),
         "registration_sop_uids": d["registration_sop_uids"],
         "space_label": None,
-        "quantity": "gamma" if dose_ops.is_gamma(series) else "dose",
+        "quantity": dose_ops.quantity_of(series),
         **({"gamma": _gamma_wire(d["gamma"])} if isinstance(d.get("gamma"), dict) else {}),
     }
 
@@ -498,6 +500,8 @@ async def save_dose_op(series_id: str, body: dict[str, Any], request: Request, a
         raise _reject("NOT_DERIVED", "只有劑量運算的暫存結果可以存成 RTDOSE")
     if dose_ops.is_gamma(series):
         raise _reject("NOT_DOSE", "γ 圖不是劑量，不能存成 RTDOSE")
+    if dose_ops.quantity_of(series) == "uncertainty":
+        raise _reject("NOT_DOSE", "不確定度圖不是劑量，不能存成 RTDOSE")
     user = actor(request)
     purpose = body.get("purpose", "download")
     if purpose not in SAVE_PURPOSES:
@@ -835,6 +839,16 @@ async def create_gamma(study_id: str, body: dict[str, Any], request: Request, ap
     notes: list[str] = []
     if stats["no_data"]:
         notes.append(f"{stats['no_data']} 個參考點在被評估劑量的網格外或沒有資料，沒有評估（不算失敗）")
+    for is_ref, s in ((True, ref), (False, ev)):
+        median = _dosecalc_noise(s)
+        if median is None or median * 100 <= NOISE_NOTE_FRACTION * criteria.dose_pct:
+            continue
+        pct = f"{median * 100:.1f}"
+        notes.append(
+            f"參考劑量是 Monte Carlo 重算，高劑量區的統計不確定度（1σ）中位數 {pct}%：平坦區的失敗有一部分是雜訊"
+            if is_ref
+            else f"被評估劑量是 Monte Carlo 重算，高劑量區的統計不確定度（1σ）中位數 {pct}%：平坦區的失敗有一部分是雜訊"
+        )
     ratio = 0.0
     rmax = float(stats["reference_max_gy"] or 0)
     emax = float((ev.params or {}).get("max_gy") or 0)
@@ -896,6 +910,20 @@ async def create_gamma(study_id: str, body: dict[str, Any], request: Request, ap
         }
     }
     return {**_result_row(series), "layer_id": f"dose:{series.series_id}"}
+
+
+NOISE_NOTE_FRACTION = 1 / 3
+"""Monte Carlo 劑量的不確定度中位數超過 γ 劑量判準的這個比例 → 在 γ 結果附註雜訊（1σ 是判準的 1/3 時，
+單純雜訊就讓約 0.3% 的點超出判準；再大就會明顯拉低通過率）。"""
+
+
+def _dosecalc_noise(series: Any) -> float | None:
+    """劑量計算結果在高劑量區的不確定度中位數（0–1）；不是劑量計算結果、或沒有不確定度 → None。"""
+    d = (series.params or {}).get("derived")
+    if not isinstance(d, dict) or d.get("op") != "dosecalc":
+        return None
+    u = ((d.get("dosecalc") or {}).get("uncertainty") or {}).get("median_rel_50")
+    return float(u) if isinstance(u, int | float) else None
 
 
 @router.get(API + "/dose/{series_id}/gamma-regions")

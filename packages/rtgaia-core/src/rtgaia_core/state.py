@@ -882,17 +882,19 @@ class Session:
         `params` 是模組專屬參數的落點：核心不認識 `max_gy`，只有 `dose`
         renderer 認識。前端 `params` 用 snake_case 原樣傳遞。
         """
-        if str((s.params or {}).get("quantity") or "") == "gamma":
-            # γ 分析的結果：自己的 kind —— 前端任何只認得劑量的地方（DVH、運算、圖例、讀數的 Gy）都碰不到它
+        quantity = str((s.params or {}).get("quantity") or "")
+        if quantity in ("gamma", "uncertainty"):
+            # γ 分析的結果、劑量計算的統計不確定度：自己的 kind —— 前端任何只認得劑量的地方
+            # （DVH、運算、圖例、讀數的 Gy）都碰不到它。不確定度預設隱藏（要看才打開）
             return {
                 "layerId": f"dose:{s.series_id}",
-                "kind": "gamma",
+                "kind": quantity,
                 "label": _series_label(s),
-                "groupId": "gamma",
+                "groupId": quantity,
                 "frameOfReferenceUid": s.frame_of_reference_uid,
                 "contentRef": s.series_id,
-                "modality": "GAMMA",
-                "visible": True,
+                "modality": quantity.upper(),
+                "visible": quantity == "gamma",
                 "opacity": 0.6,
                 "order": 50 + n,
                 "blendMode": "normal",

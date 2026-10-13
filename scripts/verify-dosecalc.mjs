@@ -5,7 +5,7 @@
  *   開合成計畫的病例（CT ＋ RTPLAN；`rtgaia_testbe.fixtures.synth_plan`）→ 工具列「計畫」→「重算劑量」
  *   引擎清單：Geant4（還沒裝好時停用並說明原因）、流程測試引擎 → 選流程測試引擎、CT 範圍網格 → 送出
  *   工作出現（條件說明：示範模型、通用 CT 曲線、網格、分次）→ 完成 →「載入結果」→ 左側「劑量」面板多 4 個劑量（總 ＋ 3 個射束，射束預設隱藏）
- *   軸向格有劑量的顏色；英文模式沒有中文
+ *   軸向格有劑量的顏色；不確定度圖預設隱藏、只開它時有顏色；英文模式沒有中文
  *
  * 需要量測堆疊、帶 `RTGAIA_DOSECALC_TEST_ENGINE=1`、資料庫目錄裡有 `data/test_plan`：
  *   uv run python -m rtgaia_testbe.fixtures.synth_plan --out data/test_plan
@@ -179,12 +179,12 @@ await waitFor(`(${jobLi}).dataset.status === 'done'`, '計算完成', engineName
 step(`完成：${await evaluate(`(${jobLi}).querySelector('.dosecalc-status').textContent`)}`);
 
 // 3. 載入結果 → 左側「劑量」面板多 4 個
-const doseCount = () => evaluate(`document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object)').length`);
+const doseCount = () => evaluate(`document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object):not(.uncertainty-object)').length`);
 const n0 = await doseCount();
 await clickEl(`(${jobLi}).querySelector('button[data-action="dosecalc-load"]')`);
 await waitFor(`!(${jobLi}).querySelector('button[data-action="dosecalc-load"]')`, '載入後按鈕消失', 30000);
-await waitFor(`document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object)').length === ${n0 + 4}`, '劑量面板多 4 個', 30000);
-const names = await evaluate(`[...document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object)')].map((li) => ({ name: li.querySelector('.dose-object-name').textContent, visible: li.querySelector('.visibility input').checked }))`);
+await waitFor(`document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object):not(.uncertainty-object)').length === ${n0 + 4}`, '劑量面板多 4 個', 30000);
+const names = await evaluate(`[...document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object):not(.uncertainty-object)')].map((li) => ({ name: li.querySelector('.dose-object-name').textContent, visible: li.querySelector('.visibility input').checked }))`);
 const total = names.find((x) => new RegExp(`${engineName}$`).test(x.name));
 const beams = names.filter((x) => /beam \d$/.test(x.name));
 if (!total?.visible || beams.length !== 3 || beams.some((b) => b.visible)) throw new Error(`載入的劑量：${JSON.stringify(names)}`);
@@ -204,6 +204,23 @@ for (let i = 0; i < 40 && px < 500; i += 1) {
 if (px < 500) throw new Error(`軸向格應有劑量顏色：${px}`);
 await shot('dosecalc-loaded.png');
 step(`軸向格有劑量顏色（${px} 個像素）`);
+
+// 4b. 不確定度圖：載入時一起產生、預設隱藏；只開它（劑量關掉）→ 軸向格有它的顏色、色階條出現
+const unc = `document.querySelector('.dose-panel .uncertainty-object')`;
+if (!(await evaluate(`!!${unc}`))) throw new Error('沒有不確定度圖');
+if (await evaluate(`${unc}.querySelector('[data-field="uncertainty-visible"]').checked`)) throw new Error('不確定度圖應預設隱藏');
+const totalLi = `[...document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object):not(.uncertainty-object)')].find((li) => /${engineName}$/.test(li.querySelector('.dose-object-name').textContent))`;
+await clickEl(`(${totalLi}).querySelector('.visibility input')`);
+await clickEl(`${unc}.querySelector('[data-field="uncertainty-visible"]')`);
+await waitFor(`!!${unc}.querySelector('.uncertainty-scale')`, '色階條', 10000);
+px = await colorful();
+for (let i = 0; i < 40 && px < 500; i += 1) {
+  await sleep(500);
+  px = await colorful();
+}
+if (px < 500) throw new Error(`只開不確定度圖時軸向格應有顏色：${px}`);
+await shot('dosecalc-uncertainty.png');
+step(`不確定度圖：預設隱藏、打開後有顏色（${px} 個像素）、色階 ${await evaluate(`${unc}.querySelector('.uncertainty-scale-axis').textContent`)}`);
 
 // 5. 英文
 await send('Page.navigate', { url: url.replace('/#/', '/?lang=en#/') });

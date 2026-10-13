@@ -18,7 +18,7 @@ import { t } from '../../../core/i18n';
 export function DoseOpsPanel({ api }: ViewerPanelProps): React.JSX.Element {
   const { studyId, layers } = api.state;
   const doseKey = layers
-    .filter((l) => l.kind === 'dose' || l.kind === 'gamma')
+    .filter((l) => l.kind === 'dose' || l.kind === 'gamma' || l.kind === 'uncertainty')
     .map((l) => l.layerId)
     .join('|');
   const [results, setResults] = useState<DoseOpResult[]>([]);
@@ -65,7 +65,7 @@ export function DoseOpsPanel({ api }: ViewerPanelProps): React.JSX.Element {
           {results.map((r) => (
             <li key={r.series_id} data-series={r.series_id} data-signed={r.signed ? 'true' : 'false'}>
               <div>
-                <strong>{r.text}</strong> {r.quantity !== 'gamma' && <span className="badge">{r.dose_type}</span>}
+                <strong>{r.text}</strong> {(r.quantity ?? 'dose') === 'dose' && <span className="badge">{r.dose_type}</span>}
               </div>
               <div className="muted small">{r.gamma ? gammaSummaryText(r.gamma) : summaryText(r)}</div>
               {r.warnings.length > 0 && (
@@ -81,7 +81,7 @@ export function DoseOpsPanel({ api }: ViewerPanelProps): React.JSX.Element {
                     {t('差值統計')}
                   </button>
                 )}
-                {r.quantity !== 'gamma' && (
+                {(r.quantity ?? 'dose') === 'dose' && (
                   <button type="button" aria-pressed={open?.id === r.series_id && open.what === 'save'} onClick={() => setOpen(open?.id === r.series_id && open.what === 'save' ? null : { id: r.series_id, what: 'save' })}>
                     {t('存成 RTDOSE…')}
                   </button>

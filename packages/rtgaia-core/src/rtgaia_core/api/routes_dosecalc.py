@@ -222,6 +222,34 @@ async def load_dosecalc(study_id: str, job_id: str, request: Request, app: AppSt
             },
         )
         created.append(series)
+    sigma = dosecalc_jobs.uncertainty_map(res.dose_gy, res.uncertainty)
+    if sigma is not None:
+        text = f"{label} 1σ"
+        series = await _register_derived(
+            app,
+            session,
+            user,
+            values=sigma,
+            node={**leaf, "label": text, "summation_type": "", "dose_type": "", "result_dose_type": ""},
+            text=text,
+            grid_series=host,
+            warnings=[],
+            registration_sops=[],
+            extra={"op": "dosecalc", "a": None, "b": None, "k": None, "dosecalc": info, "beam": None},
+            params_override={
+                "quantity": "uncertainty",
+                "units": "PERCENT",
+                "dose_scale": "uncertainty",
+                "dose_type": "",
+                "summation_type": "",
+                "referenced_plan_sop_uids": [],
+                "max_gy": dosecalc_jobs.UNCERTAINTY_DISPLAY_MAX_PERCENT,
+                "min_gy": 0.0,
+                "max_percent": dosecalc_jobs.UNCERTAINTY_DISPLAY_MAX_PERCENT,
+                "threshold_percent": dosecalc_jobs.UNCERTAINTY_NOISY_PERCENT,
+            },
+        )
+        created.append(series)
     job_loaded = [s.series_id for s in created]
 
     def mark(fresh: Any) -> bool:

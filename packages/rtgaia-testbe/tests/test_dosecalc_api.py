@@ -57,15 +57,25 @@ def test_submit_run_load_gamma_and_save(case, env) -> None:  # type: ignore[no-u
         assert summ["fractions"] == 2 and summ["total_mu"] == 750 and len(summ["beams"]) == 3
         assert summ["calibration_fallback"] is True and summ["beam_model"]["demo"] is True
         assert summ["dose_grid"] == "ct" and "通用曲線" in summ["calibration_reason"]
-        assert summ["calc_spacing_mm"] == 4.0, "預設在 4 mm 網格上算、再內插回輸出網格"
+        assert summ["calc_spacing_mm"] is None, "流程測試引擎不是 Monte Carlo：沒有計分網格"
         row = _wait(s, base, job["job_id"])
         assert row["status"] == "done", row
         assert row["dosecalc"]["engine"] == "pipeline-test" and row["dosecalc"]["beams"] == [1, 2, 3]
+        assert row["dosecalc"]["uncertainty"]["median_rel_50"] == pytest.approx(0.01), "測試引擎的假不確定度 1%"
         with pytest.raises(RuntimeError, match="404"):
             s._post(f"{base}/nope/load", {})
         loaded = s._post(f"{base}/{job['job_id']}/load", {})["results"]
-        assert len(loaded) == 4, "總劑量 ＋ 三個射束"
-        total = loaded[0]
+        assert len(loaded) == 5, "總劑量 ＋ 三個射束 ＋ 不確定度圖"
+        total, sigma = loaded[0], loaded[-1]
+        assert sigma["quantity"] == "uncertainty" and sigma["text"].endswith("1σ")
+        layers0 = {x["contentRef"]: x for x in s.state["layers"]}
+        assert layers0[sigma["series_id"]]["kind"] == "uncertainty" and layers0[sigma["series_id"]]["visible"] is False
+        assert layers0[sigma["series_id"]]["params"]["max_percent"] == 10.0
+        sources = s._get(f"/api/v1/studies/{s.study_id}/dose-ops/sources")["sources"]
+        assert sigma["series_id"] not in [x["series_id"] for x in sources], "不確定度圖不是劑量：不能當運算元"
+        with pytest.raises(RuntimeError, match="NOT_DOSE"):
+            s._post(f"/api/v1/dose/{sigma['series_id']}/save", {"purpose": "download"})
+        all_loaded, loaded = loaded, loaded[:-1]
         assert total["dose_type"] == "PHYSICAL" and total["summation_type_for_save"] == "PLAN"
         assert any("示範射束模型" in w for w in total["warnings"]) and any(
             "流程測試引擎" in w for w in total["warnings"]
@@ -74,13 +84,16 @@ def test_submit_run_load_gamma_and_save(case, env) -> None:  # type: ignore[no-u
         assert layers[total["series_id"]]["visible"] is True
         assert all(layers[r["series_id"]]["visible"] is False for r in loaded[1:]), "逐射束預設隱藏"
         assert next(j for j in s._get(base)["jobs"] if j["job_id"] == job["job_id"])["loaded"] == [
-            r["series_id"] for r in loaded
+            r["series_id"] for r in all_loaded
         ]
         # 可以跟另一個劑量做 γ（這裡跟自己 × 1.01）
         ops = f"/api/v1/studies/{s.study_id}/dose-ops"
         up = s._post(ops, {"op": "mul", "a": total["series_id"], "k": 1.01})["series_id"]
         g = s._post(f"{ops}/gamma", {"reference": total["series_id"], "evaluated": up})
         assert g["gamma"]["pass_rate"] == 1.0
+        assert not any("雜訊" in n for n in g["gamma"]["notes"]), "1% 的雜訊對 3% 的判準不用提"
+        g2 = s._post(f"{ops}/gamma", {"reference": up, "evaluated": total["series_id"], "dose_pct": 2, "dta_mm": 2})
+        assert any(n.startswith("被評估劑量是 Monte Carlo 重算") and "1.0%" in n for n in g2["gamma"]["notes"])
         # 存成 RTDOSE：PLAN、引用計畫、衍生說明寫引擎與模型
         saved = s._post(f"/api/v1/dose/{total['series_id']}/save", {"purpose": "download"})
         deadline = time.time() + 60
@@ -149,3 +162,21 @@ def test_unsupported_plan_lists_reasons(case, env, tmp_path: Path) -> None:  # t
             )
         text = str(exc.value)
         assert "楔形板" in text and "只支援光子" in text and "PLAN_NOT_SUPPORTED" in text
+
+
+def test_uncertainty_map_and_summary() -> None:
+    """不確定度圖是 %；低於參考最大值（第 99.5 百分位）10% 的點不畫；摘要的參考也不被單一熱點撐大。"""
+    import numpy as np
+    from rtgaia_core import dosecalc_jobs
+
+    dose = np.full((4, 10, 10), 10.0, dtype=np.float32)
+    dose[0] = 0.5  # 低劑量：不畫
+    dose[1, 0, 0] = 500.0  # 雜訊撐出來的熱點
+    unc = np.full(dose.shape, 0.02, dtype=np.float32)
+    unc[3, 5, 5] = np.nan
+    m = dosecalc_jobs.uncertainty_map(dose, unc)
+    assert m is not None and np.isnan(m[0]).all() and np.isnan(m[3, 5, 5])
+    assert float(np.nanmedian(m)) == pytest.approx(2.0)
+    s = dosecalc_jobs.uncertainty_summary(dose, unc)
+    assert s["median_rel_50"] == pytest.approx(0.02), "參考最大值是第 99.5 百分位，不是熱點的 500"
+    assert dosecalc_jobs.uncertainty_map(dose, np.zeros_like(unc)) is None, "沒有不確定度（測試引擎以前）→ 不產生圖"

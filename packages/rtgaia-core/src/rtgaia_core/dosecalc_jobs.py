@@ -76,6 +76,8 @@ def prepare(
     options: dict[str, Any],
 ) -> tuple[CalcInput, dict[str, Any]]:
     """回 `(封包, 摘要)`；不能算 → `PrepareError`（列出全部原因）。"""
+    if engine == engines.PIPELINE_TEST:
+        options = {**options, "calc_spacing_mm": None}  # 不是 Monte Carlo：沒有計分網格
     plan = plan_entry(session, plan_sop_uid)
     delivery, problems = read_delivery(plan["path"])
     if delivery is None:
@@ -253,6 +255,25 @@ async def run_dosecalc(app: Any, job: Any) -> None:
 
 def read_result(job: Any) -> CalcResult:
     return CalcResult.read(Path(job.request["work_dir"]) / "out")
+
+
+UNCERTAINTY_DISPLAY_MAX_PERCENT = 10.0
+"""不確定度圖色階的上限（%）：≥ 這個值的點塗最深的顏色。"""
+UNCERTAINTY_NOISY_PERCENT = 3.0
+"""不確定度圖上畫一條線的值（%）：γ 3% 的判準下，比這個大的地方雜訊本身就會造成失敗。"""
+UNCERTAINTY_MIN_DOSE_FRACTION = 0.1
+"""低於參考最大值這個比例的點不畫不確定度（相對值在低劑量區很大、也不拿來判讀；跟 γ 的 10% 門檻一致）。"""
+
+
+def uncertainty_map(dose: np.ndarray, unc: np.ndarray) -> np.ndarray | None:
+    """每個體素的相對統計不確定度（1σ，%）；劑量 < 參考最大值 10% 或沒有劑量的點是 NaN。
+    參考最大值同 `uncertainty_summary`（第 99.5 百分位）。整個都沒有值（測試引擎）→ None。"""
+    finite = np.isfinite(dose) & np.isfinite(unc) & (dose > 0)
+    if not finite.any() or not np.any(unc[finite] > 0):
+        return None
+    ref = float(np.percentile(dose[finite], 99.5))
+    keep = finite & (dose >= UNCERTAINTY_MIN_DOSE_FRACTION * ref)
+    return np.ascontiguousarray(np.where(keep, unc * 100.0, np.nan), dtype=np.float32)
 
 
 def uncertainty_summary(dose: np.ndarray, unc: np.ndarray) -> dict[str, Any]:

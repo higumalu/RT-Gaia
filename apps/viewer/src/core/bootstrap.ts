@@ -14,6 +14,7 @@ import { DOSE_KIND, registerDoseModule } from './raster/doseModule';
 import { GAMMA_KIND, registerGammaModule } from './raster/gammaModule';
 import { listLayerKinds } from './raster/kinds';
 import { listLayerRenderers } from './raster/registry';
+import { registerUncertaintyModule, UNCERTAINTY_KIND } from './raster/uncertaintyModule';
 import { registerVoxelStorage } from './scene/volumeStore';
 import { registerBuiltinTools } from './tools/builtins';
 import { hasZstdDecoder } from './transport/decode';
@@ -29,6 +30,9 @@ export function registerCoreBuiltins(): void {
   // γ 圖：體素跟劑量一樣是 f32 volume，但是自己的 kind（不是劑量）
   registerGammaModule();
   registerVoxelStorage(GAMMA_KIND, 'volume');
+  // 劑量計算的統計不確定度：同上，不是劑量
+  registerUncertaintyModule();
+  registerVoxelStorage(UNCERTAINTY_KIND, 'volume');
   // 逐 id 冪等 —— 不能用「空的才註冊」：模組可能已先註冊自己的工具（曾經因此回歸）
   registerBuiltinTools();
   // 🔴 少了這個，真瀏覽器一載入影像就 `[W8] 尚未註冊解壓器`（見 transport/zstd.ts）

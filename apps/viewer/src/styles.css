@@ -1327,6 +1327,12 @@ kbd { font: inherit; font-size: 11px; padding: 1px 5px; border: 1px solid var(--
 .dose-panel .dose-action-gamma details { flex: 1 1 100%; }
 .dose-panel .dose-action-gamma details label { margin-right: 8px; }
 .gamma-objects { margin-top: 2px; }
+.uncertainty-objects { margin-top: 2px; }
+.uncertainty-row label.small { display: inline-flex; align-items: center; gap: 4px; }
+.uncertainty-scale { position: relative; margin: 2px 0 14px; }
+.uncertainty-scale-bar { display: block; height: 8px; border-radius: 2px; }
+.uncertainty-scale-axis { position: absolute; left: 0; right: 0; top: 9px; height: 12px; font-size: 10px; color: var(--muted); }
+.uncertainty-scale-axis span { position: absolute; white-space: nowrap; }
 .gamma-row .gamma-toggles { display: inline-flex; gap: 8px; }
 .badge.gamma-rate.pass { color: var(--ok); border-color: var(--ok); }
 .badge.gamma-rate.review { color: var(--warn); border-color: var(--warn); }
