@@ -1,6 +1,7 @@
 """劑量計算（重算 TPS 的計畫）：引擎清單、送出、工作清單、載回結果、取消。
 
 * `GET    /dosecalc/engines`                         ：這台機器上能用的引擎、射束模型
+* `GET    /dosecalc/beam-models`                     ：內建射束模型的完整參數與 MU 校正（管理頁）
 * `POST   /studies/{study_id}/dosecalc`              ：`{plan_sop_uid, engine?, histories?, grid?, calc_spacing_mm?}`
   → `dosecalc` job
 * `GET    /studies/{study_id}/dosecalc`              ：這個病例的劑量計算工作（狀態、摘要、載回了沒）
@@ -51,6 +52,70 @@ async def dosecalc_engines() -> Any:
             {k: m[k] for k in ("model_id", "name", "demo", "energy_mv", "fluence_mode")}
             for m in beam_models.builtin_models()
         ],
+    }
+
+
+@router.get(API + "/dosecalc/beam-models")
+async def dosecalc_beam_models() -> Any:
+    """內建射束模型的完整參數 ＋ 這台機器上做過的 MU 校正（每 MU 歷史數、參考條件的深度劑量）—— 管理頁「射束模型」。"""
+    from rtgaia_dosecalc import beam_models
+    from rtgaia_dosecalc.engines import topas
+
+    cache = dosecalc_jobs.work_root() / "calibration"
+    return {
+        "engine_version": topas.ENGINE_VERSION,
+        "models": [
+            _beam_model_row(m, await run_cpu(lambda m=m: topas.cached_calibration(m, cache)))
+            for m in beam_models.builtin_models()
+        ],
+    }
+
+
+COLLIMATOR_KIND = {"jaw_x": "jaw", "jaw_y": "jaw", "fixed_x": "fixed", "fixed_y": "fixed"}
+
+
+def _beam_model_row(m: dict[str, Any], cal: dict[str, Any] | None) -> dict[str, Any]:
+    from rtgaia_dosecalc import beam_models
+
+    p = m["params"]
+    energies, weights = [float(x) for x in p["spectrum_mev"]], [float(x) for x in p["spectrum_weights"]]
+    calibrated = None
+    if cal is not None:
+        dd = [float(x) for x in cal.get("depth_dose_gy") or []]
+        step = float(cal.get("depth_step_mm") or 2.0)
+        peak = max(dd) if dd else 0.0
+        calibrated = {
+            "engine_version": cal.get("engine_version"),
+            "histories": cal.get("histories"),
+            "dmax_mm": cal.get("dmax_mm"),
+            "histories_per_mu": cal.get("histories_per_mu"),
+            "pdd": [[(i + 0.5) * step, v / peak] for i, v in enumerate(dd)] if peak > 0 else [],
+        }
+    return {
+        "model_id": m["model_id"],
+        "name": m["name"],
+        "demo": bool(m.get("demo")),
+        "energy_mv": m["energy_mv"],
+        "fluence_mode": m["fluence_mode"],
+        "mlc_devices": list(m.get("mlc_devices") or []),
+        "model_hash": beam_models.model_hash(m),
+        "reference": m.get("reference") or "",
+        "limitations": [translate(x) for x in m.get("limitations") or []],
+        "spectrum": {
+            "energies_mev": energies,
+            "weights": weights,
+            "mean_mev": sum(e * w for e, w in zip(energies, weights, strict=True)) / max(1e-12, sum(weights)),
+        },
+        "focal_spot_sigma_mm": p.get("focal_spot_sigma_mm"),
+        "angular_sigma_deg": p.get("angular_sigma_deg"),
+        "extra_focal": p.get("extra_focal"),
+        "field_margin_mm": p.get("field_margin_mm"),
+        "collimators": [
+            {"device": name, "kind": COLLIMATOR_KIND.get(name, "mlc"), **spec}
+            for name, spec in p["collimators"].items()
+        ],
+        "calibration": m["calibration"],
+        "calibrated": calibrated,
     }
 
 

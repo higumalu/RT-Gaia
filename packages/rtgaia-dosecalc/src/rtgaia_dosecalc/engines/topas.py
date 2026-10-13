@@ -744,9 +744,22 @@ def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
 # ── MU 校正 ───────────────────────────────────────────────────────────────────
 
 
+def calibration_key(model: dict[str, Any]) -> str:
+    """MU 校正快取的檔名：模型、模型雜湊、引擎版本 —— 任一個變了就重新校正。"""
+    return f"{model['model_id']}-{beam_models.model_hash(model)}-{ENGINE_VERSION.replace(' ', '_').replace('/', '_')}"
+
+
+def cached_calibration(model: dict[str, Any], cache_dir: Path) -> dict[str, Any] | None:
+    """這個模型（這一版）已經做過的 MU 校正：每 MU 歷史數、dmax、參考條件的深度劑量；還沒做 → None。"""
+    try:
+        return dict(json.loads((Path(cache_dir) / f"{calibration_key(model)}.json").read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return None
+
+
 def calibration(model: dict[str, Any], cache_dir: Path, *, progress: Any = None, label: str = "calibration") -> float:
     """每 MU 幾個歷史：參考條件（`model["calibration"]`）水中 dmax 的劑量 ＝ `gy_per_mu`。快取。"""
-    key = f"{model['model_id']}-{beam_models.model_hash(model)}-{ENGINE_VERSION.replace(' ', '_').replace('/', '_')}"
+    key = calibration_key(model)
     cache_dir.mkdir(parents=True, exist_ok=True)
     cached = cache_dir / f"{key}.json"
     if cached.exists():
@@ -828,6 +841,7 @@ def calibration(model: dict[str, Any], cache_dir: Path, *, progress: Any = None,
         "dose_per_history_gy": d_per_hist,
         "histories_per_mu": hpm,
         "depth_dose_gy": [float(x) for x in axis],
+        "depth_step_mm": 2.0,
     }
     cached.write_text(json.dumps(doc), encoding="utf-8")
     return hpm

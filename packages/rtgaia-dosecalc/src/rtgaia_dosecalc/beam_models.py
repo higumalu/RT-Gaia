@@ -38,6 +38,13 @@ import json
 from typing import Any
 
 DEMO_6X_ID = "demo-6x"
+COMMON_LIMITATIONS = (
+    "示範模型：參數是文獻與公開資料的典型值，不代表任何一台實機",
+    "沒有電子污染的模型（表面 1–2 cm 的劑量偏低）",
+    "葉片圓端與 tongue-and-groove 沒有模型",
+    "監測游離腔的反散射沒有模型（MU 跟射野大小的關係只來自幾何）",
+)
+"""每個示範模型都有的限制（管理頁「射束模型」列出來；不進模型雜湊）。"""
 LEAF_LENGTH_MM = 320.0
 """葉片長度（投影到等中心平面）：≥ 射野寬（280 mm）＋ 餘裕。"""
 
@@ -128,6 +135,7 @@ def demo_6x() -> dict[str, Any]:
         },
         "calibration": {"field_mm": 100.0, "ssd_mm": 1000.0, "depth": "dmax", "gy_per_mu": 0.01},
         "mlc_devices": ["MLCX"],
+        "limitations": [*COMMON_LIMITATIONS, "能譜沒有離軸軟化（中心軸的能譜用在整個射野）"],
     }
 
 
@@ -155,6 +163,7 @@ def demo_6xfff() -> dict[str, Any]:
         "angular_sigma_deg": FFF_ANGULAR_SIGMA_DEG,
         "extra_focal": {"fraction": 0.03, "distance_below_target_mm": 125.0, "sigma_mm": 15.0},
     }
+    m["limitations"] = [*COMMON_LIMITATIONS, "整平濾片的厚度（1.5 cm 銅）與離軸的角分佈（σ 7.6°）是假設"]
     return m
 
 
@@ -196,6 +205,7 @@ def demo_6xfff_dual() -> dict[str, Any]:
             "MLCX2": [float(v) for v in range(-145, 146, 10)],
         },
     }
+    m["limitations"] = [*m["limitations"], "雙層 MLC 與固定主準直器的高度、厚度是假設的典型值"]
     return m
 
 

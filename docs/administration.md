@@ -1056,6 +1056,23 @@ directory. The Monte Carlo engine is OpenTOPAS (Geant4), run in its official con
 Cancelling a job stops its containers (they carry the label `rtgaia.dosecalc=<job>`). Calculations run one at a
 time per worker.
 
+### Beam models
+
+**Admin → Beam models** lists the beam models used by the dose calculation; the model for a beam is chosen from
+its energy, fluence mode and MLC type. Only built-in demo models exist for now (read-only); measured beam data
+entered by users will be added later. Selecting a model shows:
+
+- the energy spectrum and its mean energy, the source (focal spot, angular distribution, head scatter) and the
+  emission range around the opening;
+- the collimators with their material, thickness and distance from the target: jaws that move with the control
+  points, fixed primary collimators, and MLCs with their leaf length (projected to the isocentre plane);
+- the MU calibration conditions and, once the model has been calibrated on this server, the histories per MU, the
+  depth of maximum dose and the simulated depth dose in the reference conditions;
+- the published sources of the parameters and the model's limitations.
+
+A model is identified by a hash of its parameters: changing a parameter, or the engine version, triggers a new MU
+calibration on the next calculation.
+
 ## Resource limits
 
 | Limit | Default | Setting |

@@ -1328,6 +1328,14 @@ kbd { font: inherit; font-size: 11px; padding: 1px 5px; border: 1px solid var(--
 .dose-panel .dose-action-gamma details label { margin-right: 8px; }
 .gamma-objects { margin-top: 2px; }
 .uncertainty-objects { margin-top: 2px; }
+.beammodel-list tr { cursor: pointer; }
+.beammodel-detail { margin-top: 12px; }
+.beammodel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.beammodel-spectrum, .beammodel-pdd { width: 100%; max-width: 420px; height: auto; display: block; }
+.beammodel-spectrum rect { fill: var(--accent); }
+.beammodel-spectrum line, .beammodel-pdd line { stroke: var(--muted); stroke-width: 1; }
+.beammodel-spectrum text, .beammodel-pdd text { fill: var(--muted); font-size: 9px; }
+.beammodel-pdd polyline { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 .uncertainty-row label.small { display: inline-flex; align-items: center; gap: 4px; }
 .uncertainty-scale { position: relative; margin: 2px 0 14px; }
 .uncertainty-scale-bar { display: block; height: 8px; border-radius: 2px; }

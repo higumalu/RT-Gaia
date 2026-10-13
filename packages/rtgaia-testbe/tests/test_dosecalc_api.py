@@ -180,3 +180,39 @@ def test_uncertainty_map_and_summary() -> None:
     s = dosecalc_jobs.uncertainty_summary(dose, unc)
     assert s["median_rel_50"] == pytest.approx(0.02), "參考最大值是第 99.5 百分位，不是熱點的 500"
     assert dosecalc_jobs.uncertainty_map(dose, np.zeros_like(unc)) is None, "沒有不確定度（測試引擎以前）→ 不產生圖"
+
+
+def test_beam_models_list_parameters_and_calibration(case, env) -> None:  # type: ignore[no-untyped-def]
+    """管理頁「射束模型」：每個內建模型的能譜、準直器（種類）、MU 校正條件；做過 MU 校正就附每 MU 歷史數與 PDD。"""
+    import json
+
+    from rtgaia_core import dosecalc_jobs
+    from rtgaia_dosecalc import beam_models
+    from rtgaia_dosecalc.engines import topas
+
+    with Session(library_root=str(case.root.parent), user="dr") as s:
+        rows = {m["model_id"]: m for m in s._get("/api/v1/dosecalc/beam-models")["models"]}
+        assert set(rows) == {"demo-6x", "demo-6xfff", "demo-6xfff-dual"}
+        six, dual = rows["demo-6x"], rows["demo-6xfff-dual"]
+        assert 1.8 < six["spectrum"]["mean_mev"] < 2.0 and rows["demo-6xfff"]["spectrum"]["mean_mev"] < 1.7
+        assert {c["device"]: c["kind"] for c in six["collimators"]} == {"jaw_y": "jaw", "jaw_x": "jaw", "MLCX": "mlc"}
+        assert {c["kind"] for c in dual["collimators"]} == {"fixed", "mlc"} and dual["mlc_devices"] == [
+            "MLCX1",
+            "MLCX2",
+        ]
+        assert six["calibration"]["gy_per_mu"] == 0.01 and six["calibrated"] is None, "還沒校正過"
+        assert any("不代表任何一台實機" in x for x in six["limitations"]) and "Mohan" in six["reference"]
+        # 做過校正（快取檔）→ 附上，PDD 正規化到最大值 1
+        model = beam_models.demo_6x()
+        cache = dosecalc_jobs.work_root() / "calibration"
+        cache.mkdir(parents=True, exist_ok=True)
+        doc = {"engine_version": topas.ENGINE_VERSION, "histories": 10, "dmax_mm": 3.0, "histories_per_mu": 7.0}
+        (cache / f"{topas.calibration_key(model)}.json").write_text(
+            json.dumps({**doc, "depth_dose_gy": [1.0, 2.0, 1.5], "depth_step_mm": 2.0})
+        )
+        six = next(m for m in s._get("/api/v1/dosecalc/beam-models")["models"] if m["model_id"] == "demo-6x")
+        assert six["calibrated"]["histories_per_mu"] == 7.0
+        assert six["calibrated"]["pdd"] == [[1.0, 0.5], [3.0, 1.0], [5.0, 0.75]]
+        s._headers["Accept-Language"] = "en"
+        en = next(m for m in s._get("/api/v1/dosecalc/beam-models")["models"] if m["model_id"] == "demo-6x")
+        assert any("represent no real machine" in x for x in en["limitations"])

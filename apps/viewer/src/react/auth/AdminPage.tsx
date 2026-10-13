@@ -12,6 +12,7 @@ import { NodesTab } from '../dimse/NodesTab';
 import { ServiceTab } from '../dimse/ServiceTab';
 import { StorageSection } from '../storage/StorageSection';
 import { PluginsTab } from '../plugins/PluginsTab';
+import { BeamModelTab } from '../dosecalc/BeamModelTab';
 import { CtCalibrationTab } from '../dosecalc/CtCalibrationTab';
 import { BrandMenu } from '../components/AppNav';
 import { adminTabFromHash, navigate, useHash, type AdminTab } from '../hooks/useHashRoute';
@@ -65,7 +66,7 @@ const json = (method: string, body: unknown): RequestInit => ({ method, headers:
 
 const ROLES: Role[] = ['viewer', 'contourer', 'approver', 'admin'];
 
-const TAB_LABEL: Record<AdminTab, string> = { users: msg('使用者'), audit: msg('稽核'), nodes: msg('DICOM 節點'), service: msg('服務設定'), plugins: 'Plugins', ctcal: msg('CT 校正曲線') };
+const TAB_LABEL: Record<AdminTab, string> = { users: msg('使用者'), audit: msg('稽核'), nodes: msg('DICOM 節點'), service: msg('服務設定'), plugins: 'Plugins', ctcal: msg('CT 校正曲線'), beammodel: msg('射束模型') };
 
 export function AdminPage(props: { user: Principal | null }): React.JSX.Element {
   // 2026-09-15：分頁由 `#/admin/<tab>` 決定（全站導覽 `AppNav` 直接切）
@@ -91,6 +92,8 @@ export function AdminPage(props: { user: Principal | null }): React.JSX.Element 
             <PluginsTab />
           ) : tab === 'ctcal' ? (
             <CtCalibrationTab />
+          ) : tab === 'beammodel' ? (
+            <BeamModelTab />
           ) : (
             <>
               <ServiceTab />
