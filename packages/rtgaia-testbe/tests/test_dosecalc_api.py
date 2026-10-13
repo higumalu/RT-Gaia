@@ -23,7 +23,7 @@ def _selection(case) -> dict:  # type: ignore[no-untyped-def]
     return {
         "image_series_uids": [e["ct_series_instance_uid"]],
         "plan_uids": [e["plan_series_instance_uid"]],
-        "dose_uids": [],
+        "dose_uids": [e["tps_dose_series_instance_uid"]],
     }
 
 
@@ -58,6 +58,7 @@ def test_submit_run_load_gamma_and_save(case, env) -> None:  # type: ignore[no-u
         assert summ["calibration_fallback"] is True and summ["beam_model"]["demo"] is True
         assert summ["dose_grid"] == "ct" and "通用曲線" in summ["calibration_reason"]
         assert summ["calc_spacing_mm"] is None, "流程測試引擎不是 Monte Carlo：沒有計分網格"
+        assert summ["tps_dose_series_id"], "病例裡有參照這份計畫的 TPS 劑量"
         row = _wait(s, base, job["job_id"])
         assert row["status"] == "done", row
         assert row["dosecalc"]["engine"] == "pipeline-test" and row["dosecalc"]["beams"] == [1, 2, 3]
@@ -94,6 +95,12 @@ def test_submit_run_load_gamma_and_save(case, env) -> None:  # type: ignore[no-u
         assert not any("雜訊" in n for n in g["gamma"]["notes"]), "1% 的雜訊對 3% 的判準不用提"
         g2 = s._post(f"{ops}/gamma", {"reference": up, "evaluated": total["series_id"], "dose_pct": 2, "dta_mm": 2})
         assert any(n.startswith("被評估劑量是 Monte Carlo 重算") and "1.0%" in n for n in g2["gamma"]["notes"])
+        # 「跟 TPS 比對」：參考 ＝ TPS 劑量、被評估 ＝ 重算的總劑量（計畫面板的按鈕送的就是這個）
+        g3 = s._post(
+            f"{ops}/gamma",
+            {"reference": summ["tps_dose_series_id"], "evaluated": total["series_id"], "dose_pct": 3, "dta_mm": 2},
+        )
+        assert g3["gamma"]["reference_series_id"] == summ["tps_dose_series_id"] and g3["gamma"]["evaluated"] > 0
         # 存成 RTDOSE：PLAN、引用計畫、衍生說明寫引擎與模型
         saved = s._post(f"/api/v1/dose/{total['series_id']}/save", {"purpose": "download"})
         deadline = time.time() + 60

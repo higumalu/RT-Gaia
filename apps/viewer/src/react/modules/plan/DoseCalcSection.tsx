@@ -8,7 +8,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { t } from '../../../core/i18n';
 import type { ViewerPanelProps } from '../../panels/types';
 import type { PlanInfo } from './model';
-import { CALC_SPACINGS, engineLabel, HISTORY_PRESETS, isActive, jobsForPlan, jobStatusText, summaryNotes, uncertaintyNotes, type DosecalcEngine, type DosecalcJob } from './dosecalcModel';
+import { gammaSummaryText, gammaVerdict, type GammaStats } from '../doseops/gammaModel';
+import type { DoseOpResult } from '../doseops/model';
+import { DVH_MODE } from '../dvh/mode';
+import { DVH_MODULE_ID, type DvhModuleState } from '../dvh/model';
+import { CALC_SPACINGS, engineLabel, HISTORY_PRESETS, isActive, jobsForPlan, jobStatusText, summaryNotes, tpsDvhDoseIds, tpsGammaBody, uncertaintyNotes, type DosecalcEngine, type DosecalcJob } from './dosecalcModel';
 
 const POLL_MS = 2000;
 
@@ -23,6 +27,7 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
   const [jobs, setJobs] = useState<DosecalcJob[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [compared, setCompared] = useState<Record<string, GammaStats>>({});
   const planSop = plan.sop_instance_uid;
   const base = studyId ? `/studies/${encodeURIComponent(studyId)}/dosecalc` : '';
 
@@ -81,6 +86,25 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
     } finally {
       setBusy(null);
     }
+  };
+  const compareGamma = async (j: DosecalcJob): Promise<void> => {
+    const body = tpsGammaBody(j);
+    if (!body || !studyId) return;
+    setBusy(`gamma:${j.job_id}`);
+    try {
+      const r = await http.postJson<DoseOpResult>(`/studies/${encodeURIComponent(studyId)}/dose-ops/gamma`, body);
+      if (r.gamma) setCompared((cur) => ({ ...cur, [j.job_id]: r.gamma! }));
+      api.commands.setNotice(t('γ 圖已加到左側「劑量」面板'));
+    } catch (e) {
+      api.commands.setError(t('γ 比較失敗：{msg}', { msg: e instanceof Error ? e.message : String(e) }));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const compareDvh = (j: DosecalcJob): void => {
+    const cur = (api.state.modules[DVH_MODULE_ID] as DvhModuleState | undefined)?.doseIds ?? [];
+    api.commands.setModuleState(DVH_MODULE_ID, { doseIds: tpsDvhDoseIds(j, cur) });
+    api.commands.setMode(DVH_MODE, true);
   };
   const cancel = async (j: DosecalcJob): Promise<void> => {
     try {
@@ -167,7 +191,22 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
                   </button>
                 )}
                 {j.loaded.length > 0 && <span className="muted">{t('已載入左側「劑量」面板')}</span>}
+                {tpsGammaBody(j) && (
+                  <>
+                    <button type="button" disabled={busy !== null} onClick={() => void compareGamma(j)} data-action="dosecalc-tps-gamma" title={t('參考 ＝ TPS 劑量、被評估 ＝ 重算的總劑量；3%/2 mm、全域、10% 門檻（TG-218）')}>
+                      {busy === `gamma:${j.job_id}` ? t('計算中…') : t('γ 比對 TPS（3%/2 mm）')}
+                    </button>
+                    <button type="button" onClick={() => compareDvh(j)} data-action="dosecalc-tps-dvh" title={t('TPS 劑量與重算的總劑量一起放進 DVH')}>
+                      {t('DVH 對照')}
+                    </button>
+                  </>
+                )}
               </div>
+              {compared[j.job_id] && (
+                <p className={`small dosecalc-gamma gamma-rate ${gammaVerdict(compared[j.job_id]!) ?? ''}`} data-pass-rate={compared[j.job_id]!.pass_rate ?? ''}>
+                  {gammaSummaryText(compared[j.job_id]!)}
+                </p>
+              )}
             </li>
           ))}
         </ul>

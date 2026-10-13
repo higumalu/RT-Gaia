@@ -25,6 +25,8 @@ export interface DosecalcSummary {
   readonly dose_grid: 'tps' | 'ct';
   readonly dose_grid_voxels: number;
   readonly calc_spacing_mm?: number | null;
+  /** 參照這份計畫的 TPS 劑量（病例裡有的話）：重算結果跟它比。 */
+  readonly tps_dose_series_id?: string | null;
   readonly engine: string;
 }
 
@@ -111,4 +113,21 @@ export function uncertaintyNotes(j: Pick<DosecalcJob, 'status' | 'dosecalc'>): {
   const out = [{ text: t('統計不確定度（1σ，劑量 ≥ 50% 的區域）：中位數 {med}%、最大 {max}%', { med: pct(u.median_rel_50), max: pct(u.max_rel_50) }), noisy: false }];
   if (u.median_rel_50 > NOISY_UNCERTAINTY) out.push({ text: t('雜訊偏大：γ 的失敗有一部分是統計雜訊。可以加歷史數或用較粗的計算網格再算一次'), noisy: true });
   return out;
+}
+
+/**
+ * 「跟 TPS 比對」的 γ 請求：參考 ＝ TPS 劑量、被評估 ＝ 載入的總劑量（`loaded[0]`）、TG-218 的 3%/2 mm 全域 10% 門檻。
+ * 病例裡沒有 TPS 劑量、或還沒載入 → null。
+ */
+export function tpsGammaBody(j: Pick<DosecalcJob, 'summary' | 'loaded'>): Record<string, unknown> | null {
+  const tps = j.summary.tps_dose_series_id;
+  const total = j.loaded[0];
+  if (!tps || !total) return null;
+  return { reference: tps, evaluated: total, dose_pct: 3, dta_mm: 2, threshold_pct: 10, normalization: 'global', resolution: 5, max_gamma: 2 };
+}
+
+/** 「DVH 對照」：TPS 劑量與重算的總劑量一起放進 DVH（保留原本選的）。 */
+export function tpsDvhDoseIds(j: Pick<DosecalcJob, 'summary' | 'loaded'>, current: readonly string[]): string[] {
+  const add = [j.summary.tps_dose_series_id, j.loaded[0]].filter((x): x is string => typeof x === 'string' && x.length > 0);
+  return [...current, ...add.filter((x) => !current.includes(x))];
 }

@@ -70,6 +70,8 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   statistical uncertainty in the high-dose region with a warning when it is too noisy for a 3% comparison.
   Loading a result also adds a per-voxel uncertainty map, and gamma comparisons note when Monte Carlo noise
   is large compared with the dose criterion.
+- A loaded dose recalculation can be compared with the plan's TPS dose in one click: gamma (3%/2 mm, TG-218)
+  and a DVH with both doses.
 - Admin page **Beam models**: the parameters of each dose calculation beam model (spectrum, source, collimators),
   its MU calibration on this server with the simulated reference depth dose, and its sources and limitations.
 - CT calibration curves for dose calculation (HU → mass density and material): a built-in generic

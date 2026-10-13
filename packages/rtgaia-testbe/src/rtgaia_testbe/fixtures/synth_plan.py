@@ -9,8 +9,10 @@
   * 2「LAT」：機架 90°（射源在病人左），jaw X ±40、Y ±60，MLC 圍成半徑 40 mm 的圓
   * 3「ARC」：VMAT 181° → 179° 順時針，61 個控制點，jaw ±60，MLC 開口寬度隨機架角變（測內插）
   * MU 200／150／400
+* RTDOSE「synth TPS dose」：PLAN、引用這份計畫 —— 只是等中心的一顆高斯（峰值 20 Gy、σ 20 mm、4 mm 網格），
+  **不是**這份計畫的劑量；給「重算劑量 → 跟 TPS 比對」的流程用（γ 的數值沒有意義）。
 
-`expected.json` 寫計畫與 CT 的 UID、射束、分次。
+`expected.json` 寫計畫、CT、TPS 劑量的 UID、射束、分次。
 """
 
 from __future__ import annotations
@@ -247,10 +249,17 @@ def build_plan(root: Path) -> Case:
     )
     plan_sop = uid("plan-sop", case.case_id)
     _plan(case, for_uid, plan_sop)
+    from .synth_beams import _dose, beam_counts
+
+    tps = _dose(
+        case, for_uid=for_uid, plan_sop=plan_sop, key="tps", description="synth TPS dose", summation="PLAN",
+        counts=beam_counts(20.0, (0.0, 0.0, 0.0)), beam=None, number=3,
+    )  # fmt: skip
     case.expected = {
         "plan_sop_instance_uid": plan_sop,
         "plan_series_instance_uid": uid("plan-series", case.case_id),
         "ct_series_instance_uid": ct.series_uid,
+        "tps_dose_series_instance_uid": tps,
         "frame_of_reference_uid": for_uid,
         "beams": [1, 2, 3],
         "mu": MU,

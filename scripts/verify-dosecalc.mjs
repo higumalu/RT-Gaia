@@ -5,7 +5,8 @@
  *   開合成計畫的病例（CT ＋ RTPLAN；`rtgaia_testbe.fixtures.synth_plan`）→ 工具列「計畫」→「重算劑量」
  *   引擎清單：Geant4（還沒裝好時停用並說明原因）、流程測試引擎 → 選流程測試引擎、CT 範圍網格 → 送出
  *   工作出現（條件說明：示範模型、通用 CT 曲線、網格、分次）→ 完成 →「載入結果」→ 左側「劑量」面板多 4 個劑量（總 ＋ 3 個射束，射束預設隱藏）
- *   軸向格有劑量的顏色；不確定度圖預設隱藏、只開它時有顏色；英文模式沒有中文
+ *   軸向格有劑量的顏色；不確定度圖預設隱藏、只開它時有顏色；「γ 比對 TPS」→ 通過率、γ 圖；「DVH 對照」→ DVH 勾兩個劑量
+ *   英文模式沒有中文
  *
  * 需要量測堆疊、帶 `RTGAIA_DOSECALC_TEST_ENGINE=1`、資料庫目錄裡有 `data/test_plan`：
  *   uv run python -m rtgaia_testbe.fixtures.synth_plan --out data/test_plan
@@ -137,8 +138,9 @@ const countColors = async () => {
 
 const api = args.api ?? 'http://127.0.0.1:8091';
 const expected = JSON.parse((await import('node:fs')).readFileSync(args.expected ?? 'data/test_plan/plan6x/expected.json', 'utf8')).expected;
-// 病例：CT ＋ RTPLAN（不帶 TPS 劑量 → 網格用 CT 範圍）
-const opened = await (await fetch(`${api}/api/v1/sessions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ primary_series_uid: expected.ct_series_instance_uid, image_series_uids: [expected.ct_series_instance_uid], plan_uids: [expected.plan_series_instance_uid], dose_uids: [] }) })).json();
+// 病例：CT ＋ RTPLAN ＋ 合成的 TPS 劑量（只是一顆高斯：給「跟 TPS 比對」走流程；網格選 CT 範圍）
+const tpsUids = expected.tps_dose_series_instance_uid ? [expected.tps_dose_series_instance_uid] : [];
+const opened = await (await fetch(`${api}/api/v1/sessions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ primary_series_uid: expected.ct_series_instance_uid, image_series_uids: [expected.ct_series_instance_uid], plan_uids: [expected.plan_series_instance_uid], dose_uids: tpsUids }) })).json();
 if (!opened.study_id) throw new Error(`開病例失敗：${JSON.stringify(opened)}`);
 // 清掉這個病例以前的暫存劑量
 const old = await (await fetch(`${api}/api/v1/studies/${encodeURIComponent(opened.study_id)}/dose-ops`)).json();
@@ -209,8 +211,9 @@ step(`軸向格有劑量顏色（${px} 個像素）`);
 const unc = `document.querySelector('.dose-panel .uncertainty-object')`;
 if (!(await evaluate(`!!${unc}`))) throw new Error('沒有不確定度圖');
 if (await evaluate(`${unc}.querySelector('[data-field="uncertainty-visible"]').checked`)) throw new Error('不確定度圖應預設隱藏');
-const totalLi = `[...document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object):not(.uncertainty-object)')].find((li) => /${engineName}$/.test(li.querySelector('.dose-object-name').textContent))`;
-await clickEl(`(${totalLi}).querySelector('.visibility input')`);
+// 劑量（重算的總劑量、TPS 劑量）全部關掉，只留不確定度圖
+const shownDoses = `[...document.querySelectorAll('.dose-panel .dose-object:not(.gamma-object):not(.uncertainty-object)')].filter((li) => li.querySelector('.visibility input')?.checked)`;
+for (let i = 0; i < 10 && (await evaluate(`${shownDoses}.length`)) > 0; i += 1) await clickEl(`${shownDoses}[0].querySelector('.visibility input')`);
 await clickEl(`${unc}.querySelector('[data-field="uncertainty-visible"]')`);
 await waitFor(`!!${unc}.querySelector('.uncertainty-scale')`, '色階條', 10000);
 px = await colorful();
@@ -222,7 +225,23 @@ if (px < 500) throw new Error(`只開不確定度圖時軸向格應有顏色：$
 await shot('dosecalc-uncertainty.png');
 step(`不確定度圖：預設隱藏、打開後有顏色（${px} 個像素）、色階 ${await evaluate(`${unc}.querySelector('.uncertainty-scale-axis').textContent`)}`);
 
-// 5. 英文
+// 5. 跟 TPS 比對：γ（3%/2 mm）→ 工作列出現通過率、劑量面板多一個 γ 圖；DVH 對照 → DVH 勾了 TPS 與重算的總劑量
+if (tpsUids.length) {
+  const gammaBefore = await evaluate(`document.querySelectorAll('.dose-panel .gamma-object').length`);
+  await clickEl(`(${jobLi}).querySelector('button[data-action="dosecalc-tps-gamma"]')`);
+  await waitFor(`!!(${jobLi}).querySelector('.dosecalc-gamma')`, 'γ 比對 TPS 的結果', 120000);
+  await waitFor(`document.querySelectorAll('.dose-panel .gamma-object').length === ${gammaBefore + 1}`, '劑量面板多一個 γ 圖', 30000);
+  const gtext = await evaluate(`(${jobLi}).querySelector('.dosecalc-gamma').textContent`);
+  if (!/3%\/2 mm/.test(gtext)) throw new Error(`γ 結果：${gtext}`);
+  step(`γ 比對 TPS：${gtext}`);
+  await clickEl(`(${jobLi}).querySelector('button[data-action="dosecalc-tps-dvh"]')`);
+  await waitFor(`document.querySelectorAll('.dvh-doses label input:checked').length === 2`, 'DVH 勾了兩個劑量', 30000);
+  const dvhDoses = await evaluate(`[...document.querySelectorAll('.dvh-doses label')].filter((l) => l.querySelector('input:checked')).map((l) => l.textContent.trim())`);
+  await shot('dosecalc-tps-compare.png');
+  step(`DVH 對照：${dvhDoses.join('、')}`);
+}
+
+// 6. 英文
 await send('Page.navigate', { url: url.replace('/#/', '/?lang=en#/') });
 await waitFor(`document.querySelectorAll('.viewport-cell canvas').length >= 3 && !!document.querySelector('.plan-toggle button')`, '英文模式載入');
 if (!(await evaluate(`!!${section}`))) await clickEl(`document.querySelector('.plan-toggle button')`);

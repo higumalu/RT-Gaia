@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { isActive, jobsForPlan, jobStatusText, summaryNotes, uncertaintyNotes, type DosecalcJob, type DosecalcSummary } from '../src/react/modules/plan/dosecalcModel';
+import { isActive, jobsForPlan, jobStatusText, summaryNotes, tpsDvhDoseIds, tpsGammaBody, uncertaintyNotes, type DosecalcJob, type DosecalcSummary } from '../src/react/modules/plan/dosecalcModel';
 
 const summary: DosecalcSummary = {
   plan_sop_uid: 'P',
@@ -50,5 +50,12 @@ describe('重算劑量', () => {
     expect(noisy[1]!.noisy).toBe(true);
     expect(uncertaintyNotes(job({ status: 'running' }))).toEqual([]);
     expect(uncertaintyNotes(job({ dosecalc: { engine: 'pipeline-test', seconds: 1, histories: 1, uncertainty: null } }))).toEqual([]);
+  });
+  it('跟 TPS 比對：參考是 TPS、被評估是載入的總劑量、TG-218 條件；沒有 TPS 或還沒載入就沒有', () => {
+    const withTps = { ...summary, tps_dose_series_id: 'TPS' };
+    expect(tpsGammaBody(job({ summary: withTps, loaded: ['TOTAL', 'B1'] }))).toMatchObject({ reference: 'TPS', evaluated: 'TOTAL', dose_pct: 3, dta_mm: 2, threshold_pct: 10, normalization: 'global' });
+    expect(tpsGammaBody(job({ summary: withTps, loaded: [] }))).toBeNull();
+    expect(tpsGammaBody(job({ loaded: ['TOTAL'] }))).toBeNull();
+    expect(tpsDvhDoseIds(job({ summary: withTps, loaded: ['TOTAL'] }), ['X', 'TPS'])).toEqual(['X', 'TPS', 'TOTAL']);
   });
 });
