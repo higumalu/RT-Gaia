@@ -147,7 +147,12 @@ def env(tmp_path: Path, monkeypatch):  # type: ignore[no-untyped-def]
     monkeypatch.setenv("RTGAIA_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("RTGAIA_DOSECALC_TEST_ENGINE", "1")
     real = engines.available
-    monkeypatch.setattr(engines, "available", lambda: [*real(), {"name": "gpu", "ready": True, "reason": ""}])
+    # CI 沒有 GPU：引擎清單裡的 gpu 是「不能用」→ 換成能用的（擬合子行程本身也換成假的）
+    monkeypatch.setattr(
+        engines,
+        "available",
+        lambda: [*(e for e in real() if e["name"] != "gpu"), {"name": "gpu", "ready": True, "reason": ""}],
+    )
     script = tmp_path / "fake_fit.py"
     script.write_text(FAKE_FIT, encoding="utf-8")
 
