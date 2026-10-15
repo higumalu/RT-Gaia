@@ -1517,3 +1517,19 @@ kbd { font: inherit; font-size: 11px; padding: 1px 5px; border: 1px solid var(--
 .plan-dosecalc-jobs li[data-status='done'] .dosecalc-status { color: var(--ok); }
 .plan-dosecalc-jobs progress { width: 100%; height: 6px; }
 .dosecalc-notes { margin: 2px 0; padding-left: 1.2em; }
+
+/* 管理頁「射束資料」 */
+.beamdata-list tbody tr, .beamdata-measurements tbody tr { cursor: pointer; }
+.beamdata-list tbody tr.selected, .beamdata-measurements tbody tr.selected { background: var(--accent-bg); }
+.beamdata-detail { margin-top: 12px; }
+.beamdata-measurement { margin-top: 8px; }
+.beamdata-plot { width: 100%; max-width: 520px; height: auto; display: block; }
+.beamdata-points { max-width: 520px; }
+.beamdata-form { display: flex; flex-direction: column; gap: 6px; max-width: 720px; margin-top: 8px; }
+.beamdata-form fieldset { display: flex; flex-wrap: wrap; gap: 8px; border: 1px solid var(--line); border-radius: 4px; }
+.beamdata-form label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.beamdata-form label.wide { flex-basis: 100%; }
+.beamdata-form label .num { width: 5em; }
+.beamdata-form textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.badge.beamdata-status.locked { color: var(--ok); border-color: var(--ok); }
+.badge.beamdata-status.draft { color: var(--warn); border-color: var(--warn); }

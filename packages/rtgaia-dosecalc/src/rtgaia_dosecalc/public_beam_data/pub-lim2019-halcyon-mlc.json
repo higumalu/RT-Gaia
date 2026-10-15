@@ -1,0 +1,157 @@
+{
+ "dataset_id": "pub-lim2019-halcyon-mlc",
+ "name": "Halcyon MLC (Lim 2019)",
+ "machine": {
+  "manufacturer": "Varian",
+  "model": "Halcyon",
+  "name": ""
+ },
+ "beam": {
+  "energy_mv": 6.0,
+  "fluence_mode": "FFF"
+ },
+ "source": {
+  "kind": "literature",
+  "citation": "Lim TY, Dragojević I, Hoffman D, Flores-Martinez E, Kim GY. Characterization of the Halcyon multileaf collimator system. J Appl Clin Med Phys. 2019;20(4):106-114. doi:10.1002/acm2.12568",
+  "licence": "CC BY 4.0",
+  "url": "https://doi.org/10.1002/acm2.12568",
+  "note": "One Halcyon; dual-layer MLC transmission and leaf-end effect."
+ },
+ "measurements": [
+  {
+   "measurement_id": "lim2019-t3-transmission-distal-dmax",
+   "kind": "scalar",
+   "quantity": "mlc_transmission",
+   "conditions": {
+    "ssd_mm": 1000,
+    "detector": "PTW 30013 Farmer (solid water)",
+    "layer": "distal",
+    "note": "at d_max"
+   },
+   "points": [
+    [
+     0.0041
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Lim 2019 Table 3, Distal‐only, Leaf transmission (%) / d_{max} (% → fraction); the dual-layer transmission is printed as negligible"
+  },
+  {
+   "measurement_id": "lim2019-t3-transmission-distal-d10",
+   "kind": "scalar",
+   "quantity": "mlc_transmission",
+   "conditions": {
+    "ssd_mm": 1000,
+    "detector": "PTW 30013 Farmer (solid water)",
+    "layer": "distal",
+    "depth_mm": 100.0
+   },
+   "points": [
+    [
+     0.0042
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Lim 2019 Table 3, Distal‐only, Leaf transmission (%) / d = 10 cm (% → fraction); the dual-layer transmission is printed as negligible"
+  },
+  {
+   "measurement_id": "lim2019-t3-transmission-proximal-dmax",
+   "kind": "scalar",
+   "quantity": "mlc_transmission",
+   "conditions": {
+    "ssd_mm": 1000,
+    "detector": "PTW 30013 Farmer (solid water)",
+    "layer": "proximal",
+    "note": "at d_max"
+   },
+   "points": [
+    [
+     0.004
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Lim 2019 Table 3, Proximal‐only, Leaf transmission (%) / d_{max} (% → fraction); the dual-layer transmission is printed as negligible"
+  },
+  {
+   "measurement_id": "lim2019-t3-transmission-proximal-d10",
+   "kind": "scalar",
+   "quantity": "mlc_transmission",
+   "conditions": {
+    "ssd_mm": 1000,
+    "detector": "PTW 30013 Farmer (solid water)",
+    "layer": "proximal",
+    "depth_mm": 100.0
+   },
+   "points": [
+    [
+     0.0041
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Lim 2019 Table 3, Proximal‐only, Leaf transmission (%) / d = 10 cm (% → fraction); the dual-layer transmission is printed as negligible"
+  },
+  {
+   "measurement_id": "lim2019-text-leaf-end-d10",
+   "kind": "scalar",
+   "quantity": "leaf_end_offset_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "detector": "PTW 30013 Farmer (solid water)",
+    "layer": "distal",
+    "depth_mm": 100.0
+   },
+   "points": [
+    [
+     -0.19
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Lim 2019 Results: The measured leaf end effect was −0.19 mm from measurements at 10 cm depth, and −0.13 mm from measurements at d_{max} (Fig. 6). (sweeping gaps 2–20 mm, y-intercept after transmission correction)"
+  },
+  {
+   "measurement_id": "lim2019-text-leaf-end-dmax",
+   "kind": "scalar",
+   "quantity": "leaf_end_offset_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "detector": "PTW 30013 Farmer (solid water)",
+    "layer": "distal",
+    "note": "at d_max"
+   },
+   "points": [
+    [
+     -0.13
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Lim 2019 Results: The measured leaf end effect was −0.19 mm from measurements at 10 cm depth, and −0.13 mm from measurements at d_{max} (Fig. 6). (sweeping gaps 2–20 mm, y-intercept after transmission correction)"
+  },
+  {
+   "measurement_id": "lim2019-t1-leaf-end-radius",
+   "kind": "scalar",
+   "quantity": "leaf_end_radius_mm",
+   "conditions": {},
+   "points": [
+    [
+     234.0
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Lim 2019 Table 1, Leaf end radius, Halcyon column (cm → mm); a vendor specification quoted by the paper, not a measurement"
+  },
+  {
+   "measurement_id": "lim2019-t1-leaf-height",
+   "kind": "scalar",
+   "quantity": "leaf_height_mm",
+   "conditions": {},
+   "points": [
+    [
+     77.0
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Lim 2019 Table 1, Leaf height, Halcyon column (cm → mm); a vendor specification quoted by the paper, not a measurement"
+  }
+ ],
+ "note": ""
+}

@@ -1,0 +1,426 @@
+{
+ "dataset_id": "pub-beyer2013-15x",
+ "name": "TrueBeam 15 MV (Beyer 2013)",
+ "machine": {
+  "manufacturer": "Varian",
+  "model": "TrueBeam",
+  "name": ""
+ },
+ "beam": {
+  "energy_mv": 15.0,
+  "fluence_mode": "STANDARD"
+ },
+ "source": {
+  "kind": "literature",
+  "citation": "Beyer GP. Commissioning measurements for photon beam data on three TrueBeam linear accelerators, and comparison with Trilogy and Clinac 2100 linear accelerators. J Appl Clin Med Phys. 2013;14(1):273-288. doi:10.1120/jacmp.v14i1.4077",
+  "licence": "CC BY 3.0",
+  "url": "https://doi.org/10.1120/jacmp.v14i1.4077",
+  "note": "Three TrueBeam linacs at three sites; IBA CC13 0.125 cm³ chamber, IBA-Wellhofer scanning phantom."
+ },
+ "measurements": [
+  {
+   "measurement_id": "beyer2013-t1-dmax-15x-4x4",
+   "kind": "scalar",
+   "quantity": "dmax_mm",
+   "conditions": {
+    "field_mm": "40 x 40",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     28.3,
+     0.64
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 1, 15 MV d_{max} (cm) 4×4, Average ± St. Dev. (3 machines); cm → mm; SSD not stated in the paper"
+  },
+  {
+   "measurement_id": "beyer2013-t1-dmax-15x-10x10",
+   "kind": "scalar",
+   "quantity": "dmax_mm",
+   "conditions": {
+    "field_mm": "100 x 100",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     27.8,
+     0.21
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 1, 15 MV d_{max} (cm) 10×10, Average ± St. Dev. (3 machines); cm → mm; SSD not stated in the paper"
+  },
+  {
+   "measurement_id": "beyer2013-t1-dmax-15x-40x40",
+   "kind": "scalar",
+   "quantity": "dmax_mm",
+   "conditions": {
+    "field_mm": "400 x 400",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     20.2,
+     0.4
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 1, 15 MV d_{max} (cm) 40×40, Average ± St. Dev. (3 machines); cm → mm; SSD not stated in the paper"
+  },
+  {
+   "measurement_id": "beyer2013-t1-pdd10-15x-4x4",
+   "kind": "depth_dose",
+   "quantity": "pdd",
+   "unit": "percent",
+   "conditions": {
+    "field_mm": "40 x 40",
+    "detector": "IBA CC13",
+    "ssd_mm": 1000,
+    "normalization": "dmax"
+   },
+   "points": [
+    [
+     100.0,
+     74.9,
+     0.252
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 1, 15 MV PDD_{10}(%) 4×4, Average ± St. Dev. (3 machines); SSD not stated in the paper, assumed 100 cm (the profiles in the same paper are at 100 cm SSD)"
+  },
+  {
+   "measurement_id": "beyer2013-t1-pdd10-15x-10x10",
+   "kind": "depth_dose",
+   "quantity": "pdd",
+   "unit": "percent",
+   "conditions": {
+    "field_mm": "100 x 100",
+    "detector": "IBA CC13",
+    "ssd_mm": 1000,
+    "normalization": "dmax"
+   },
+   "points": [
+    [
+     100.0,
+     76.7,
+     0.1
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 1, 15 MV PDD_{10}(%) 10×10, Average ± St. Dev. (3 machines); SSD not stated in the paper, assumed 100 cm (the profiles in the same paper are at 100 cm SSD)"
+  },
+  {
+   "measurement_id": "beyer2013-t1-pdd10-15x-40x40",
+   "kind": "depth_dose",
+   "quantity": "pdd",
+   "unit": "percent",
+   "conditions": {
+    "field_mm": "400 x 400",
+    "detector": "IBA CC13",
+    "ssd_mm": 1000,
+    "normalization": "dmax"
+   },
+   "points": [
+    [
+     100.0,
+     76.9,
+     0.1
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 1, 15 MV PDD_{10}(%) 40×40, Average ± St. Dev. (3 machines); SSD not stated in the paper, assumed 100 cm (the profiles in the same paper are at 100 cm SSD)"
+  },
+  {
+   "measurement_id": "beyer2013-t1-tpr2010-15x-4x4",
+   "kind": "scalar",
+   "quantity": "tpr20_10",
+   "conditions": {
+    "field_mm": "40 x 40",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     0.731,
+     0.0015
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 1, 15 MV TPR_{20/10} 4×4, Average ± St. Dev. (3 machines); derived by the authors from PDD20/PDD10 with TPR20,10 = 1.2661 PDD20,10 − 0.0595, not measured"
+  },
+  {
+   "measurement_id": "beyer2013-t1-tpr2010-15x-10x10",
+   "kind": "scalar",
+   "quantity": "tpr20_10",
+   "conditions": {
+    "field_mm": "100 x 100",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     0.763,
+     0.0006
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 1, 15 MV TPR_{20/10} 10×10, Average ± St. Dev. (3 machines); derived by the authors from PDD20/PDD10 with TPR20,10 = 1.2661 PDD20,10 − 0.0595, not measured"
+  },
+  {
+   "measurement_id": "beyer2013-t1-tpr2010-15x-40x40",
+   "kind": "scalar",
+   "quantity": "tpr20_10",
+   "conditions": {
+    "field_mm": "400 x 400",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     0.81,
+     0.001
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 1, 15 MV TPR_{20/10} 40×40, Average ± St. Dev. (3 machines); derived by the authors from PDD20/PDD10 with TPR20,10 = 1.2661 PDD20,10 − 0.0595, not measured"
+  },
+  {
+   "measurement_id": "beyer2013-t2-of-15x",
+   "kind": "output_factor",
+   "conditions": {
+    "ssd_mm": 950,
+    "depth_mm": 50,
+    "setup": "SAD",
+    "reference_field_mm": "100 x 100",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     30.0,
+     0.874,
+     0.0019
+    ],
+    [
+     40.0,
+     0.914,
+     0.0008
+    ],
+    [
+     60.0,
+     0.955,
+     0.0007
+    ],
+    [
+     80.0,
+     0.981,
+     0.0003
+    ],
+    [
+     100.0,
+     1.0,
+     0.0
+    ],
+    [
+     150.0,
+     1.03,
+     0.0005
+    ],
+    [
+     200.0,
+     1.049,
+     0.0004
+    ],
+    [
+     300.0,
+     1.075,
+     0.0003
+    ],
+    [
+     400.0,
+     1.083,
+     0.0015
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 2, 15 MV, Average ± St. Dev. (3 machines); isocentric, 5 cm depth, 95 cm SSD (Methods)"
+  },
+  {
+   "measurement_id": "beyer2013-t4-penumbra-15x-10x10-d2.8",
+   "kind": "scalar",
+   "quantity": "penumbra_80_20_mm",
+   "conditions": {
+    "field_mm": "100 x 100",
+    "ssd_mm": 1000,
+    "depth_mm": 28.0,
+    "axis": "x",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     6.766667,
+     0.057735
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 4, 15 MV, depth 2.8 cm, 10×10 field, TrueBeam #1–#3 (mean and sample SD computed from the three machines; crossplane)"
+  },
+  {
+   "measurement_id": "beyer2013-t4-fwhm-15x-10x10-d2.8",
+   "kind": "scalar",
+   "quantity": "fwhm_mm",
+   "conditions": {
+    "field_mm": "100 x 100",
+    "ssd_mm": 1000,
+    "depth_mm": 28.0,
+    "axis": "x",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     103.366667,
+     0.057735
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 4, 15 MV, depth 2.8 cm, 10×10 field, TrueBeam #1–#3 field width (50%) (cm → mm; mean and sample SD computed from the three machines; crossplane)"
+  },
+  {
+   "measurement_id": "beyer2013-t4-penumbra-15x-40x40-d2.8",
+   "kind": "scalar",
+   "quantity": "penumbra_80_20_mm",
+   "conditions": {
+    "field_mm": "400 x 400",
+    "ssd_mm": 1000,
+    "depth_mm": 28.0,
+    "axis": "x",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     7.066667,
+     0.208167
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 4, 15 MV, depth 2.8 cm, 40×40 field, TrueBeam #1–#3 (mean and sample SD computed from the three machines; crossplane)"
+  },
+  {
+   "measurement_id": "beyer2013-t4-fwhm-15x-40x40-d2.8",
+   "kind": "scalar",
+   "quantity": "fwhm_mm",
+   "conditions": {
+    "field_mm": "400 x 400",
+    "ssd_mm": 1000,
+    "depth_mm": 28.0,
+    "axis": "x",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     411.533333,
+     0.321455
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 4, 15 MV, depth 2.8 cm, 40×40 field, TrueBeam #1–#3 field width (50%) (cm → mm; mean and sample SD computed from the three machines; crossplane)"
+  },
+  {
+   "measurement_id": "beyer2013-t4-penumbra-15x-10x10-d10",
+   "kind": "scalar",
+   "quantity": "penumbra_80_20_mm",
+   "conditions": {
+    "field_mm": "100 x 100",
+    "ssd_mm": 1000,
+    "depth_mm": 100.0,
+    "axis": "x",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     7.7,
+     0.1
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 4, 15 MV, depth 10 cm, 10×10 field, TrueBeam #1–#3 (mean and sample SD computed from the three machines; crossplane)"
+  },
+  {
+   "measurement_id": "beyer2013-t4-fwhm-15x-10x10-d10",
+   "kind": "scalar",
+   "quantity": "fwhm_mm",
+   "conditions": {
+    "field_mm": "100 x 100",
+    "ssd_mm": 1000,
+    "depth_mm": 100.0,
+    "axis": "x",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     110.6,
+     0.1
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 4, 15 MV, depth 10 cm, 10×10 field, TrueBeam #1–#3 field width (50%) (cm → mm; mean and sample SD computed from the three machines; crossplane)"
+  },
+  {
+   "measurement_id": "beyer2013-t4-penumbra-15x-40x40-d10",
+   "kind": "scalar",
+   "quantity": "penumbra_80_20_mm",
+   "conditions": {
+    "field_mm": "400 x 400",
+    "ssd_mm": 1000,
+    "depth_mm": 100.0,
+    "axis": "x",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     8.966667,
+     0.208167
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 4, 15 MV, depth 10 cm, 40×40 field, TrueBeam #1–#3 (mean and sample SD computed from the three machines; crossplane)"
+  },
+  {
+   "measurement_id": "beyer2013-t4-fwhm-15x-40x40-d10",
+   "kind": "scalar",
+   "quantity": "fwhm_mm",
+   "conditions": {
+    "field_mm": "400 x 400",
+    "ssd_mm": 1000,
+    "depth_mm": 100.0,
+    "axis": "x",
+    "detector": "IBA CC13"
+   },
+   "points": [
+    [
+     441.133333,
+     0.665833
+    ]
+   ],
+   "statistic": "mean",
+   "n": 3,
+   "reference": "Beyer 2013 Table 4, 15 MV, depth 10 cm, 40×40 field, TrueBeam #1–#3 field width (50%) (cm → mm; mean and sample SD computed from the three machines; crossplane)"
+  }
+ ],
+ "note": ""
+}

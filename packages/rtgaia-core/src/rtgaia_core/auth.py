@@ -213,6 +213,10 @@ def required_role_for(method: str, path: str) -> str | None:
         and path != "/api/v1/ct-calibrations/preview"
     ):
         return "admin"  # CT 校正曲線是劑量計算的設定：新增、啟用、停用、刪都是管理者；預覽只是檢查與畫圖
+    if path == "/api/v1/beam-data/parse-csv":
+        return "viewer"  # 只解析、檢查，不存
+    if path.startswith("/api/v1/beam-data") and method not in ("GET", "HEAD", "OPTIONS"):
+        return "admin"  # 射束資料是劑量計算的依據：新增、改、鎖定、刪都是管理者
     if method == "DELETE" and path.startswith("/api/v1/catalog/"):
         return "admin"  # 從資料庫移除資料（2026-09-15）：只有管理者
     if (

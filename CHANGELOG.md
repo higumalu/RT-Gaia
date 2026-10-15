@@ -82,6 +82,10 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   and retired states, and matching by scanner manufacturer, model and kVp with the reason shown. Any curve,
   the built-in one included, can be copied to an editable draft, and a default curve can replace the
   built-in one for scanners that match nothing else.
+- Beam data for fitting and validating beam models (administrator page **Beam data**): datasets per machine and
+  beam with their source, citation and licence; depth doses, profiles, output factors, single values and absolute
+  calibration with conditions and uncertainties; import as generic CSV; drafts, locking and copies. Built-in
+  datasets reproduce tables from five open-access TrueBeam and Halcyon articles (CC BY).
 - Plan display (view only): beam table, isocenter markers, beam's-eye view with jaws and MLC, a
   control-point timeline, arc ticks on axial images, beams in 3D, a gantry and couch sketch, and a DRR
   computed from the planning CT.

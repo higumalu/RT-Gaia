@@ -1,0 +1,4200 @@
+{
+ "generated": "2026-10-15",
+ "source_method": "JATS XML via https://www.ebi.ac.uk/europepmc/webservices/rest/<PMCID>/fullTextXML (same content as PMC article pages, which were reCAPTCHA-blocked for scripted fetch)",
+ "papers": [
+  {
+   "key": "beyer2013",
+   "citation": "Beyer GP. Commissioning measurements for photon beam data on three TrueBeam linear accelerators, and comparison with Trilogy and Clinac 2100 linear accelerators. J Appl Clin Med Phys. 2013;14(1):273-288.",
+   "doi": "10.1120/jacmp.v14i1.4077",
+   "pmcid": "PMC5714054",
+   "pmid": "23318395",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5714054/",
+   "licence_text": "This is an open access article under the terms of the Creative Commons Attribution License, which permits use, distribution and reproduction in any medium, provided the original work is properly cited.",
+   "licence_url": "http://creativecommons.org/licenses/by/3.0/",
+   "copyright": "© 2013 The Authors.",
+   "conditions_quotes": [
+    "Measurements were performed for 6 MV and 15 MV standard photon energies and for 10 FFF photon energy.",
+    "Measurements for all three linear accelerators were performed using a CC13 0.125 cm^{3} ion chamber and IBA‐Wellhofer scanning phantom system (IBA Dosimetry, Barlett, TN).",
+    "The chamber was offset to the effective point of measurement (0.6*r_{cav}) for all photon beam data measurements performed.",
+    "The depth of dose maximum (d_{max}) and PDD at 10 cm (PDD_{10}) was evaluated for three field sizes: 4×4 cm^{2}, 10×10 cm^{2}, and 40×40 cm^{2}.",
+    "The TPR values were determined from the measured PDD_{20cm} and PDD_{10cm} data using an empirical approximation relation: TPR_{20,10}=1.2661 PDD_{20,10}−0.0595, where PDD_{20,10} is the ratio of percent depth doses at 20 cm and 10 cm depths.",
+    "An additional analysis was performed by comparing measurements for the crossplane beam profiles derived from two field sizes (10×10 cm^{2} and 40×40 cm^{2}) at two different depths (depth of approximately dose maximum and depth of 10 cm) and 100 cm SSD.",
+    "We obtained relative output factor measurement data by using an isocentric setup at depth of 5 cm (95 cm SSD) for several field sizes ranging from 3×3 cm^{2} to 40×40 cm^{2}.",
+    "Measurements for the two linear accelerators were performed using a CC13 0.125 cm^{3} ion chamber and IBA‐Wellhofer scanning phantom system.",
+    "Beam profile penumbra (distance between the 80% and 20% relative dose points) and the field size definition (width at 50% relative dose) were then evaluated."
+   ],
+   "tables": [
+    {
+     "label": "Table 1",
+     "caption": "TrueBeam energy match analysis.",
+     "columns": [
+      "Energ (MV)",
+      "Data",
+      "Field Size ( cm×cm )",
+      "TrueBeam #1",
+      "TrueBeam #2",
+      "TrueBeam #3",
+      "Average",
+      "St. Dev. (s)",
+      "95% CI Ave."
+     ],
+     "header_rows_as_printed": [
+      [
+       "Energ (MV)",
+       "Data",
+       "Field Size ( cm×cm )",
+       "TrueBeam #1",
+       "TrueBeam #2",
+       "TrueBeam #3",
+       "Average",
+       "St. Dev. (s)",
+       "95% CI Ave."
+      ]
+     ],
+     "rows": [
+      [
+       "",
+       "",
+       "4×4",
+       "1.35",
+       "1.40",
+       "1.37",
+       "1.37",
+       "0.025",
+       "[1.31−1.44]"
+      ],
+      [
+       "",
+       "d_{max}(cm)",
+       "10×10",
+       "1.47",
+       "1.40",
+       "1.36",
+       "1.41",
+       "0.056",
+       "[1.27−1.55]"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "1.28",
+       "1.37",
+       "1.30",
+       "1.32",
+       "0.047",
+       "[1.20−1.43]"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "61.3",
+       "61.5",
+       "61.4",
+       "61.4",
+       "0.100",
+       "[61.2−61.6]"
+      ],
+      [
+       "6",
+       "PDD_{10}(%)",
+       "10×10",
+       "66.1",
+       "66.2",
+       "66.1",
+       "66.1",
+       "0.058",
+       "[66.0−66.3]"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "71.7",
+       "71.9",
+       "71.9",
+       "71.8",
+       "0.115",
+       "[71.5−72.1]"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "0.626",
+       "0.623",
+       "0.625",
+       "0.625",
+       "0.0015",
+       "[0.621−0.628]"
+      ],
+      [
+       "",
+       "TPR_{20/10}",
+       "10×10",
+       "0.666",
+       "0.667",
+       "0.665",
+       "0.666",
+       "0.0010",
+       "[0.664−0.668]"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "0.746",
+       "0.744",
+       "0.745",
+       "0.745",
+       "0.0010",
+       "[0.743−0.747]"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "2.78",
+       "2.90",
+       "2.80",
+       "2.83",
+       "0.064",
+       "[2.67−2.99]"
+      ],
+      [
+       "",
+       "d_{max} (cm)",
+       "10×10",
+       "2.77",
+       "2.80",
+       "2.76",
+       "2.78",
+       "0.021",
+       "[2.72−2.83]"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "2.07",
+       "2.00",
+       "2.00",
+       "2.02",
+       "0.040",
+       "[1.92−2.12]"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "74.6",
+       "74.9",
+       "75.1",
+       "74.9",
+       "0.252",
+       "[74.2−75.5]"
+      ],
+      [
+       "15",
+       "PDD_{10}(%)",
+       "10×10",
+       "76.7",
+       "76.8",
+       "76.6",
+       "76.7",
+       "0.100",
+       "[76.5−76.9]"
+      ],
+      [
+       "",
+       "10",
+       "40×40",
+       "76.9",
+       "77.0",
+       "76.8",
+       "76.9",
+       "0.100",
+       "[76.7−77.1]"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "0.731",
+       "0.732",
+       "0.729",
+       "0.731",
+       "0.0015",
+       "[0.727−0.734]"
+      ],
+      [
+       "",
+       "TPR_{20/10}",
+       "10×10",
+       "0.763",
+       "0.763",
+       "0.764",
+       "0.763",
+       "0.0006",
+       "[0.762−0.765]"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "0.810",
+       "0.811",
+       "0.809",
+       "0.810",
+       "0.0010",
+       "[0.808−0.812]"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "2.23",
+       "2.20",
+       "2.17",
+       "2.20",
+       "0.030",
+       "[2.13−2.27]"
+      ],
+      [
+       "",
+       "d_{max} (cm)",
+       "10×10",
+       "2.26",
+       "2.25",
+       "2.13",
+       "2.21",
+       "0.072",
+       "[2.03−2.39]"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "1.90",
+       "2.10",
+       "1.97",
+       "1.99",
+       "0.101",
+       "[1.74−2.24]"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "67.5",
+       "67.9",
+       "67.5",
+       "67.6",
+       "0.231",
+       "[67.1−68.2]"
+      ],
+      [
+       "10 FFF",
+       "PDD_{10}(%)",
+       "10×10",
+       "70.9",
+       "71.1",
+       "70.7",
+       "70.9",
+       "0.200",
+       "[70.4−71.4]"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "73.1",
+       "73.2",
+       "73.2",
+       "73.2",
+       "0.058",
+       "[73.0−73.3]"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "0.674",
+       "0.673",
+       "0.674",
+       "0.674",
+       "0.0006",
+       "[0.672−0.675]"
+      ],
+      [
+       "",
+       "TPR_{20/10}",
+       "10×10",
+       "0.705",
+       "0.703",
+       "0.707",
+       "0.705",
+       "0.0020",
+       "[0.700−0.710]"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "0.744",
+       "0.741",
+       "0.745",
+       "0.743",
+       "0.0021",
+       "[0.738−0.749]"
+      ]
+     ],
+     "footnote": null,
+     "units": "dmax in cm; PDD10 in %; TPR20/10 dimensionless; St. Dev. (s) in the unit of the row; 95% CI Ave. as [low−high]",
+     "notes": "Rows as printed: energy and data labels are printed only on one row of each group (middle row), other cells blank. Row index 14 (15 MV, 40×40) prints \"10\" in the Data column instead of a blank - this looks like a typesetting artefact of the \"PDD10\" label wrapping, transcribed verbatim. The column header is printed \"Energ (MV)\" (sic). TPR20/10 values are not measured TPRs: per Methods they were derived from measured PDD20/PDD10 with TPR20,10=1.2661 PDD20,10−0.0595. SSD for the PDD scans is not explicitly stated in Methods. Detector: IBA CC13 0.125 cm3, IBA-Wellhofer scanning phantom. rows_with_group_labels is an editorial convenience (blank Energy/Data cells filled from their group label); use \"rows\" for the verbatim print.",
+     "rows_with_group_labels": [
+      [
+       "6",
+       "d_{max}(cm)",
+       "4×4",
+       "1.35",
+       "1.40",
+       "1.37",
+       "1.37",
+       "0.025",
+       "[1.31−1.44]"
+      ],
+      [
+       "6",
+       "d_{max}(cm)",
+       "10×10",
+       "1.47",
+       "1.40",
+       "1.36",
+       "1.41",
+       "0.056",
+       "[1.27−1.55]"
+      ],
+      [
+       "6",
+       "d_{max}(cm)",
+       "40×40",
+       "1.28",
+       "1.37",
+       "1.30",
+       "1.32",
+       "0.047",
+       "[1.20−1.43]"
+      ],
+      [
+       "6",
+       "PDD_{10}(%)",
+       "4×4",
+       "61.3",
+       "61.5",
+       "61.4",
+       "61.4",
+       "0.100",
+       "[61.2−61.6]"
+      ],
+      [
+       "6",
+       "PDD_{10}(%)",
+       "10×10",
+       "66.1",
+       "66.2",
+       "66.1",
+       "66.1",
+       "0.058",
+       "[66.0−66.3]"
+      ],
+      [
+       "6",
+       "PDD_{10}(%)",
+       "40×40",
+       "71.7",
+       "71.9",
+       "71.9",
+       "71.8",
+       "0.115",
+       "[71.5−72.1]"
+      ],
+      [
+       "6",
+       "TPR_{20/10}",
+       "4×4",
+       "0.626",
+       "0.623",
+       "0.625",
+       "0.625",
+       "0.0015",
+       "[0.621−0.628]"
+      ],
+      [
+       "6",
+       "TPR_{20/10}",
+       "10×10",
+       "0.666",
+       "0.667",
+       "0.665",
+       "0.666",
+       "0.0010",
+       "[0.664−0.668]"
+      ],
+      [
+       "6",
+       "TPR_{20/10}",
+       "40×40",
+       "0.746",
+       "0.744",
+       "0.745",
+       "0.745",
+       "0.0010",
+       "[0.743−0.747]"
+      ],
+      [
+       "15",
+       "d_{max} (cm)",
+       "4×4",
+       "2.78",
+       "2.90",
+       "2.80",
+       "2.83",
+       "0.064",
+       "[2.67−2.99]"
+      ],
+      [
+       "15",
+       "d_{max} (cm)",
+       "10×10",
+       "2.77",
+       "2.80",
+       "2.76",
+       "2.78",
+       "0.021",
+       "[2.72−2.83]"
+      ],
+      [
+       "15",
+       "d_{max} (cm)",
+       "40×40",
+       "2.07",
+       "2.00",
+       "2.00",
+       "2.02",
+       "0.040",
+       "[1.92−2.12]"
+      ],
+      [
+       "15",
+       "PDD_{10}(%)",
+       "4×4",
+       "74.6",
+       "74.9",
+       "75.1",
+       "74.9",
+       "0.252",
+       "[74.2−75.5]"
+      ],
+      [
+       "15",
+       "PDD_{10}(%)",
+       "10×10",
+       "76.7",
+       "76.8",
+       "76.6",
+       "76.7",
+       "0.100",
+       "[76.5−76.9]"
+      ],
+      [
+       "15",
+       "PDD_{10}(%)",
+       "40×40",
+       "76.9",
+       "77.0",
+       "76.8",
+       "76.9",
+       "0.100",
+       "[76.7−77.1]"
+      ],
+      [
+       "15",
+       "TPR_{20/10}",
+       "4×4",
+       "0.731",
+       "0.732",
+       "0.729",
+       "0.731",
+       "0.0015",
+       "[0.727−0.734]"
+      ],
+      [
+       "15",
+       "TPR_{20/10}",
+       "10×10",
+       "0.763",
+       "0.763",
+       "0.764",
+       "0.763",
+       "0.0006",
+       "[0.762−0.765]"
+      ],
+      [
+       "15",
+       "TPR_{20/10}",
+       "40×40",
+       "0.810",
+       "0.811",
+       "0.809",
+       "0.810",
+       "0.0010",
+       "[0.808−0.812]"
+      ],
+      [
+       "10 FFF",
+       "d_{max} (cm)",
+       "4×4",
+       "2.23",
+       "2.20",
+       "2.17",
+       "2.20",
+       "0.030",
+       "[2.13−2.27]"
+      ],
+      [
+       "10 FFF",
+       "d_{max} (cm)",
+       "10×10",
+       "2.26",
+       "2.25",
+       "2.13",
+       "2.21",
+       "0.072",
+       "[2.03−2.39]"
+      ],
+      [
+       "10 FFF",
+       "d_{max} (cm)",
+       "40×40",
+       "1.90",
+       "2.10",
+       "1.97",
+       "1.99",
+       "0.101",
+       "[1.74−2.24]"
+      ],
+      [
+       "10 FFF",
+       "PDD_{10}(%)",
+       "4×4",
+       "67.5",
+       "67.9",
+       "67.5",
+       "67.6",
+       "0.231",
+       "[67.1−68.2]"
+      ],
+      [
+       "10 FFF",
+       "PDD_{10}(%)",
+       "10×10",
+       "70.9",
+       "71.1",
+       "70.7",
+       "70.9",
+       "0.200",
+       "[70.4−71.4]"
+      ],
+      [
+       "10 FFF",
+       "PDD_{10}(%)",
+       "40×40",
+       "73.1",
+       "73.2",
+       "73.2",
+       "73.2",
+       "0.058",
+       "[73.0−73.3]"
+      ],
+      [
+       "10 FFF",
+       "TPR_{20/10}",
+       "4×4",
+       "0.674",
+       "0.673",
+       "0.674",
+       "0.674",
+       "0.0006",
+       "[0.672−0.675]"
+      ],
+      [
+       "10 FFF",
+       "TPR_{20/10}",
+       "10×10",
+       "0.705",
+       "0.703",
+       "0.707",
+       "0.705",
+       "0.0020",
+       "[0.700−0.710]"
+      ],
+      [
+       "10 FFF",
+       "TPR_{20/10}",
+       "40×40",
+       "0.744",
+       "0.741",
+       "0.745",
+       "0.743",
+       "0.0021",
+       "[0.738−0.749]"
+      ]
+     ],
+     "group_fill_anomalies": [
+      "row 14 col 1 printed '10'; group label taken as 'PDD_{10}(%)'"
+     ]
+    },
+    {
+     "label": "Table 2",
+     "caption": "TrueBeam output factor data comparison.",
+     "columns": [
+      "Energy",
+      "Field Size (cm × cm)",
+      "TrueBeam#1",
+      "TrueBeam Linear TrueBeam#2",
+      "Accelerator TrueBeam#3",
+      "Output Factors at 95 cm SAD Average",
+      "St. Dev. (s)",
+      "95% CI Ave."
+     ],
+     "header_rows_as_printed": [
+      [
+       "Energy",
+       "Field Size (cm × cm)",
+       "TrueBeam#1",
+       "TrueBeam Linear TrueBeam#2",
+       "Accelerator TrueBeam#3",
+       "Output Factors at 95 cm SAD Average",
+       "St. Dev. (s)",
+       "95% CI Ave."
+      ]
+     ],
+     "rows": [
+      [
+       "",
+       "3×3",
+       "0.877",
+       "0.875",
+       "0.878",
+       "0.877",
+       "0.0014",
+       "[0.873−0.880]"
+      ],
+      [
+       "",
+       "4×4",
+       "0.904",
+       "0.903",
+       "0.904",
+       "0.904",
+       "0.0007",
+       "[0.902−0.905]"
+      ],
+      [
+       "",
+       "6×6",
+       "0.946",
+       "0.945",
+       "0.946",
+       "0.946",
+       "0.0008",
+       "[0.944−0.948]"
+      ],
+      [
+       "",
+       "8×8",
+       "0.977",
+       "0.977",
+       "0.978",
+       "0.977",
+       "0.0003",
+       "[0.976−0.978]"
+      ],
+      [
+       "6 MV",
+       "10×10",
+       "1.000",
+       "1.000",
+       "1.000",
+       "1.000",
+       "0.0000",
+       "[1.000−1.000]"
+      ],
+      [
+       "",
+       "15×15",
+       "1.040",
+       "1.038",
+       "1.040",
+       "1.039",
+       "0.0010",
+       "[1.037−1.042]"
+      ],
+      [
+       "",
+       "20×20",
+       "1.067",
+       "1.066",
+       "1.067",
+       "1.067",
+       "0.0005",
+       "[1.065−1.068]"
+      ],
+      [
+       "",
+       "30×30",
+       "1.102",
+       "1.101",
+       "1.103",
+       "1.102",
+       "0.0011",
+       "[1.100−1.105]"
+      ],
+      [
+       "",
+       "40×40",
+       "1.115",
+       "1.114",
+       "1.117",
+       "1.115",
+       "0.0015",
+       "[1.112−1.120]"
+      ],
+      [
+       "",
+       "3×3",
+       "0.874",
+       "0.873",
+       "0.876",
+       "0.874",
+       "0.0019",
+       "[0.870−0.879]"
+      ],
+      [
+       "",
+       "4×4",
+       "0.913",
+       "0.913",
+       "0.915",
+       "0.914",
+       "0.0008",
+       "[0.912−0.916]"
+      ],
+      [
+       "",
+       "6×6",
+       "0.955",
+       "0.954",
+       "0.955",
+       "0.955",
+       "0.0007",
+       "[0.953−0.957]"
+      ],
+      [
+       "",
+       "8×8",
+       "0.981",
+       "0.981",
+       "0.981",
+       "0.981",
+       "0.0003",
+       "[0.980−0.982]"
+      ],
+      [
+       "15 MV",
+       "10×10",
+       "1.000",
+       "1.000",
+       "1.000",
+       "1.000",
+       "0.0000",
+       "[1.000−1.000]"
+      ],
+      [
+       "",
+       "15×15",
+       "1.030",
+       "1.029",
+       "1.030",
+       "1.030",
+       "0.0005",
+       "[1.028−1.031]"
+      ],
+      [
+       "",
+       "20×20",
+       "1.050",
+       "1.049",
+       "1.049",
+       "1.049",
+       "0.0004",
+       "[1.048−1.050]"
+      ],
+      [
+       "",
+       "30×30",
+       "1.075",
+       "1.075",
+       "1.075",
+       "1.075",
+       "0.0003",
+       "[1.074−1.075]"
+      ],
+      [
+       "",
+       "40×40",
+       "1.083",
+       "1.085",
+       "1.082",
+       "1.083",
+       "0.0015",
+       "[1.079−1.087]"
+      ],
+      [
+       "",
+       "3×3",
+       "0.921",
+       "0.919",
+       "0.922",
+       "0.920",
+       "0.0015",
+       "[0.917−0.924]"
+      ],
+      [
+       "",
+       "4×4",
+       "0.947",
+       "0.946",
+       "0.948",
+       "0.947",
+       "0.0008",
+       "[0.945−0.949]"
+      ],
+      [
+       "",
+       "6×6",
+       "0.973",
+       "0.973",
+       "0.974",
+       "0.974",
+       "0.0007",
+       "[0.972−0.975]"
+      ],
+      [
+       "",
+       "8×8",
+       "0.990",
+       "0.989",
+       "0.989",
+       "0.989",
+       "0.0006",
+       "[0.988−0.991]"
+      ],
+      [
+       "10 FFF",
+       "10×10",
+       "1.000",
+       "1.000",
+       "1.000",
+       "1.000",
+       "0.0000",
+       "[1.000−1.000]"
+      ],
+      [
+       "",
+       "15×15",
+       "1.019",
+       "1.018",
+       "1.018",
+       "1.018",
+       "0.0007",
+       "[1.016−1.020]"
+      ],
+      [
+       "",
+       "20×20",
+       "1.030",
+       "1.030",
+       "1.030",
+       "1.030",
+       "0.0004",
+       "[1.029−1.031]"
+      ],
+      [
+       "",
+       "30×30",
+       "1.042",
+       "1.043",
+       "1.044",
+       "1.043",
+       "0.0011",
+       "[1.040−1.046]"
+      ],
+      [
+       "",
+       "40×40",
+       "1.047",
+       "1.047",
+       "1.048",
+       "1.047",
+       "0.0002",
+       "[1.047−1.048]"
+      ]
+     ],
+     "footnote": null,
+     "units": "relative output factor (dimensionless), normalized so that 10×10 = 1.000; 95% CI Ave. as [low−high]",
+     "notes": "The column headers in the PMC rendering are garbled by a spanning header: a group header \"TrueBeam Linear Accelerator Output Factors at 95 cm SAD\" was split across cells, giving \"TrueBeam Linear TrueBeam#2\", \"Accelerator TrueBeam#3\", \"Output Factors at 95 cm SAD Average\". Interpreted columns: Energy, Field Size, TrueBeam#1, TrueBeam#2, TrueBeam#3, Average, St. Dev. (s), 95% CI Ave. (headers kept verbatim in \"columns\"). Measurement condition per Methods: isocentric setup, depth 5 cm, 95 cm SSD (i.e. point at 100 cm SAD; the table header says \"95 cm SAD\" as printed). Normalization field 10×10 is implied by the 1.000 rows, not stated in text. Energy label printed only on the 10×10 row of each 9-row group.",
+     "rows_with_group_labels": [
+      [
+       "6 MV",
+       "3×3",
+       "0.877",
+       "0.875",
+       "0.878",
+       "0.877",
+       "0.0014",
+       "[0.873−0.880]"
+      ],
+      [
+       "6 MV",
+       "4×4",
+       "0.904",
+       "0.903",
+       "0.904",
+       "0.904",
+       "0.0007",
+       "[0.902−0.905]"
+      ],
+      [
+       "6 MV",
+       "6×6",
+       "0.946",
+       "0.945",
+       "0.946",
+       "0.946",
+       "0.0008",
+       "[0.944−0.948]"
+      ],
+      [
+       "6 MV",
+       "8×8",
+       "0.977",
+       "0.977",
+       "0.978",
+       "0.977",
+       "0.0003",
+       "[0.976−0.978]"
+      ],
+      [
+       "6 MV",
+       "10×10",
+       "1.000",
+       "1.000",
+       "1.000",
+       "1.000",
+       "0.0000",
+       "[1.000−1.000]"
+      ],
+      [
+       "6 MV",
+       "15×15",
+       "1.040",
+       "1.038",
+       "1.040",
+       "1.039",
+       "0.0010",
+       "[1.037−1.042]"
+      ],
+      [
+       "6 MV",
+       "20×20",
+       "1.067",
+       "1.066",
+       "1.067",
+       "1.067",
+       "0.0005",
+       "[1.065−1.068]"
+      ],
+      [
+       "6 MV",
+       "30×30",
+       "1.102",
+       "1.101",
+       "1.103",
+       "1.102",
+       "0.0011",
+       "[1.100−1.105]"
+      ],
+      [
+       "6 MV",
+       "40×40",
+       "1.115",
+       "1.114",
+       "1.117",
+       "1.115",
+       "0.0015",
+       "[1.112−1.120]"
+      ],
+      [
+       "15 MV",
+       "3×3",
+       "0.874",
+       "0.873",
+       "0.876",
+       "0.874",
+       "0.0019",
+       "[0.870−0.879]"
+      ],
+      [
+       "15 MV",
+       "4×4",
+       "0.913",
+       "0.913",
+       "0.915",
+       "0.914",
+       "0.0008",
+       "[0.912−0.916]"
+      ],
+      [
+       "15 MV",
+       "6×6",
+       "0.955",
+       "0.954",
+       "0.955",
+       "0.955",
+       "0.0007",
+       "[0.953−0.957]"
+      ],
+      [
+       "15 MV",
+       "8×8",
+       "0.981",
+       "0.981",
+       "0.981",
+       "0.981",
+       "0.0003",
+       "[0.980−0.982]"
+      ],
+      [
+       "15 MV",
+       "10×10",
+       "1.000",
+       "1.000",
+       "1.000",
+       "1.000",
+       "0.0000",
+       "[1.000−1.000]"
+      ],
+      [
+       "15 MV",
+       "15×15",
+       "1.030",
+       "1.029",
+       "1.030",
+       "1.030",
+       "0.0005",
+       "[1.028−1.031]"
+      ],
+      [
+       "15 MV",
+       "20×20",
+       "1.050",
+       "1.049",
+       "1.049",
+       "1.049",
+       "0.0004",
+       "[1.048−1.050]"
+      ],
+      [
+       "15 MV",
+       "30×30",
+       "1.075",
+       "1.075",
+       "1.075",
+       "1.075",
+       "0.0003",
+       "[1.074−1.075]"
+      ],
+      [
+       "15 MV",
+       "40×40",
+       "1.083",
+       "1.085",
+       "1.082",
+       "1.083",
+       "0.0015",
+       "[1.079−1.087]"
+      ],
+      [
+       "10 FFF",
+       "3×3",
+       "0.921",
+       "0.919",
+       "0.922",
+       "0.920",
+       "0.0015",
+       "[0.917−0.924]"
+      ],
+      [
+       "10 FFF",
+       "4×4",
+       "0.947",
+       "0.946",
+       "0.948",
+       "0.947",
+       "0.0008",
+       "[0.945−0.949]"
+      ],
+      [
+       "10 FFF",
+       "6×6",
+       "0.973",
+       "0.973",
+       "0.974",
+       "0.974",
+       "0.0007",
+       "[0.972−0.975]"
+      ],
+      [
+       "10 FFF",
+       "8×8",
+       "0.990",
+       "0.989",
+       "0.989",
+       "0.989",
+       "0.0006",
+       "[0.988−0.991]"
+      ],
+      [
+       "10 FFF",
+       "10×10",
+       "1.000",
+       "1.000",
+       "1.000",
+       "1.000",
+       "0.0000",
+       "[1.000−1.000]"
+      ],
+      [
+       "10 FFF",
+       "15×15",
+       "1.019",
+       "1.018",
+       "1.018",
+       "1.018",
+       "0.0007",
+       "[1.016−1.020]"
+      ],
+      [
+       "10 FFF",
+       "20×20",
+       "1.030",
+       "1.030",
+       "1.030",
+       "1.030",
+       "0.0004",
+       "[1.029−1.031]"
+      ],
+      [
+       "10 FFF",
+       "30×30",
+       "1.042",
+       "1.043",
+       "1.044",
+       "1.043",
+       "0.0011",
+       "[1.040−1.046]"
+      ],
+      [
+       "10 FFF",
+       "40×40",
+       "1.047",
+       "1.047",
+       "1.048",
+       "1.047",
+       "0.0002",
+       "[1.047−1.048]"
+      ]
+     ]
+    },
+    {
+     "label": "Table 3",
+     "caption": "Energy match analysis between TrueBeam, Clinac, and Trilogy linear accelerators.",
+     "columns": [
+      "Energy (MV)",
+      "Data",
+      "Field Size (cm × cm)",
+      "TrueBeam",
+      "Clinac",
+      "Trilogy"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Energy (MV)",
+       "Data",
+       "Field Size (cm × cm)",
+       "TrueBeam",
+       "Clinac",
+       "Trilogy"
+      ]
+     ],
+     "rows": [
+      [
+       "",
+       "",
+       "4×4",
+       "1.37",
+       "1.38",
+       "1.41"
+      ],
+      [
+       "",
+       "d_{max} (cm)",
+       "10×10",
+       "1.41",
+       "1.41",
+       "1.44"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "1.32",
+       "1.20",
+       "1.29"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "61.4",
+       "61.4",
+       "61.7"
+      ],
+      [
+       "6",
+       "PDD_{10} (%)",
+       "10×10",
+       "66.1",
+       "66.2",
+       "66.1"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "71.8",
+       "71.3",
+       "71.5"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "0.625",
+       "0.627",
+       "0.626"
+      ],
+      [
+       "",
+       "TPR_{20/10}",
+       "10×10",
+       "0.666",
+       "0.667",
+       "0.668"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "0.745",
+       "0.741",
+       "0.746"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "2.83",
+       "3.00",
+       "2.80"
+      ],
+      [
+       "",
+       "d_{max} (cm)",
+       "10×10",
+       "2.78",
+       "2.60",
+       "2.59"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "2.02",
+       "2.15",
+       "2.08"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "74.9",
+       "75.1",
+       "74.8"
+      ],
+      [
+       "15",
+       "PDD_{10} (%)",
+       "10×10",
+       "76.7",
+       "76.6",
+       "76.5"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "76.9",
+       "77.3",
+       "77.5"
+      ],
+      [
+       "",
+       "",
+       "4×4",
+       "0.731",
+       "0.731",
+       "0.733"
+      ],
+      [
+       "",
+       "TPR_{20/10}",
+       "10×10",
+       "0.763",
+       "0.762",
+       "0.763"
+      ],
+      [
+       "",
+       "",
+       "40×40",
+       "0.810",
+       "0.807",
+       "0.811"
+      ]
+     ],
+     "footnote": null,
+     "units": "dmax in cm; PDD10 in %; TPR20/10 dimensionless",
+     "notes": "TrueBeam column is the three-machine average (same values as Table 1 Average). Clinac = Clinac 2100. Labels printed on middle row of each group.",
+     "rows_with_group_labels": [
+      [
+       "6",
+       "d_{max} (cm)",
+       "4×4",
+       "1.37",
+       "1.38",
+       "1.41"
+      ],
+      [
+       "6",
+       "d_{max} (cm)",
+       "10×10",
+       "1.41",
+       "1.41",
+       "1.44"
+      ],
+      [
+       "6",
+       "d_{max} (cm)",
+       "40×40",
+       "1.32",
+       "1.20",
+       "1.29"
+      ],
+      [
+       "6",
+       "PDD_{10} (%)",
+       "4×4",
+       "61.4",
+       "61.4",
+       "61.7"
+      ],
+      [
+       "6",
+       "PDD_{10} (%)",
+       "10×10",
+       "66.1",
+       "66.2",
+       "66.1"
+      ],
+      [
+       "6",
+       "PDD_{10} (%)",
+       "40×40",
+       "71.8",
+       "71.3",
+       "71.5"
+      ],
+      [
+       "6",
+       "TPR_{20/10}",
+       "4×4",
+       "0.625",
+       "0.627",
+       "0.626"
+      ],
+      [
+       "6",
+       "TPR_{20/10}",
+       "10×10",
+       "0.666",
+       "0.667",
+       "0.668"
+      ],
+      [
+       "6",
+       "TPR_{20/10}",
+       "40×40",
+       "0.745",
+       "0.741",
+       "0.746"
+      ],
+      [
+       "15",
+       "d_{max} (cm)",
+       "4×4",
+       "2.83",
+       "3.00",
+       "2.80"
+      ],
+      [
+       "15",
+       "d_{max} (cm)",
+       "10×10",
+       "2.78",
+       "2.60",
+       "2.59"
+      ],
+      [
+       "15",
+       "d_{max} (cm)",
+       "40×40",
+       "2.02",
+       "2.15",
+       "2.08"
+      ],
+      [
+       "15",
+       "PDD_{10} (%)",
+       "4×4",
+       "74.9",
+       "75.1",
+       "74.8"
+      ],
+      [
+       "15",
+       "PDD_{10} (%)",
+       "10×10",
+       "76.7",
+       "76.6",
+       "76.5"
+      ],
+      [
+       "15",
+       "PDD_{10} (%)",
+       "40×40",
+       "76.9",
+       "77.3",
+       "77.5"
+      ],
+      [
+       "15",
+       "TPR_{20/10}",
+       "4×4",
+       "0.731",
+       "0.731",
+       "0.733"
+      ],
+      [
+       "15",
+       "TPR_{20/10}",
+       "10×10",
+       "0.763",
+       "0.762",
+       "0.763"
+      ],
+      [
+       "15",
+       "TPR_{20/10}",
+       "40×40",
+       "0.810",
+       "0.807",
+       "0.811"
+      ]
+     ]
+    },
+    {
+     "label": "Table 4",
+     "part": "1 of 2",
+     "caption": "Beam profile analysis for TrueBeam, Clinac, and Trilogy linear accelerators.",
+     "columns": [
+      "Energy=6 MV / Depth (cm)",
+      "Energy=6 MV / Linear Accelerator",
+      "10 cm×10 cm Field Size / Penumbra (mm)",
+      "10 cm×10 cm Field Size / Field Width (cm)",
+      "40 cm×40 mm Field Size / Penumbra (mm)",
+      "40 cm×40 mm Field Size / Field Width (cm)"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Energy=6 MV",
+       "",
+       "10 cm×10 cm Field Size",
+       "",
+       "40 cm×40 mm Field Size",
+       ""
+      ],
+      [
+       "Depth (cm)",
+       "Linear Accelerator",
+       "Penumbra (mm)",
+       "Field Width (cm)",
+       "Penumbra (mm)",
+       "Field Width (cm)"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "Energy=6 MV"
+      },
+      {
+       "row": 0,
+       "col": 2,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "10 cm×10 cm Field Size"
+      },
+      {
+       "row": 0,
+       "col": 4,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "40 cm×40 mm Field Size"
+      }
+     ],
+     "rows": [
+      [
+       "",
+       "TrueBeam#1",
+       "5.7",
+       "10.17",
+       "6.0",
+       "40.77"
+      ],
+      [
+       "",
+       "TrueBeam#2",
+       "5.6",
+       "10.18",
+       "5.9",
+       "40.78"
+      ],
+      [
+       "1.5",
+       "TrueBeam#3",
+       "5.5",
+       "10.17",
+       "5.8",
+       "40.79"
+      ],
+      [
+       "",
+       "Clinac 2100",
+       "5.4",
+       "10.15",
+       "5.7",
+       "40.72"
+      ],
+      [
+       "",
+       "Trilogy",
+       "5.5",
+       "10.16",
+       "5.7",
+       "40.91"
+      ],
+      [
+       "",
+       "TrueBeam#1",
+       "7.2",
+       "11.03",
+       "10.1",
+       "44.14"
+      ],
+      [
+       "",
+       "TrueBeam#2",
+       "7.0",
+       "11.03",
+       "10.0",
+       "44.11"
+      ],
+      [
+       "10",
+       "TrueBeam#3",
+       "7.0",
+       "11.05",
+       "9.9",
+       "44.19"
+      ],
+      [
+       "",
+       "Clinac 2100",
+       "6.8",
+       "11.02",
+       "10.0",
+       "44.16"
+      ],
+      [
+       "",
+       "Trilogy",
+       "6.8",
+       "11.03",
+       "10.1",
+       "44.29"
+      ]
+     ],
+     "footnote": null,
+     "units": "Penumbra in mm (80%-20% distance); Field Width in cm (width at 50%)",
+     "notes": "Energy = 6 MV part. Header prints \"40 cm×40 mm Field Size\" (sic, should read 40 cm×40 cm). Crossplane profiles at 100 cm SSD; depth printed on middle row of each 5-row group. Penumbra = distance between 80% and 20% relative dose points; field width = width at 50% relative dose (Methods).",
+     "rows_with_group_labels": [
+      [
+       "1.5",
+       "TrueBeam#1",
+       "5.7",
+       "10.17",
+       "6.0",
+       "40.77"
+      ],
+      [
+       "1.5",
+       "TrueBeam#2",
+       "5.6",
+       "10.18",
+       "5.9",
+       "40.78"
+      ],
+      [
+       "1.5",
+       "TrueBeam#3",
+       "5.5",
+       "10.17",
+       "5.8",
+       "40.79"
+      ],
+      [
+       "1.5",
+       "Clinac 2100",
+       "5.4",
+       "10.15",
+       "5.7",
+       "40.72"
+      ],
+      [
+       "1.5",
+       "Trilogy",
+       "5.5",
+       "10.16",
+       "5.7",
+       "40.91"
+      ],
+      [
+       "10",
+       "TrueBeam#1",
+       "7.2",
+       "11.03",
+       "10.1",
+       "44.14"
+      ],
+      [
+       "10",
+       "TrueBeam#2",
+       "7.0",
+       "11.03",
+       "10.0",
+       "44.11"
+      ],
+      [
+       "10",
+       "TrueBeam#3",
+       "7.0",
+       "11.05",
+       "9.9",
+       "44.19"
+      ],
+      [
+       "10",
+       "Clinac 2100",
+       "6.8",
+       "11.02",
+       "10.0",
+       "44.16"
+      ],
+      [
+       "10",
+       "Trilogy",
+       "6.8",
+       "11.03",
+       "10.1",
+       "44.29"
+      ]
+     ]
+    },
+    {
+     "label": "Table 4",
+     "part": "2 of 2",
+     "caption": "Beam profile analysis for TrueBeam, Clinac, and Trilogy linear accelerators.",
+     "columns": [
+      "Energy=15 MV / Depth (cm)",
+      "Energy=15 MV / Linear Accelerator",
+      "10 cm×10 cm Field Size / Penumbra (mm)",
+      "10 cm×10 cm Field Size / Field Width (cm)",
+      "40 cm×40 mm Field Size / Penumbra (mm)",
+      "40 cm×40 mm Field Size / Field Width (cm)"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Energy=15 MV",
+       "",
+       "10 cm×10 cm Field Size",
+       "",
+       "40 cm×40 mm Field Size",
+       ""
+      ],
+      [
+       "Depth (cm)",
+       "Linear Accelerator",
+       "Penumbra (mm)",
+       "Field Width (cm)",
+       "Penumbra (mm)",
+       "Field Width (cm)"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "Energy=15 MV"
+      },
+      {
+       "row": 0,
+       "col": 2,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "10 cm×10 cm Field Size"
+      },
+      {
+       "row": 0,
+       "col": 4,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "40 cm×40 mm Field Size"
+      }
+     ],
+     "rows": [
+      [
+       "",
+       "TrueBeam#1",
+       "6.8",
+       "10.34",
+       "6.9",
+       "41.19"
+      ],
+      [
+       "",
+       "TrueBeam#2",
+       "6.8",
+       "10.34",
+       "7.3",
+       "41.13"
+      ],
+      [
+       "2.8",
+       "TrueBeam#3",
+       "6.7",
+       "10.33",
+       "7.0",
+       "41.14"
+      ],
+      [
+       "",
+       "Clinac 2100",
+       "6.4",
+       "10.36",
+       "6.7",
+       "41.25"
+      ],
+      [
+       "",
+       "Trilogy",
+       "6.4",
+       "10.32",
+       "6.9",
+       "41.26"
+      ],
+      [
+       "",
+       "TrueBeam#1",
+       "7.8",
+       "11.06",
+       "8.9",
+       "44.08"
+      ],
+      [
+       "",
+       "TrueBeam#2",
+       "7.7",
+       "11.05",
+       "9.2",
+       "44.07"
+      ],
+      [
+       "10",
+       "TrueBeam#3",
+       "7.6",
+       "11.07",
+       "8.8",
+       "44.19"
+      ],
+      [
+       "",
+       "Clinac 2100",
+       "7.5",
+       "11.08",
+       "8.6",
+       "44.26"
+      ],
+      [
+       "",
+       "Trilogy",
+       "7.3",
+       "11.04",
+       "8.8",
+       "44.21"
+      ]
+     ],
+     "footnote": null,
+     "units": "Penumbra in mm (80%-20% distance); Field Width in cm (width at 50%)",
+     "notes": "Energy = 15 MV part. Same header typo \"40 cm×40 mm\". Crossplane profiles at 100 cm SSD.",
+     "rows_with_group_labels": [
+      [
+       "2.8",
+       "TrueBeam#1",
+       "6.8",
+       "10.34",
+       "6.9",
+       "41.19"
+      ],
+      [
+       "2.8",
+       "TrueBeam#2",
+       "6.8",
+       "10.34",
+       "7.3",
+       "41.13"
+      ],
+      [
+       "2.8",
+       "TrueBeam#3",
+       "6.7",
+       "10.33",
+       "7.0",
+       "41.14"
+      ],
+      [
+       "2.8",
+       "Clinac 2100",
+       "6.4",
+       "10.36",
+       "6.7",
+       "41.25"
+      ],
+      [
+       "2.8",
+       "Trilogy",
+       "6.4",
+       "10.32",
+       "6.9",
+       "41.26"
+      ],
+      [
+       "10",
+       "TrueBeam#1",
+       "7.8",
+       "11.06",
+       "8.9",
+       "44.08"
+      ],
+      [
+       "10",
+       "TrueBeam#2",
+       "7.7",
+       "11.05",
+       "9.2",
+       "44.07"
+      ],
+      [
+       "10",
+       "TrueBeam#3",
+       "7.6",
+       "11.07",
+       "8.8",
+       "44.19"
+      ],
+      [
+       "10",
+       "Clinac 2100",
+       "7.5",
+       "11.08",
+       "8.6",
+       "44.26"
+      ],
+      [
+       "10",
+       "Trilogy",
+       "7.3",
+       "11.04",
+       "8.8",
+       "44.21"
+      ]
+     ]
+    }
+   ],
+   "notes": "Author lists taken from the article XML; last page numbers of the 2019/2020 articles are from the task brief (XML gives first page only). Transcribed from the JATS full-text XML that PMC/Europe PMC serve for this article (Europe PMC REST fullTextXML; the pmc.ncbi.nlm.nih.gov HTML page was behind a reCAPTCHA wall for scripted access). Text rendering conventions: subscripts as _{...}, superscripts as ^{...}; inline reference citations appear as plain digits (e.g. \"system17, 18\" = superscript refs 17,18). Minus/dash characters (−, –, ‐) are kept exactly as encoded in the source and are not normalized. \"rows\" are the printed body rows; where a cell is merged vertically across rows (rowspan) its text is repeated on every covered row, and horizontal continuation cells of a colspan are \"\". Spans are listed in header_spans/body_spans. This 2013 article was converted to PMC XML from the print layout, so some headers are garbled (see Table 1/2 notes). Publisher PDF could not be fetched for a cross-check (Wiley and Europe PMC PDF endpoints are bot-protected)."
+  },
+  {
+   "key": "akino2020",
+   "citation": "Akino Y, Mizuno H, Isono M, Tanaka Y, Masai N, Yamamoto T. Small-field dosimetry of TrueBeam flattened and flattening filter-free beams: A multi-institutional analysis. J Appl Clin Med Phys. 2020;21(1):78-87.",
+   "doi": "10.1002/acm2.12791",
+   "pmcid": "PMC6964782",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6964782/",
+   "licence_text": "This is an open access article under the terms of the http://creativecommons.org/licenses/by/4.0/ License, which permits use, distribution and reproduction in any medium, provided the original work is properly cited.",
+   "licence_url": "http://creativecommons.org/licenses/by/4.0/",
+   "copyright": "© 2019 The Authors. Journal of Applied Clinical Medical Physics published by Wiley Periodicals, Inc. on behalf of American Association of Physicists in Medicine.",
+   "conditions_quotes": [
+    "The beam data of 12 linacs — ten TrueBeam STx machines with a HD120 Multileaf Collimator (MLC) and two TrueBeam machines with Millennium120 MLC — were collected from 11 institutions.",
+    "The field sizes were defined by the machine setting of MLC opening for all field sizes.",
+    "For 5 × 5 mm^{2} MLC field size, the jaws field size was 8 × 8 mm^{2}.",
+    "For 10–40 mm field sizes, the jaws field sizes were 2 mm larger than the MLC field sizes for both X and Y axes.",
+    "For field sizes >40 mm, the jaws were located at the same position to the MLC.",
+    "The PDD and OF_{det} were collected at a 100 cm source‐to‐surface distance (SSD), whereas the OCR were collected at 90 cm SSD.",
+    "The OF_{det} and OCR were measured at 10 cm depth.",
+    "All PDD were normalized at the peak depth (d_{max}).",
+    "All data were normalized to a field size of 100 × 100 mm^{2}.",
+    "The minimum field sizes for the HD120 MLC and Millennium120 MLC were 5 × 5 and 10 × 10 mm^{2}, respectively.",
+    "To evaluate the impacts of the detectors on the scatter factors, the OF_{det} values were corrected by output correction factors, as summarized in the recent IAEA TRS‐483 report.8",
+    "For the CC01 and EDGE detectors, the correction factors for 5 × 5 mm^{2} field size were calculated with extrapolation.",
+    "In this study, the k_{Q_{clin},Q_{msr}}^{f_{clin},f_{msr}} factors were divided by the mean values of 20 × 20 mm^{2} and 40 × 40 mm^{2} field sizes to normalize the intermediate field size.",
+    "The Ω_{Q_{clin},Q_{msr}}^{f_{clin},f_{msr}} values were calculated by multiplying the k_{Q_{clin},Q_{msr}}^{f_{clin},f_{msr}} factors to the values of field sizes of 5 × 5 and 10 × 10 mm^{2}.",
+    "All data were normalized at the central axis, and the full width at half maximum (FWHM) value and the penumbrae width, as defined by positions of the 20–80% profile, were calculated.",
+    "We do not recommend the use of the Ω_{Q_{clin},Q_{msr}}^{f_{clin},f_{msr}} values shown in Table 2 in clinical practice."
+   ],
+   "other_text_values": [
+    "The maximum variations in FWHM were 0.62 mm, 0.75 mm, 0.05 mm, and 0.06 mm for 6 MV, 10 MV, 6 MV FFF, and 10 MV FFF beams, respectively.",
+    "The maximum variations in penumbrae were 0.91 mm, 0.97 mm, 0.17 mm, and 0.13 mm for 6 MV, 10 MV, 6 MV FFF, and 10 MV FFF beams, respectively.",
+    "For flattened beams, the measurement steps (number of institutions) were 0.5 mm (2), 1 mm (4), and 2 mm (1). For FFF beams, the values were 0.5 mm (1) and 1 mm (2)."
+   ],
+   "tables": [
+    {
+     "label": "Table 1",
+     "caption": "Types of detectors and number of institutions used for the measurements.",
+     "columns": [
+      "Detector",
+      "Type",
+      "Sensitive volume",
+      "Flattened / PDD",
+      "Flattened / OF_{det}",
+      "Flattened / OCR",
+      "FFF / PDD",
+      "FFF / OF_{det}",
+      "FFF / OCR"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Detector",
+       "Type",
+       "Sensitive volume",
+       "Flattened",
+       "",
+       "",
+       "FFF",
+       "",
+       ""
+      ],
+      [
+       "",
+       "",
+       "",
+       "PDD",
+       "OF_{det}",
+       "OCR",
+       "PDD",
+       "OF_{det}",
+       "OCR"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Detector"
+      },
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Type"
+      },
+      {
+       "row": 0,
+       "col": 2,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Sensitive volume"
+      },
+      {
+       "row": 0,
+       "col": 3,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "Flattened"
+      },
+      {
+       "row": 0,
+       "col": 6,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "FFF"
+      }
+     ],
+     "rows": [
+      [
+       "EDGE",
+       "Shielded diode",
+       "0.8 × 0.8 mm^{2}",
+       "5",
+       "7",
+       "4",
+       "5",
+       "7",
+       "1"
+      ],
+      [
+       "PTW 60017",
+       "Unshielded diode",
+       "1.13 mm φ",
+       "2",
+       "2",
+       "2",
+       "2",
+       "2",
+       "0"
+      ],
+      [
+       "PTW 60018",
+       "Unshielded diode",
+       "1.13 mm φ",
+       "0",
+       "0",
+       "0",
+       "0",
+       "1",
+       "0"
+      ],
+      [
+       "SFD",
+       "Unshielded diode",
+       "0.6 mm φ",
+       "1",
+       "0",
+       "0",
+       "1",
+       "0",
+       "0"
+      ],
+      [
+       "PTW 31016",
+       "Ionization chamber",
+       "0.016 cm^{3}",
+       "1",
+       "0",
+       "0",
+       "1",
+       "0",
+       "0"
+      ],
+      [
+       "CC01",
+       "Ionization chamber",
+       "0.01 cm^{3}",
+       "1^{*}",
+       "1",
+       "1",
+       "1^{*}",
+       "1",
+       "0"
+      ],
+      [
+       "PTW 60019",
+       "Diamond",
+       "2.2 mm φ",
+       "1",
+       "1",
+       "0",
+       "2",
+       "1",
+       "2"
+      ],
+      [
+       "Total",
+       "",
+       "",
+       "11",
+       "11",
+       "7",
+       "12",
+       "12",
+       "3"
+      ]
+     ],
+     "footnote": "Abbreviations: FFF, flattening filter‐free beams; OCR, off‐center ratio; OF_{det}, ratio of detector readings; PDD, percentage depth dose.*This institution used the IBA CC04 ionization chamber for PDD measurements of a field size ≥ 10 mm^{2}.",
+     "units": "counts = number of institutions; sensitive volume as printed",
+     "notes": "Table 1 lists detectors only (not machine/MLC types per institution); the machine/MLC split is given in Methods text (ten TrueBeam STx with HD120 MLC, two TrueBeam with Millennium120 MLC, 11 institutions) - see conditions_quotes. The asterisk on the CC01 PDD counts refers to the footnote (IBA CC04 used for PDD of field size ≥ 10 mm^{2}, printed as such). OF_{det} = ratio of detector readings."
+    },
+    {
+     "label": "Table 2",
+     "caption": "Median and 95% confidence interval of Ω_{Q_{clin},Q_{msr}}^{f_{clin},f_{msr}} values (output factors corrected with the output correction factors).",
+     "columns": [
+      "FS [mm]",
+      "6 MV / Median",
+      "6 MV / (95% CI)",
+      "10 MV / Median",
+      "10 MV / (95% CI)",
+      "6 MV FFF / Median",
+      "6 MV FFF / (95% CI)",
+      "10 MV FFF / Median",
+      "10 MV FFF / (95% CI)"
+     ],
+     "header_rows_as_printed": [
+      [
+       "FS [mm]",
+       "6 MV",
+       "",
+       "10 MV",
+       "",
+       "6 MV FFF",
+       "",
+       "10 MV FFF",
+       ""
+      ],
+      [
+       "",
+       "Median",
+       "(95% CI)",
+       "Median",
+       "(95% CI)",
+       "Median",
+       "(95% CI)",
+       "Median",
+       "(95% CI)"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "FS [mm]"
+      },
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "6 MV"
+      },
+      {
+       "row": 0,
+       "col": 3,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "10 MV"
+      },
+      {
+       "row": 0,
+       "col": 5,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "6 MV FFF"
+      },
+      {
+       "row": 0,
+       "col": 7,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "10 MV FFF"
+      }
+     ],
+     "rows": [
+      [
+       "5",
+       "0.545",
+       "(0.531‐0.560)",
+       "0.466",
+       "(0.456‐0.483)",
+       "0.568",
+       "(0.559‐0.585)",
+       "0.523",
+       "(0.513‐0.532)"
+      ],
+      [
+       "10",
+       "0.708",
+       "(0.700‐0.710)",
+       "0.670",
+       "(0.663‐0.675)",
+       "0.718",
+       "(0.711‐0.720)",
+       "0.710",
+       "(0.707‐0.717)"
+      ],
+      [
+       "20",
+       "0.799",
+       "(0.796‐0.801)",
+       "0.814",
+       "(0.810‐0.817)",
+       "0.806",
+       "(0.803‐0.808)",
+       "0.849",
+       "(0.844‐0.853)"
+      ],
+      [
+       "30",
+       "0.835",
+       "(0.832‐0.836)",
+       "0.858",
+       "(0.856‐0.860)",
+       "0.842",
+       "(0.839‐0.846)",
+       "0.891",
+       "(0.888‐0.893)"
+      ],
+      [
+       "40",
+       "0.868",
+       "(0.867‐0.869)",
+       "0.891",
+       "(0.889‐0.896)",
+       "0.879",
+       "(0.876‐0.880)",
+       "0.920",
+       "(0.919‐0.922)"
+      ],
+      [
+       "60",
+       "0.921",
+       "(0.921‐0.922)",
+       "0.936",
+       "(0.935‐0.936)",
+       "0.929",
+       "(0.929‐0.930)",
+       "0.956",
+       "(0.955‐0.956)"
+      ],
+      [
+       "80",
+       "0.966",
+       "(0.965‐0.966)",
+       "0.972",
+       "(0.972‐0.973)",
+       "0.970",
+       "(0.969‐0.970)",
+       "0.981",
+       "(0.981‐0.982)"
+      ],
+      [
+       "100",
+       "1.000",
+       "‐",
+       "1.000",
+       "‐",
+       "1.000",
+       "‐",
+       "1.000",
+       "‐"
+      ]
+     ],
+     "footnote": "Abbreviations: CI, confidence interval; FFF, flattening filter‐free; FS, field size defined by multileaf collimator.",
+     "units": "field output factor Ω_{Qclin,Qmsr}^{fclin,fmsr} (dimensionless), normalized to 100 mm × 100 mm; FS = MLC-defined square field side in mm",
+     "notes": "Values are OF_det corrected with IAEA TRS-483 output correction factors k (k divided by the mean of 20×20 and 40×40 mm^2 to renormalize at an intermediate field; k applied only to 5×5 and 10×10 mm^2; extrapolated k for EDGE and CC01 at 5×5). Conditions: 100 cm SSD, 10 cm depth, square MLC fields; jaws 8×8 mm^2 for the 5 mm field, MLC+2 mm for 10-40 mm, jaws = MLC for >40 mm. Field sizes are nominal MLC settings, not measured FWHM. The 100 mm row prints \"‐\" for the CI. The 5 mm row includes HD120 MLC machines only (Millennium120 minimum field 10 mm). Authors state: \"We do not recommend the use of the Ω values shown in Table 2 in clinical practice.\" CI ranges use the U+2010 hyphen as printed."
+    }
+   ],
+   "notes": "Author lists taken from the article XML; last page numbers of the 2019/2020 articles are from the task brief (XML gives first page only). Transcribed from the JATS full-text XML that PMC/Europe PMC serve for this article (Europe PMC REST fullTextXML; the pmc.ncbi.nlm.nih.gov HTML page was behind a reCAPTCHA wall for scripted access). Text rendering conventions: subscripts as _{...}, superscripts as ^{...}; inline reference citations appear as plain digits (e.g. \"system17, 18\" = superscript refs 17,18). Minus/dash characters (−, –, ‐) are kept exactly as encoded in the source and are not normalized. \"rows\" are the printed body rows; where a cell is merged vertically across rows (rowspan) its text is repeated on every covered row, and horizontal continuation cells of a colspan are \"\". Spans are listed in header_spans/body_spans. Supplementary figures S1-S4 not transcribed (figures only)."
+  },
+  {
+   "key": "gao2019",
+   "citation": "Gao S, Netherton T, Chetvertkov MA, Li Y, Court LE, Simon WE, Shi J, Balter PA. Acceptance and verification of the Halcyon-Eclipse linear accelerator-treatment planning system without 3D water scanning system. J Appl Clin Med Phys. 2019;20(10):111-117.",
+   "doi": "10.1002/acm2.12719",
+   "pmcid": "PMC6806699",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6806699/",
+   "licence_text": "This is an open access article under the terms of the http://creativecommons.org/licenses/by/4.0/ License, which permits use, distribution and reproduction in any medium, provided the original work is properly cited.",
+   "licence_url": "http://creativecommons.org/licenses/by/4.0/",
+   "copyright": "© 2019 The Authors. Journal of Applied Clinical Medical Physics published by Wiley Periodicals, Inc. on behalf of American Association of Physicists in Medicine",
+   "conditions_quotes": [
+    "The newly designed Halcyon linear accelerator (Linac; Varian Medical Systems, Palo Alto, CA) has a single‐energy 6‐MV flattening filter‐free photon beam with maximum field size of 28 × 28 cm^{2} at the isocenter.",
+    "Beam profiles were measured with the IC PROFILER for various field sizes (10 × 10 cm^{2}, 20 × 20 cm^{2}, 28 × 28 cm^{2}) and depths (d_{max}, 5 cm, 10 cm, and 20 cm) at 90 cm source to surface distance (SSD).",
+    "This ICA has 251 ion chamber detectors aligned along four profile axes: the principal x and y axes and two diagonal axes, with a 0.9 cm water equivalent inherent buildup from the top surface to the detectors.",
+    "An extended 110 cm SSD and 28 × 28 cm^{2} field was used to ensure that all detectors used in later measurements were in the calibration field.",
+    "All profiles were normalized to the central of axis and sampled to 0.5 cm point spacing; the point‐by‐point intensity differences (%) between ICA and TPS (ICA and 3DWS) values were calculated at the location of the ICA detectors (0.5 cm detector spacing) in the high dose and low‐dose tail regions.",
+    "The off‐axis ratio (OAR), defined as the ratio of the average measurements at a fixed distance (e.g., 80% of the field size) along the profiles in two orthogonal axes from the beam CAX to the measurement at the CAX, is used as the beam energy metric.6",
+    "PDD scans were obtained in a 1DS water tank with the SNC125c waterproof ion chambers and PC Electrometer.",
+    "The depth was set as the effective point‐of‐measurement for the chamber. The scanning speed we used was continuous at 0.25cm/s and the scanning depth ranged from 0 to 30 cm.",
+    "For all scanned PDDs (via the 1DS and 3DWS), the data were smoothed and renormalized to 100% by the values at d_{max} depth for each field size.",
+    "PDDs scanned using the 1DS water tank with an SSD of 90 cm for field sizes from 2 × 2 cm^{2} to 28 × 28 cm^{2} compared with PDDs of the same setup calculated by the treatment planning system (TPS) and 3D water tanks scans (3DWS). 1DS, one‐dimensional water scanner; PDDs, percent‐depth‐dose; SSD, source to surface distance.",
+    "Like the PDD, the output factors were measured in the 1DS with the SNC125c waterproof ion chambers and PC electrometer, correcting for the effective point of measurement.",
+    "The measurement was done at the depth of 10 cm with an SSD of 90 cm for a range of field sizes (from 2 × 2 cm^{2} through 28 × 28 cm^{2}) and normalized to the corresponding values at the 10 × 10 cm^{2} field size.",
+    "TG‐51 calibrations were done in the same 1DS with a 0.6‐cc waterproof Farmer chamber (PTW 30013, Freiburg, Germany) and PC electrometer.",
+    "The TG51 protocol was followed to calibrate 1.00 cGy/MU to water at depth of maximum dose and SSD of 100 cm."
+   ],
+   "tables": [
+    {
+     "label": "Table 1",
+     "caption": "High‐dose region profile comparison between the ICA and TPS (ICA and 3DWS) for three fields and four depths. Shaded cells are mean (average) ± SD (σ) of point‐by‐point differences (%) from profiles. Clear cells are the maximum (max) and minimum (min) difference values.",
+     "columns": [
+      "",
+      "Depth, cm",
+      "",
+      "10 × 10 cm^{2}",
+      "20 × 20 cm^{2}",
+      "28 × 28 cm^{2}"
+     ],
+     "header_rows_as_printed": [
+      [
+       "",
+       "Depth, cm",
+       "",
+       "10 × 10 cm^{2}",
+       "20 × 20 cm^{2}",
+       "28 × 28 cm^{2}"
+      ]
+     ],
+     "rows": [
+      [
+       "ICA‐TPS",
+       "d_{max}",
+       "mean±σ",
+       "−0.03 ± 0.24",
+       "0.21 ± 0.32",
+       "0.19 ± 0.39"
+      ],
+      [
+       "ICA‐TPS",
+       "d_{max}",
+       "max/min",
+       "0.4/–0.8",
+       "1.1/−0.5",
+       "1.2/–1.0"
+      ],
+      [
+       "ICA‐TPS",
+       "5",
+       "mean±σ",
+       "−0.24 ± 0.37",
+       "−0.08 ± 0.41",
+       "−0.06 ± 0.45"
+      ],
+      [
+       "ICA‐TPS",
+       "5",
+       "max/min",
+       "0.3/–1.0",
+       "0.7/–1.0",
+       "0.8/–1.4"
+      ],
+      [
+       "ICA‐TPS",
+       "10",
+       "mean±σ",
+       "−0.1 ± 0.36",
+       "−0.04 ± 0.29",
+       "0.06 ± 0.24"
+      ],
+      [
+       "ICA‐TPS",
+       "10",
+       "max/min",
+       "0.6/–1.1",
+       "0.6/–0.8",
+       "0.7/–0.8"
+      ],
+      [
+       "ICA‐TPS",
+       "20",
+       "mean±σ",
+       "0.05 ± 0.46",
+       "0.01 ± 0.25",
+       "−0.08 ± 0.20"
+      ],
+      [
+       "ICA‐TPS",
+       "20",
+       "max/min",
+       "1.0/–1.2",
+       "0.7/−0.6",
+       "0.5/‐0.8"
+      ],
+      [
+       "ICA‐3DWS",
+       "d_{max}",
+       "mean±σ",
+       "−0.06 ± 0.38",
+       "−0.09 ± 0.27",
+       "−0.09 ± 0.33"
+      ],
+      [
+       "ICA‐3DWS",
+       "d_{max}",
+       "max/min",
+       "0.9/–1.0",
+       "0.4/−0.8",
+       "0.6/–0.7"
+      ],
+      [
+       "ICA‐3DWS",
+       "5",
+       "mean±σ",
+       "−0.19 ± 0.37",
+       "–0.14 ± 0.37",
+       "−0.21 ± 0.45"
+      ],
+      [
+       "ICA‐3DWS",
+       "5",
+       "max/min",
+       "0.5/–1.0",
+       "1.1/−1.1",
+       "0.6/–1.2"
+      ],
+      [
+       "ICA‐3DWS",
+       "10",
+       "mean±σ",
+       "0.09 ± 0.53",
+       "–0.19 ± 0.47",
+       "−0.05 ± 0.31"
+      ],
+      [
+       "ICA‐3DWS",
+       "10",
+       "max/min",
+       "1.5/–0.7",
+       "1.4/–1.1",
+       "0.8/–0.8"
+      ],
+      [
+       "ICA‐3DWS",
+       "20",
+       "mean±σ",
+       "0.07 ± 0.67",
+       "−0.15 ± 0.45",
+       "−0.17 ± 0.40"
+      ],
+      [
+       "ICA‐3DWS",
+       "20",
+       "max/min",
+       "1.8/–0.9",
+       "1.6/−1.1",
+       "1.8/–0.8"
+      ]
+     ],
+     "body_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 8,
+       "colspan": 1,
+       "text": "ICA‐TPS"
+      },
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "d_{max}"
+      },
+      {
+       "row": 2,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "5"
+      },
+      {
+       "row": 4,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "10"
+      },
+      {
+       "row": 6,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "20"
+      },
+      {
+       "row": 8,
+       "col": 0,
+       "rowspan": 8,
+       "colspan": 1,
+       "text": "ICA‐3DWS"
+      },
+      {
+       "row": 8,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "d_{max}"
+      },
+      {
+       "row": 10,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "5"
+      },
+      {
+       "row": 12,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "10"
+      },
+      {
+       "row": 14,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "20"
+      }
+     ],
+     "footnote": "Abbreviations: 3DWS, 3D water tanks scans; ICA, ionization chamber array; TPS, treatment planning system.",
+     "units": "% point-by-point difference",
+     "notes": "Statistics of differences, not absolute beam data. ICA = SNC IC PROFILER (0.5 cm detector spacing, 0.9 cm inherent buildup + solid water) at 90 cm SSD; TPS = Eclipse (Halcyon standard model); 3DWS = IBA Blue Phantom 2. Profiles normalized to central axis, sampled at 0.5 cm. In the print, \"Shaded\" vs \"Clear\" cells distinguish row types; here the third column carries the row type label as printed (mean±σ / max/min, or Low dose, % / DTA, mm)."
+    },
+    {
+     "label": "Table 2",
+     "caption": "Low‐dose region profiles and penumbra region comparison between the ICA and TPS (ICA and 3DWS) for three fields and four depths. Shaded cells are maximum point‐by‐point differences (%) from profiles. Clear cells are the maximum DTA in the penumbra region.",
+     "columns": [
+      "",
+      "Depth, cm",
+      "",
+      "10 × 10 cm^{2}",
+      "20 × 20 cm^{2}",
+      "28 × 28 cm^{2}"
+     ],
+     "header_rows_as_printed": [
+      [
+       "",
+       "Depth, cm",
+       "",
+       "10 × 10 cm^{2}",
+       "20 × 20 cm^{2}",
+       "28 × 28 cm^{2}"
+      ]
+     ],
+     "rows": [
+      [
+       "ICA‐TPS",
+       "d_{max}",
+       "Low dose, %",
+       "1.0",
+       "1.8",
+       "1.7"
+      ],
+      [
+       "ICA‐TPS",
+       "d_{max}",
+       "DTA, mm",
+       "–1.25",
+       "2.44",
+       "2.82"
+      ],
+      [
+       "ICA‐TPS",
+       "5",
+       "Low dose, %",
+       "2.5",
+       "−0.6",
+       "−2.8"
+      ],
+      [
+       "ICA‐TPS",
+       "5",
+       "DTA, mm",
+       "–2.18",
+       "−2.91",
+       "−2.73"
+      ],
+      [
+       "ICA‐TPS",
+       "10",
+       "Low dose, %",
+       "1.3",
+       "−0.65",
+       "1.0"
+      ],
+      [
+       "ICA‐TPS",
+       "10",
+       "DTA, mm",
+       "−1.68",
+       "1.75",
+       "−1.06"
+      ],
+      [
+       "ICA‐TPS",
+       "20",
+       "Low dose, %",
+       "−1.11",
+       "1.1",
+       "2.1"
+      ],
+      [
+       "ICA‐TPS",
+       "20",
+       "DTA, mm",
+       "−2.36",
+       "1.71",
+       "2.46"
+      ],
+      [
+       "ICA‐3DWS",
+       "d_{max}",
+       "Low dose, %",
+       "−1.6",
+       "2.2",
+       "1.2"
+      ],
+      [
+       "ICA‐3DWS",
+       "d_{max}",
+       "DTA, mm",
+       "1.9",
+       "−2.46",
+       "1.56"
+      ],
+      [
+       "ICA‐3DWS",
+       "5",
+       "Low dose, %",
+       "−2.8",
+       "−1.6",
+       "−2.7"
+      ],
+      [
+       "ICA‐3DWS",
+       "5",
+       "DTA, mm",
+       "2.94",
+       "2.2",
+       "−2.72"
+      ],
+      [
+       "ICA‐3DWS",
+       "10",
+       "Low dose. %",
+       "−2.1",
+       "−2.21",
+       "1.7"
+      ],
+      [
+       "ICA‐3DWS",
+       "10",
+       "DTA, mm",
+       "−2.94",
+       "1.54",
+       "−2.2"
+      ],
+      [
+       "ICA‐3DWS",
+       "20",
+       "Low dose, %",
+       "−2.3",
+       "−2.6",
+       "−2.8"
+      ],
+      [
+       "ICA‐3DWS",
+       "20",
+       "DTA, mm",
+       "2.75",
+       "−1.74",
+       "1.34"
+      ]
+     ],
+     "body_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 8,
+       "colspan": 1,
+       "text": "ICA‐TPS"
+      },
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "d_{max}"
+      },
+      {
+       "row": 2,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "5"
+      },
+      {
+       "row": 4,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "10"
+      },
+      {
+       "row": 6,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "20"
+      },
+      {
+       "row": 8,
+       "col": 0,
+       "rowspan": 8,
+       "colspan": 1,
+       "text": "ICA‐3DWS"
+      },
+      {
+       "row": 8,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "d_{max}"
+      },
+      {
+       "row": 10,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "5"
+      },
+      {
+       "row": 12,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "10"
+      },
+      {
+       "row": 14,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "20"
+      }
+     ],
+     "footnote": "Abbreviations: 3DWS, 3D water tanks scans; DTA, Distance to agreement; ICA, ionization chamber array; TPS, Treatment Planning System.",
+     "units": "Low dose: maximum point-by-point difference (%); DTA: maximum DTA in penumbra region (mm), signed as printed",
+     "notes": "One row-type label is printed \"Low dose. %\" (period instead of comma) for ICA‐3DWS depth 10 - verbatim. ICA = SNC IC PROFILER (0.5 cm detector spacing, 0.9 cm inherent buildup + solid water) at 90 cm SSD; TPS = Eclipse (Halcyon standard model); 3DWS = IBA Blue Phantom 2. Profiles normalized to central axis, sampled at 0.5 cm. In the print, \"Shaded\" vs \"Clear\" cells distinguish row types; here the third column carries the row type label as printed (mean±σ / max/min, or Low dose, % / DTA, mm)."
+    },
+    {
+     "label": "Table 3",
+     "caption": "Differences in off‐axis ratio between measurements between ICA and TPS (ICA and 3DWS).",
+     "columns": [
+      "Field size / Depth, cm",
+      "20 × 20 cm^{2} / d_{max}",
+      "20 × 20 cm^{2} / 10",
+      "28 × 28 cm^{2} / d_{max}",
+      "28 × 28 cm^{2} / 10"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Field size",
+       "20 × 20 cm^{2}",
+       "",
+       "28 × 28 cm^{2}",
+       ""
+      ],
+      [
+       "Depth, cm",
+       "d_{max}",
+       "10",
+       "d_{max}",
+       "10"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "20 × 20 cm^{2}"
+      },
+      {
+       "row": 0,
+       "col": 3,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "28 × 28 cm^{2}"
+      }
+     ],
+     "rows": [
+      [
+       "ICA‐TPS",
+       "−0.02%",
+       "−0.38%",
+       "0.23%",
+       "0.04%"
+      ],
+      [
+       "ICA‐3DWS",
+       "0.25%",
+       "0.25%",
+       "−0.25%",
+       "−0.22%"
+      ]
+     ],
+     "footnote": "Abbreviations: 3DWS, 3D water tanks scans; ICA, ionization chamber array; TPS, treatment planning system.",
+     "units": "% difference in off-axis ratio",
+     "notes": "OAR = ratio of average measurements at approx. 80% of the field size from CAX on the orthogonal x and y axes to the CAX measurement (used as energy metric). 90 cm SSD."
+    },
+    {
+     "label": "Table 4",
+     "caption": "PDD comparison between the 1DS and TPS (1DS and 3DWS) from 1.0 cm to 30.0 cm for seven fields. Shaded cells are mean (average) ± SD (σ) of point‐by‐point differences (%) between PDDs. Clear cells are the maximum (max) and minimum (min) difference values.",
+     "columns": [
+      "",
+      "Field",
+      "2 × 2 cm^{2}",
+      "4 × 4 cm^{2}",
+      "6 × 6 cm^{2}",
+      "8 × 8 cm^{2}",
+      "10 × 10 cm^{2}",
+      "20 × 20 cm^{2}",
+      "28 × 28 cm^{2}"
+     ],
+     "header_rows_as_printed": [
+      [
+       "",
+       "Field",
+       "2 × 2 cm^{2}",
+       "4 × 4 cm^{2}",
+       "6 × 6 cm^{2}",
+       "8 × 8 cm^{2}",
+       "10 × 10 cm^{2}",
+       "20 × 20 cm^{2}",
+       "28 × 28 cm^{2}"
+      ]
+     ],
+     "rows": [
+      [
+       "1DS‐TPS",
+       "mean ± σ",
+       "−0.41 ± 0.12",
+       "−0.30 ± 0.11",
+       "−0.29 ± 0.17",
+       "−0.25 ± 0.27",
+       "−0.16 ± 0.22",
+       "0.02 ± 0.24",
+       "−0.25 ± 0.23"
+      ],
+      [
+       "1DS‐TPS",
+       "max/min",
+       "0.13/−0.59",
+       "0.15/−0.49",
+       "0.14/−0.47",
+       "0.29/−0.56",
+       "0.23/−0.57",
+       "0.80/−0.32",
+       "0.77/−0.50"
+      ],
+      [
+       "1DS‐3DWS",
+       "mean ± σ",
+       "−0.25 ± 0.10",
+       "−0.05 ± 0.13",
+       "−0.05 ± 0.09",
+       "−0.05 ± 0.10",
+       "0.04 ± 0.09",
+       "−0.03 ± 0.08",
+       "−0.32 ± 0.17"
+      ],
+      [
+       "1DS‐3DWS",
+       "max/min",
+       "0.13/−0.43",
+       "0.43/−0.25",
+       "0.30/−0.19",
+       "0.30/−0.23",
+       "0.35/−0.18",
+       "0.25/−0.18",
+       "0.14/−0.55"
+      ],
+      [
+       "d_{max} (cm)",
+       "1DS",
+       "1.19",
+       "1.29",
+       "1.26",
+       "1.29",
+       "1.25",
+       "1.2",
+       "1.06"
+      ],
+      [
+       "d_{max} (cm)",
+       "TPS",
+       "1.15",
+       "1.25",
+       "1.25",
+       "1.20",
+       "1.20",
+       "1.18",
+       "1.12"
+      ],
+      [
+       "d_{max} (cm)",
+       "3DWS",
+       "1.16",
+       "1.26",
+       "1.30",
+       "1.25",
+       "1.26",
+       "1.26",
+       "1.06"
+      ]
+     ],
+     "body_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "1DS‐TPS"
+      },
+      {
+       "row": 2,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "1DS‐3DWS"
+      },
+      {
+       "row": 4,
+       "col": 0,
+       "rowspan": 3,
+       "colspan": 1,
+       "text": "d_{max} (cm)"
+      }
+     ],
+     "footnote": "Abbreviations: 3DWS, 3D water tanks scans; 1DS, one‐dimensional water scanner; PDDs, percent‐depth‐dose; TPS, treatment planning system.",
+     "units": "mean±σ and max/min: % point-by-point PDD difference over 1.0-30.0 cm depth; d_max rows in cm",
+     "notes": "PDDs with 1DS (SNC 1D SCANNER) + SNC125c chamber, 90 cm SSD, effective point of measurement, 0-30 cm scan at 0.25 cm/s; smoothed and renormalized to 100% at d_max; 1 mm sampling. The d_max rows give absolute depth of maximum for each method (1DS / TPS / 3DWS) - these are the beam data usable for a model check. 1DS d_max for 20×20 printed as \"1.2\" (one decimal) verbatim."
+    },
+    {
+     "label": "Table 5",
+     "caption": "The output factors measured using the 1DS with an SSD of 90 cm at a depth of 10 cm for various field sizes and compared with data from the TPS and measurements obtained with a 3DWS.",
+     "columns": [
+      "Field Size, cm^{2}",
+      "Output factor / 1DS",
+      "Output factor / TPS",
+      "Output factor / 3DWS",
+      "Difference, ratio / 1DS/TPS",
+      "Difference, ratio / 1DS/3DWS"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Field Size, cm^{2}",
+       "Output factor",
+       "",
+       "",
+       "Difference, ratio",
+       ""
+      ],
+      [
+       "",
+       "1DS",
+       "TPS",
+       "3DWS",
+       "1DS/TPS",
+       "1DS/3DWS"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Field Size, cm^{2}"
+      },
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "Output factor"
+      },
+      {
+       "row": 0,
+       "col": 4,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "Difference, ratio"
+      }
+     ],
+     "rows": [
+      [
+       "2 × 2",
+       "0.801",
+       "0.801",
+       "0.803",
+       "1.000",
+       "0.998"
+      ],
+      [
+       "4 × 4",
+       "0.881",
+       "0.878",
+       "0.880",
+       "1.003",
+       "1.001"
+      ],
+      [
+       "6 × 6",
+       "0.931",
+       "0.927",
+       "0.931",
+       "1.004",
+       "1.000"
+      ],
+      [
+       "8 × 8",
+       "0.970",
+       "0.970",
+       "0.970",
+       "1.000",
+       "1.000"
+      ],
+      [
+       "10 × 10",
+       "1.000",
+       "1.000",
+       "1.000",
+       "1.000",
+       "1.000"
+      ],
+      [
+       "14 × 14",
+       "1.044",
+       "1.045",
+       "1.045",
+       "0.999",
+       "0.999"
+      ],
+      [
+       "20 × 20",
+       "1.085",
+       "1.088",
+       "1.088",
+       "0.997",
+       "0.997"
+      ],
+      [
+       "24 × 24",
+       "1.102",
+       "1.106",
+       "1.107",
+       "0.996",
+       "0.995"
+      ],
+      [
+       "28 × 28",
+       "1.111",
+       "1.115",
+       "1.117",
+       "0.998",
+       "0.995"
+      ],
+      [
+       "4 × 20",
+       "0.940",
+       "0.941",
+       "0.938",
+       "0.999",
+       "1.002"
+      ],
+      [
+       "20 × 4",
+       "0.940",
+       "0.940",
+       "0.940",
+       "1.000",
+       "1.000"
+      ]
+     ],
+     "footnote": "Abbreviations: 3DWS, 3D water tanks scans; 1DS, one‐dimensional water scanner; SSD, source to surface distance; TPS, treatment planning system.",
+     "units": "output factor (dimensionless), normalized to 10 × 10; ratios dimensionless",
+     "notes": "Halcyon 6 MV FFF. 1DS with SNC125c ion chamber, SSD 90 cm, depth 10 cm, normalized to 10×10 cm^2 (effective point of measurement corrected). Field sizes in cm (header \"Field Size, cm^2\" as printed); 4 × 20 and 20 × 4 are rectangular fields. Ratio columns transcribed as printed; they were not recomputed (printed ratios may differ in the last digit from the quotient of the printed OFs, e.g. 28 × 28 row)."
+    }
+   ],
+   "notes": "Author lists taken from the article XML; last page numbers of the 2019/2020 articles are from the task brief (XML gives first page only). Transcribed from the JATS full-text XML that PMC/Europe PMC serve for this article (Europe PMC REST fullTextXML; the pmc.ncbi.nlm.nih.gov HTML page was behind a reCAPTCHA wall for scripted access). Text rendering conventions: subscripts as _{...}, superscripts as ^{...}; inline reference citations appear as plain digits (e.g. \"system17, 18\" = superscript refs 17,18). Minus/dash characters (−, –, ‐) are kept exactly as encoded in the source and are not normalized. \"rows\" are the printed body rows; where a cell is merged vertically across rows (rowspan) its text is repeated on every covered row, and horizontal continuation cells of a colspan are \"\". Spans are listed in header_spans/body_spans. Tables 1-4 are agreement statistics between measurement methods; the absolute beam data are Table 4 d_max rows and Table 5 output factors."
+  },
+  {
+   "key": "lim2019",
+   "citation": "Lim TY, Dragojević I, Hoffman D, Flores-Martinez E, Kim GY. Characterization of the Halcyon multileaf collimator system. J Appl Clin Med Phys. 2019;20(4):106-114.",
+   "doi": "10.1002/acm2.12568",
+   "pmcid": "PMC6448159",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6448159/",
+   "licence_text": "This is an open access article under the terms of the http://creativecommons.org/licenses/by/4.0/ License, which permits use, distribution and reproduction in any medium, provided the original work is properly cited.",
+   "licence_url": "http://creativecommons.org/licenses/by/4.0/",
+   "copyright": "© 2019 The Authors. Journal of Applied Clinical Medical Physics published by Wiley Periodicals, Inc. on behalf of American Association of Physicists in Medicine.",
+   "conditions_quotes": [
+    "The distal, or lower layer, is comprised of two banks with 28 leaves each. The proximal, or upper layer, is comprised of two banks with 29 leaves each. The leaves are made from 95% tungsten (the remaining 5% is proprietary) and have a step edge.",
+    "Each leaf measures 1.0 cm projected at isocenter with a leaf end curvature radius of 23.4 cm.",
+    "Average leaf transmission was measured for each leaf bank using a Farmer‐type ionization chamber (PTW 30013; PTW‐Freiburg, Germany).",
+    "The chamber was positioned in solid water along the beam central axis with 100 cm source‐to‐surface distance (SSD) at two depths — d_{max} and 10 cm.",
+    "When measuring transmission through each independent MLC bank, the opposing bank and both banks on the other layer were fully retracted.",
+    "To calculate transmission, the measurements acquired under each of these closed‐leaves deliveries were compared against an open field delivery.",
+    "Gafchromic EBT‐XD self‐developing films (Ashland Advanced Materials; Bridgewater, NJ, USA) were positioned at a depth of 10 cm in solid water and source‐to‐axis distance of 100 cm.",
+    "The profiles were normalized such that the inflection point, calculated as the maximum of the first derivative, corresponded to the 50% and then the 80–20% falloff distance was measured.",
+    "We collected the readings from sweeping gap fields of various gap sizes (2, 4, 6, 10, 14, 16, and 20 mm) defined by the distal MLCs.",
+    "Per vendor‐provided guidelines,23 after correcting for average leaf transmission's contribution to the gap readings, we extrapolated the various gaps corrected measurements down to 0 by fitting a linear function. The Y‐intercept of this linear fit provided the leaf end effect.",
+    "Leaf end effect measurements were made at 100 SSD in solid water at d_{max} and then repeated for depth of 10 cm.",
+    "The EPID on Halcyon^{TM} is a Digital Megavoltage Imaging panel permanently mounted facing the source at a source‐to‐imager distance of 154 cm.17"
+   ],
+   "tables": [
+    {
+     "label": "Table 1",
+     "caption": "Comparison of the Varian Halcyon^{TM} MLC system17, 18 to the widely used Varian Millennium^{TM} 120‐leaf MLC system.19, 20",
+     "columns": [
+      "Characteristics",
+      "Halcyon^{TM} MLC",
+      "Millennium^{TM} 120‐leaf MLC"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Characteristics",
+       "Halcyon^{TM} MLC",
+       "Millennium^{TM} 120‐leaf MLC"
+      ]
+     ],
+     "rows": [
+      [
+       "MLC Configuration",
+       "",
+       ""
+      ],
+      [
+       "Layers",
+       "Dual‐layer",
+       "Single‐layer"
+      ],
+      [
+       "Beam shaping technique",
+       "Proximal and distal MLCs with 0.5 cm offset (no jaws)",
+       "MLC and jaws"
+      ],
+      [
+       "Number of leaves",
+       "114 (29/bank on proximal, 28/bank on distal)",
+       "120 (60/bank)"
+      ],
+      [
+       "Maximum field size",
+       "28 cm × 28 cm",
+       "40 cm × 40 cm"
+      ],
+      [
+       "Direction of motion",
+       "Transverse",
+       "Transverse"
+      ],
+      [
+       "Physical properties",
+       "",
+       ""
+      ],
+      [
+       "Leaf end shape",
+       "Rounded",
+       "Rounded"
+      ],
+      [
+       "Leaf end radius",
+       "23.4 cm",
+       "8.0 cm"
+      ],
+      [
+       "Leaf height",
+       "7.7 cm",
+       "6.5 cm"
+      ],
+      [
+       "Leaf width (at isocenter)",
+       "1 cm",
+       "Pairs 1 & 40: 1.4 cm Pairs 2–10 and 51–59: 1 cm All others: 0.5 cm"
+      ],
+      [
+       "Nominal 6MV‐FFF transmission",
+       "Single‐layer: 0.47% Dual‐layer: 0.01%",
+       "1.36%"
+      ],
+      [
+       "MLC motion",
+       "",
+       ""
+      ],
+      [
+       "Leaf end position accuracy",
+       "1 mm",
+       "1 mm"
+      ],
+      [
+       "Leaf velocity",
+       "5.0 cm/s",
+       "2.5 cm/s"
+      ],
+      [
+       "Leaf acceleration",
+       "200 cm/s/s",
+       "50 cm/s/s"
+      ],
+      [
+       "Position detection mechanism",
+       "Primary: Motor encoder Secondary: Soft pots",
+       "Primary: Motor encoder Secondary: Soft pots"
+      ],
+      [
+       "Overtravel across central axis",
+       "14 cm",
+       "15 cm"
+      ]
+     ],
+     "body_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "MLC Configuration"
+      },
+      {
+       "row": 6,
+       "col": 0,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "Physical properties"
+      },
+      {
+       "row": 12,
+       "col": 0,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "MLC motion"
+      }
+     ],
+     "footnote": null,
+     "units": "as printed in each cell",
+     "notes": "Section rows (\"MLC Configuration\", \"Physical properties\", \"MLC motion\") span all three columns in print; here the text is in column 0 and the rest \"\". Multi-line cells (e.g. Millennium leaf width, transmission) are joined with spaces as in the XML. Values are vendor/literature specifications (refs 17-20), not this study's measurements."
+    },
+    {
+     "label": "Table 2",
+     "caption": "Machine Performance Check (MPC) flags items for user review by comparing values acquired daily to the vendor‐specified tolerances from baseline",
+     "columns": [
+      "Categories",
+      "Items",
+      "Vendor‐specified tolerances"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Categories",
+       "Items",
+       "Vendor‐specified tolerances"
+      ]
+     ],
+     "rows": [
+      [
+       "Isocenter",
+       "Size",
+       "±0.90 mm"
+      ],
+      [
+       "Isocenter",
+       "MV imager projection offset",
+       "±0.50 mm"
+      ],
+      [
+       "Beam",
+       "Output change",
+       "±4.00%"
+      ],
+      [
+       "Beam",
+       "Uniformity change",
+       "±2.00%"
+      ],
+      [
+       "Collimation",
+       "Rotation offset",
+       "±0.50°"
+      ],
+      [
+       "Gantry",
+       "Absolute",
+       "±0.50°"
+      ],
+      [
+       "Gantry",
+       "Relative",
+       "±0.50°"
+      ],
+      [
+       "Couch",
+       "Lateral",
+       "±0.50 mm"
+      ],
+      [
+       "Couch",
+       "Longitudinal",
+       "±0.50 mm"
+      ],
+      [
+       "Couch",
+       "Vertical",
+       "±0.50 mm"
+      ],
+      [
+       "Couch",
+       "Virtual‐to‐isocenter lateral",
+       "±2.00 mm"
+      ],
+      [
+       "Couch",
+       "Virtual‐to‐isocenter longitudinal",
+       "±2.00 mm"
+      ],
+      [
+       "Couch",
+       "Virtual‐to‐isocenter vertical",
+       "±2.00 mm"
+      ]
+     ],
+     "body_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Isocenter"
+      },
+      {
+       "row": 2,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Beam"
+      },
+      {
+       "row": 5,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Gantry"
+      },
+      {
+       "row": 7,
+       "col": 0,
+       "rowspan": 6,
+       "colspan": 1,
+       "text": "Couch"
+      }
+     ],
+     "footnote": null,
+     "units": "tolerances as printed",
+     "notes": "Vendor MPC tolerances, not beam data."
+    },
+    {
+     "label": "Table 3",
+     "caption": "Leaf transmission for each MLC layer, and both MLC layers",
+     "columns": [
+      "",
+      "Leaf transmission (%) / d_{max}",
+      "Leaf transmission (%) / d = 10 cm"
+     ],
+     "header_rows_as_printed": [
+      [
+       "",
+       "Leaf transmission (%)",
+       ""
+      ],
+      [
+       "",
+       "d_{max}",
+       "d = 10 cm"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": ""
+      },
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "Leaf transmission (%)"
+      }
+     ],
+     "rows": [
+      [
+       "Distal‐only",
+       "0.41%",
+       "0.42%"
+      ],
+      [
+       "Proximal‐only",
+       "0.40%",
+       "0.41%"
+      ],
+      [
+       "Distal‐and‐proximal",
+       "Negligible",
+       "Negligible"
+      ]
+     ],
+     "footnote": null,
+     "units": "% of open-field reading at the same depth",
+     "notes": "Farmer chamber PTW 30013 in solid water, central axis, 100 cm SSD, depths d_max and 10 cm; fields fully blocked by one bank (opposing bank and other layer retracted) or by distal+proximal A (or B) banks; ratio to open field. \"Distal-and-proximal: Negligible\" = no signal discernible from background (text). Paper Table 1 lists nominal TPS single-layer transmission 0.47% and dual-layer 0.01%."
+    },
+    {
+     "label": "Text values (Results)",
+     "caption": "Not a printed table: numeric MLC results stated in the Results text, collected here with the source sentence.",
+     "columns": [
+      "Quantity",
+      "Value as printed",
+      "Conditions (from Methods)",
+      "Source sentence (verbatim)"
+     ],
+     "rows": [
+      [
+       "Leaf end effect, 10 cm depth",
+       "−0.19 mm",
+       "Farmer chamber, distal-MLC sweeping gaps 2-20 mm, 100 SSD, solid water; y-intercept of linear fit after transmission correction",
+       "The measured leaf end effect was −0.19 mm from measurements at 10 cm depth, and −0.13 mm from measurements at d_{max} (Fig. 6)."
+      ],
+      [
+       "Leaf end effect, d_max",
+       "−0.13 mm",
+       "same",
+       "The measured leaf end effect was −0.19 mm from measurements at 10 cm depth, and −0.13 mm from measurements at d_{max} (Fig. 6)."
+      ],
+      [
+       "TPS leaf end value (non-user-adjustable)",
+       "0.1 mm",
+       "Eclipse",
+       "The measured leaf end effect values closely matched the non‐user‐adjustable value of 0.1 mm defined in the TPS for the MLCs."
+      ],
+      [
+       "Measured single-layer transmission range",
+       "0.40–0.42%",
+       "Farmer, 100 SSD, d_max and 10 cm",
+       "The measured transmission values of 0.40–0.42% for the Halcyon^{TM} MLC system closely matched the non‐user‐adjustable transmission value of 0.47% defined in the TPS."
+      ],
+      [
+       "TPS transmission (non-user-adjustable)",
+       "0.47%",
+       "Eclipse",
+       "The measured transmission values of 0.40–0.42% for the Halcyon^{TM} MLC system closely matched the non‐user‐adjustable transmission value of 0.47% defined in the TPS."
+      ],
+      [
+       "Leaf edge (tongue-and-groove) underdosage, measured minus TPS AAA 15.1",
+       "−5.0% ± 1.1%",
+       "EPID portal dosimetry, odd/even distal leaf pattern, SID 154 cm",
+       "The mean difference of underdosage defect arising solely from the leaf edge effect between the measurements and TPS predictions was −5.0% ± 1.1%."
+      ],
+      [
+       "MLC positional accuracy, max deviation distal / proximal",
+       "0.07 mm / 0.1 mm",
+       "142 MPC runs; vendor tolerance 0.6 mm distal, 0.55 mm proximal",
+       "For MLC positional accuracy, the vendor‐specified tolerances of 0.6 mm for the distal leaves and 0.55 mm for the proximal leaves are much larger, given the observed maximum deviations of 0.07 mm for the distal MLCs and 0.1 mm for the proximal MLCs."
+      ],
+      [
+       "MLC positional reproducibility, max deviation distal / proximal",
+       "0.45 mm / 0.56 mm",
+       "142 MPC runs; vendor tolerance 0.8 mm distal, 0.9 mm proximal",
+       "For MLC positional reproducibility, the vendor‐specified tolerance of 0.8 mm for the distal MLC and 0.9 mm for the proximal MLC is appropriate, given the observed maximum deviations of 0.45 mm for the distal MLC and 0.56 mm for the proximal MLC."
+      ],
+      [
+       "EPID pixel size physical / at isocenter",
+       "0.34 mm / 0.22 mm",
+       "",
+       "The pixel size on the EPID used was 0.34 mm physically and 0.22 mm when back‐projected to the isocenter plane.17"
+      ],
+      [
+       "VMAT point dose discrepancy AAA 15.1 -> 15.6 (mean ± SD)",
+       "−3.46% ± 1.08% -> −1.28% ± 0.80%",
+       "10 plans, PinPoint PTW31014, CIRS 002H5",
+       "Moving from an earlier to a later dose calculation algorithm — Anisotropic Analytical Algorithm (AAA) 15.1–15.6, the discrepancy between measurement and prediction was reduced from −3.46% ± 1.08% to −1.28% ± 0.80% (stated values are mean ± SD)."
+      ]
+     ],
+     "units": "as printed",
+     "notes": "The paper does not report a \"DLG\" by that name; the \"leaf end effect\" (sweeping-gap y-intercept) is the corresponding quantity, sign as printed (negative). Leaf penumbra (Fig. 5, film EBT-XD at 10 cm depth, SAD 100 cm; 2×2, 5×5, 10×10 cm^2; nominal vs leaf edge vs leaf end) is shown only as a bar chart with no printed numbers - NOT transcribed (would require reading bar heights)."
+    }
+   ],
+   "notes": "Author lists taken from the article XML; last page numbers of the 2019/2020 articles are from the task brief (XML gives first page only). Transcribed from the JATS full-text XML that PMC/Europe PMC serve for this article (Europe PMC REST fullTextXML; the pmc.ncbi.nlm.nih.gov HTML page was behind a reCAPTCHA wall for scripted access). Text rendering conventions: subscripts as _{...}, superscripts as ^{...}; inline reference citations appear as plain digits (e.g. \"system17, 18\" = superscript refs 17,18). Minus/dash characters (−, –, ‐) are kept exactly as encoded in the source and are not normalized. \"rows\" are the printed body rows; where a cell is merged vertically across rows (rowspan) its text is repeated on every covered row, and horizontal continuation cells of a colspan are \"\". Spans are listed in header_spans/body_spans. Table 1 Millennium leaf width cell reads \"Pairs 1 & 40: 1.4 cm Pairs 2–10 and 51–59: 1 cm All others: 0.5 cm\" exactly as printed (pair numbering not corrected)."
+  },
+  {
+   "key": "tanaka2020",
+   "citation": "Tanaka Y, Akino Y, Mizuno H, Isono M, Masai N, Yamamoto T. Impact of detector selections on inter-institutional variability of flattening filter-free beam data for TrueBeam linear accelerators. J Appl Clin Med Phys. 2020;21(1):36-42.",
+   "doi": "10.1002/acm2.12766",
+   "pmcid": "PMC6964765",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6964765/",
+   "licence_text": "This is an open access article under the terms of the http://creativecommons.org/licenses/by/4.0/ License, which permits use, distribution and reproduction in any medium, provided the original work is properly cited.",
+   "licence_url": "http://creativecommons.org/licenses/by/4.0/",
+   "copyright": "© 2019 The Authors. Journal of Applied Clinical Medical Physics published by Wiley Periodicals, Inc. on behalf of American Association of Physicists in Medicine.",
+   "conditions_quotes": [
+    "According to institutional agreement, 24 sets of TrueBeam™ data were collected from 19 institutions.",
+    "All data were measured for modeling within the Eclipse TPS, and treatment fields were collimated with jaws.",
+    "The field sizes (FSs) of the collected data were 30, 100, and 200 mm square fields.",
+    "PDD and crossline OCR data were measured with a source‐to‐surface distance of 100 cm.",
+    "Most of the institutions used either the CC13 or PTW31010 semiflex ionization chamber.",
+    "All PDD data were resampled to the data with a 1 mm interval and normalized at 100 mm depth, as data normalized at the peak depth will be affected by noise around the peak.",
+    "For OCR data, the data measured at d_{max} and a depth of 10 cm were analyzed.",
+    "Mean (range) values of d_{max} were 13 mm (12–15 mm) and 23 mm (21–25 mm) for 6 and 10 MV FFF beam, respectively.",
+    "All data were resampled to the data with a 1 mm interval and normalized using renormalization factors provided by Fogliata et al.20",
+    "The penumbra width was evaluated for the 20–80% profile region.",
+    "The full width at half maximum (FWHM) was calculated for 50% of the profiles normalized using the renormalization factors.",
+    "where y represents the dose at the coordinate x, whereas x_{1} and x_{2} represent the positions located at one‐third and two‐thirds of the half of FWHM from the central axis, respectively."
+   ],
+   "formulas_as_encoded": [
+    "(1) Unflatness = Dose_{central-axis} / Dose_{X-off-axis}  [display equation, rendered from MathML]",
+    "(2) Slope: display equation in terms of x1, x2, y1, y2 (MathML flattens to \"Slope = x 1 - x 2 × y 1 - y 2 x 1 - x 2 2\"; exact layout not reconstructable from text - see article)"
+   ],
+   "tables": [
+    {
+     "label": "Table 1",
+     "caption": "Number of institutions using each detector and FS for measurements of PDD and OCR",
+     "columns": [
+      "Detector",
+      "FS",
+      "PDD / 30 × 30",
+      "PDD / 100 × 100",
+      "PDD / 200 × 200",
+      "OCR / 30 × 30",
+      "OCR / 100 × 100",
+      "OCR / 200 × 200"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Detector",
+       "FS",
+       "PDD",
+       "",
+       "",
+       "OCR",
+       "",
+       ""
+      ],
+      [
+       "",
+       "",
+       "30 × 30",
+       "100 × 100",
+       "200 × 200",
+       "30 × 30",
+       "100 × 100",
+       "200 × 200"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Detector"
+      },
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "FS"
+      },
+      {
+       "row": 0,
+       "col": 2,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "PDD"
+      },
+      {
+       "row": 0,
+       "col": 5,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "OCR"
+      }
+     ],
+     "rows": [
+      [
+       "PTW60019",
+       "",
+       "1",
+       "—",
+       "—",
+       "2^{a}",
+       "1",
+       "1"
+      ],
+      [
+       "EDGE",
+       "",
+       "2",
+       "—",
+       "—",
+       "3",
+       "1",
+       "1"
+      ],
+      [
+       "PTW LA48",
+       "",
+       "—",
+       "—",
+       "—",
+       "1",
+       "1",
+       "1"
+      ],
+      [
+       "CC01/PTW31016",
+       "",
+       "4",
+       "2",
+       "2",
+       "3",
+       "1",
+       "—"
+      ],
+      [
+       "CC04",
+       "",
+       "1",
+       "3",
+       "3",
+       "2",
+       "4^{a}",
+       "2"
+      ],
+      [
+       "CC13/PTW31010",
+       "",
+       "11^{a}",
+       "15^{a}",
+       "14^{a}",
+       "6",
+       "12",
+       "14^{a}"
+      ]
+     ],
+     "footnote": "Abbreviations: FFF, flattening filter‐free; FS, field size (mm^{2}); OCR, off‐center ratio; PDD, percent depth dose.aValues for 6 MV FFF beams. For 10 MV FFF beams, the number of institutions decreased by one.",
+     "units": "number of institutions; FS in mm (square, side × side)",
+     "notes": "The \"FS\" column is a header-only column (rowspan 2) and is empty in every body row, as in the source. Superscript a: values for 6 MV FFF; for 10 MV FFF the number of institutions is one fewer. \"—\" = none."
+    },
+    {
+     "label": "Table 2",
+     "caption": "Number of institutions using each detector and FS for measurements of the OPF",
+     "columns": [
+      "Detector",
+      "FS (mm^{2}) / 30 × 30",
+      "FS (mm^{2}) / 40 × 40",
+      "FS (mm^{2}) / 50 × 50",
+      "FS (mm^{2}) / 150 × 150",
+      "FS (mm^{2}) / 200 × 200",
+      "FS (mm^{2}) / 300 × 300",
+      "FS (mm^{2}) / 400 × 400"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Detector",
+       "FS (mm^{2})",
+       "",
+       "",
+       "",
+       "",
+       "",
+       ""
+      ],
+      [
+       "",
+       "30 × 30",
+       "40 × 40",
+       "50 × 50",
+       "150 × 150",
+       "200 × 200",
+       "300 × 300",
+       "400 × 400"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Detector"
+      },
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 1,
+       "colspan": 7,
+       "text": "FS (mm^{2})"
+      }
+     ],
+     "rows": [
+      [
+       "EDGE",
+       "1",
+       "—",
+       "—",
+       "—",
+       "—",
+       "—",
+       "—"
+      ],
+      [
+       "CC01/PTW pinpoint^{a}",
+       "3",
+       "1",
+       "1",
+       "—",
+       "—",
+       "—",
+       "—"
+      ],
+      [
+       "CC04",
+       "2",
+       "2",
+       "2",
+       "2",
+       "2",
+       "2",
+       "2"
+      ],
+      [
+       "CC13/PTW31010",
+       "12",
+       "14",
+       "8",
+       "13",
+       "14",
+       "16",
+       "14"
+      ],
+      [
+       "PTW30013",
+       "—",
+       "—",
+       "—",
+       "1",
+       "—",
+       "1",
+       "—"
+      ]
+     ],
+     "footnote": "Abbreviations: FS, field size; OPF, output factor.aPTW PinPoint includes model 31014 and model 31016 ionization chambers.",
+     "units": "number of institutions; FS in mm",
+     "notes": "Superscript a on \"PTW pinpoint\": includes models 31014 and 31016. OPF measurement depth/SSD/normalization field are not stated in the Methods text."
+    },
+    {
+     "label": "Table 3",
+     "caption": "SD_{max} of the dose fall‐off region of the PDD",
+     "columns": [
+      "Energy",
+      "SD_{max} (mm^{2}) / 30 × 30",
+      "SD_{max} (mm^{2}) / 100 × 100",
+      "SD_{max} (mm^{2}) / 200 × 200"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Energy",
+       "SD_{max} (mm^{2})",
+       "",
+       ""
+      ],
+      [
+       "",
+       "30 × 30",
+       "100 × 100",
+       "200 × 200"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Energy"
+      },
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "SD_{max} (mm^{2})"
+      }
+     ],
+     "rows": [
+      [
+       "6 MV FFF beam",
+       "0.65% [N = 19]",
+       "0.48% [N = 20]",
+       "0.51% [N = 19]"
+      ],
+      [
+       "10 MV FFF beam",
+       "0.63% [N = 18]",
+       "0.39% [N = 19]",
+       "0.40% [N = 18]"
+      ]
+     ],
+     "footnote": "Abbreviations: FFF, flattening filter‐free; SD_{max}, maximum standard deviation.",
+     "units": "% (maximum SD across institutions in the dose fall-off region beyond the peak); header unit \"(mm^2)\" refers to the field-size labels",
+     "notes": "PDD normalized at 100 mm depth, 1 mm resampling, 100 cm SSD; N = number of datasets."
+    },
+    {
+     "label": "Table 4",
+     "caption": "Penumbra width values analyzed for OCR profiles of 6 and 10 MV FFF beams measured at d_{10}. Values analyzed for profiles measured with ionization chambers, including CC13 and PTW31010, and all other detectors are listed",
+     "columns": [
+      "Detectors",
+      "FS (mm)",
+      "6 MV FFF beam / 30 × 30^{*}",
+      "6 MV FFF beam / 100 × 100^{*}",
+      "6 MV FFF beam / 200 × 200^{*}",
+      "10 MV FFF beam / 30 × 30^{*}",
+      "10 MV FFF beam / 100 × 100^{*}",
+      "10 MV FFF beam / 200 × 200^{*}"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Detectors",
+       "FS (mm)",
+       "6 MV FFF beam",
+       "",
+       "",
+       "10 MV FFF beam",
+       "",
+       ""
+      ],
+      [
+       "",
+       "",
+       "30 × 30^{*}",
+       "100 × 100^{*}",
+       "200 × 200^{*}",
+       "30 × 30^{*}",
+       "100 × 100^{*}",
+       "200 × 200^{*}"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Detectors"
+      },
+      {
+       "row": 0,
+       "col": 1,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "FS (mm)"
+      },
+      {
+       "row": 0,
+       "col": 2,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "6 MV FFF beam"
+      },
+      {
+       "row": 0,
+       "col": 5,
+       "rowspan": 1,
+       "colspan": 3,
+       "text": "10 MV FFF beam"
+      }
+     ],
+     "rows": [
+      [
+       "CC13/PTW31010",
+       "Mean ± SD (min–max)",
+       "5.76 ± 0.08 (5.67–5.88) [N = 6]",
+       "6.87 ± 0.28 (6.67–7.73) [N = 12]",
+       "8.24 ± 0.25 (8.00–9.05) [N = 14]",
+       "5.97 ± 0.04 (5.92–6.03) [N = 6]",
+       "7.08 ± 0.26 (6.85–7.88) [N = 12]",
+       "7.95 ± 0.26 (7.74–8.78) [N = 13]"
+      ],
+      [
+       "All other detectors",
+       "Mean ± SD (min–max)",
+       "4.10 ± 0.58 (3.34–5.01) [N = 11]",
+       "5.47 ± 0.62 (4.09–6.00) [N = 8]",
+       "6.54 ± 0.51 (5.80–7.18) [N = 5]",
+       "4.39 ± 0.65 (3.54–5.26) [N = 10]",
+       "5.67 ± 0.69 (4.26–6.19) [N = 7]",
+       "6.32 ± 0.70 (5.33–7.03) [N = 5]"
+      ]
+     ],
+     "footnote": "Abbreviations: d_{10}, dose at a 10 cm depth; FS, field size; FFF, flattening filter‐free; min–max, minimum–maximum; OCR, off‐center ratio; SD, standard deviation.* P < 0.05.",
+     "units": "penumbra width in mm (20–80%), mean of left and right; FS in mm",
+     "notes": "OCR crossline at 10 cm depth (d10), 100 cm SSD, jaw-defined fields, profiles renormalized with Fogliata et al. factors. \"*\" = P < 0.05 between CC13/PTW31010 and all other detectors. Cell format: mean ± SD (min–max) [N = n]."
+    },
+    {
+     "label": "Table 5",
+     "caption": "Parameters analyzed for OCR profiles of 6 MV FFF beams measured at d_{10}. Values analyzed for profiles measured with ionization chambers, including CC13 and PTW31010, and all other detectors are listed",
+     "columns": [
+      "Detectors",
+      "Parameter / FS (mm)",
+      "FWHM (mm) / 100 × 100",
+      "FWHM (mm) / 200 × 200",
+      "Unflatness (mm) / 100 × 100",
+      "Unflatness (mm) / 200 × 200",
+      "Slope / 100 × 100^{*}",
+      "Slope / 200 × 200^{*}"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Detectors",
+       "Parameter",
+       "FWHM (mm)",
+       "",
+       "Unflatness (mm)",
+       "",
+       "Slope",
+       ""
+      ],
+      [
+       "",
+       "FS (mm)",
+       "100 × 100",
+       "200 × 200",
+       "100 × 100",
+       "200 × 200",
+       "100 × 100^{*}",
+       "200 × 200^{*}"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Detectors"
+      },
+      {
+       "row": 0,
+       "col": 2,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "FWHM (mm)"
+      },
+      {
+       "row": 0,
+       "col": 4,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "Unflatness (mm)"
+      },
+      {
+       "row": 0,
+       "col": 6,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "Slope"
+      }
+     ],
+     "rows": [
+      [
+       "CC13/PTW31010",
+       "Mean ± SD (min–max)",
+       "110.3 ± 0.4 (109.7–110.9) [N = 12]",
+       "220.8 ± 0.6 (219.9–221.6) [N = 14]",
+       "1.101 ± 0.002 (1.098–1.104) [N = 12]",
+       "1.228 ± 0.002 (1.224–1.231) [N = 14]",
+       "0.313 ± 0.003 (0.308–0.318) [N = 12]",
+       "0.377 ± 0.003 (0.372–0.385) [N = 14]"
+      ],
+      [
+       "All other detectors",
+       "Mean ± SD (min–max)",
+       "110.0 ± 0.7 (109.1–111.0) [N = 8]",
+       "220.3 ± 0.6 (219.7–221.3) [N = 5]",
+       "1.102 ± 0.002 (1.100–1.106) [N = 8]",
+       "1.231 ± 0.004 (1.227–1.236) [N = 5]",
+       "0.318 ± 0.008 (0.305–0.328) [N = 8]",
+       "0.384 ± 0.009 (0.378–0.400) [N = 5]"
+      ]
+     ],
+     "footnote": "Abbreviations: d_{10}, dose at a 10 cm depth; FFF, flattening filter‐free; FS, field size; FWHM, full width at half maximum; OCR, off‐center ratio; SD, standard deviation; min–max, minimum–maximum.* P < 0.05.",
+     "units": "FWHM in mm; Unflatness dimensionless ratio (header prints \"(mm)\" - verbatim); Slope as defined by Fogliata (header gives no unit)",
+     "notes": "6 MV FFF, d10, 100 cm SSD. Unflatness = Dose_central-axis / Dose_X-off-axis (eq. 1); slope from points at 1/3 and 2/3 of half FWHM (eq. 2). \"*\" = P < 0.05. The \"Parameter\" column in the header row holds \"FS (mm)\" on the second header row, as printed."
+    },
+    {
+     "label": "Table 6",
+     "caption": "Parameters analyzed for OCR profiles of 10 MV FFF beams measured at d_{10}. Values analyzed for profiles measured with ionization chambers, including CC13 and PTW31010, and all other detectors are listed",
+     "columns": [
+      "Detectors",
+      "Parameter / FS (mm^{2})",
+      "FWHM (mm) / 100 × 100",
+      "FWHM (mm) / 200 × 200",
+      "Unflatness (mm) / 100 × 100",
+      "Unflatness (mm) / 200 × 200^{*}",
+      "Slope / 100 × 100",
+      "Slope / 200 × 200"
+     ],
+     "header_rows_as_printed": [
+      [
+       "Detectors",
+       "Parameter",
+       "FWHM (mm)",
+       "",
+       "Unflatness (mm)",
+       "",
+       "Slope",
+       ""
+      ],
+      [
+       "",
+       "FS (mm^{2})",
+       "100 × 100",
+       "200 × 200",
+       "100 × 100",
+       "200 × 200^{*}",
+       "100 × 100",
+       "200 × 200"
+      ]
+     ],
+     "header_spans": [
+      {
+       "row": 0,
+       "col": 0,
+       "rowspan": 2,
+       "colspan": 1,
+       "text": "Detectors"
+      },
+      {
+       "row": 0,
+       "col": 2,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "FWHM (mm)"
+      },
+      {
+       "row": 0,
+       "col": 4,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "Unflatness (mm)"
+      },
+      {
+       "row": 0,
+       "col": 6,
+       "rowspan": 1,
+       "colspan": 2,
+       "text": "Slope"
+      }
+     ],
+     "rows": [
+      [
+       "CC13/PTW31010",
+       "Mean ± SD (min–max)",
+       "110.1 ± 0.4 (109.5–110.8) [N = 12]",
+       "220.5 ± 0.6 (219.6–221.3) [N = 13]",
+       "1.173 ± 0.002 (1.171–1.176) [N = 12]",
+       "1.419 ± 0.002 (1.416–1.425) [N = 13]",
+       "0.558 ± 0.006 (0.548–0.571) [N = 12]",
+       "0.705 ± 0.003 (0.699–0.709) [N = 13]"
+      ],
+      [
+       "All other detectors",
+       "Mean ± SD (min–max)",
+       "109.8 ± 0.6 (109.0–110.9) [N = 7]",
+       "220.1 ± 0.6 (219.6–221.1) [N = 5]",
+       "1.173 ± 0.003 (1.168–1.175) [N = 7]",
+       "1.424 ± 0.005 (1.418–1.433) [N = 5]",
+       "0.561 ± 0.008 (0.550–0.571) [N = 7]",
+       "0.711 ± 0.010 (0.699–0.726) [N = 5]"
+      ]
+     ],
+     "footnote": "Abbreviations: d_{10},dose at a 10 cm depth; FFF, flattening filter‐free; FS, field size; FWHM, full width at half maximum; min–max, minimum–maximum; OCR, off‐center ratio; SD, standard deviation.* P < 0.05.",
+     "units": "FWHM in mm; Unflatness dimensionless ratio (header prints \"(mm)\" - verbatim); Slope as defined by Fogliata",
+     "notes": "10 MV FFF, d10, 100 cm SSD. Second header row prints \"FS (mm^2)\" here vs \"FS (mm)\" in Table 5 - verbatim. \"*\" = P < 0.05 (here only on Unflatness 200 × 200)."
+    }
+   ],
+   "notes": "Author lists taken from the article XML; last page numbers of the 2019/2020 articles are from the task brief (XML gives first page only). Transcribed from the JATS full-text XML that PMC/Europe PMC serve for this article (Europe PMC REST fullTextXML; the pmc.ncbi.nlm.nih.gov HTML page was behind a reCAPTCHA wall for scripted access). Text rendering conventions: subscripts as _{...}, superscripts as ^{...}; inline reference citations appear as plain digits (e.g. \"system17, 18\" = superscript refs 17,18). Minus/dash characters (−, –, ‐) are kept exactly as encoded in the source and are not normalized. \"rows\" are the printed body rows; where a cell is merged vertically across rows (rowspan) its text is repeated on every covered row, and horizontal continuation cells of a colspan are \"\". Spans are listed in header_spans/body_spans. Fig. 1 caption gives mean dmax 13 and 22 mm (6/10 MV FFF) whereas Methods give 13 mm and 23 mm - both as printed. Supplementary Table S1 (detector details) not available in the XML."
+  }
+ ]
+}

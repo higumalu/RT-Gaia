@@ -1,0 +1,240 @@
+{
+ "dataset_id": "pub-gao2019-halcyon",
+ "name": "Halcyon 6 MV FFF (Gao 2019)",
+ "machine": {
+  "manufacturer": "Varian",
+  "model": "Halcyon",
+  "name": ""
+ },
+ "beam": {
+  "energy_mv": 6.0,
+  "fluence_mode": "FFF"
+ },
+ "source": {
+  "kind": "literature",
+  "citation": "Gao S, Netherton T, Chetvertkov MA, Li Y, Court LE, Simon WE, Shi J, Balter PA. Acceptance and verification of the Halcyon-Eclipse linear accelerator-treatment planning system without 3D water scanning system. J Appl Clin Med Phys. 2019;20(10):111-117. doi:10.1002/acm2.12719",
+  "licence": "CC BY 4.0",
+  "url": "https://doi.org/10.1002/acm2.12719",
+  "note": "One Halcyon at MD Anderson; PDD and output factors with a 1D scanner and SNC125c chamber."
+ },
+ "measurements": [
+  {
+   "measurement_id": "gao2019-t5-of-square",
+   "kind": "output_factor",
+   "conditions": {
+    "ssd_mm": 900,
+    "depth_mm": 100,
+    "reference_field_mm": "100 x 100",
+    "collimation": "mlc",
+    "detector": "Sun Nuclear SNC125c"
+   },
+   "points": [
+    [
+     20.0,
+     0.801
+    ],
+    [
+     40.0,
+     0.881
+    ],
+    [
+     60.0,
+     0.931
+    ],
+    [
+     80.0,
+     0.97
+    ],
+    [
+     100.0,
+     1.0
+    ],
+    [
+     140.0,
+     1.044
+    ],
+    [
+     200.0,
+     1.085
+    ],
+    [
+     240.0,
+     1.102
+    ],
+    [
+     280.0,
+     1.111
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Gao 2019 Table 5, 1DS column (square fields); SSD 90 cm, 10 cm depth, normalized to 10×10 (Methods)"
+  },
+  {
+   "measurement_id": "gao2019-t5-of-rect",
+   "kind": "output_factor",
+   "columns": [
+    "field_x_mm",
+    "field_y_mm",
+    "value"
+   ],
+   "conditions": {
+    "ssd_mm": 900,
+    "depth_mm": 100,
+    "reference_field_mm": "100 x 100",
+    "collimation": "mlc",
+    "detector": "Sun Nuclear SNC125c"
+   },
+   "points": [
+    [
+     40.0,
+     200.0,
+     0.94
+    ],
+    [
+     200.0,
+     40.0,
+     0.94
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Gao 2019 Table 5, 1DS column (4 × 20 and 20 × 4 fields; printed as X × Y in cm)"
+  },
+  {
+   "measurement_id": "gao2019-t4-dmax-2x2",
+   "kind": "scalar",
+   "quantity": "dmax_mm",
+   "conditions": {
+    "field_mm": "20 x 20",
+    "ssd_mm": 900,
+    "detector": "Sun Nuclear SNC125c"
+   },
+   "points": [
+    [
+     11.9
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Gao 2019 Table 4, d_max 1DS row, 2 × 2 cm^{2} (cm → mm); PDD at 90 cm SSD"
+  },
+  {
+   "measurement_id": "gao2019-t4-dmax-4x4",
+   "kind": "scalar",
+   "quantity": "dmax_mm",
+   "conditions": {
+    "field_mm": "40 x 40",
+    "ssd_mm": 900,
+    "detector": "Sun Nuclear SNC125c"
+   },
+   "points": [
+    [
+     12.9
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Gao 2019 Table 4, d_max 1DS row, 4 × 4 cm^{2} (cm → mm); PDD at 90 cm SSD"
+  },
+  {
+   "measurement_id": "gao2019-t4-dmax-6x6",
+   "kind": "scalar",
+   "quantity": "dmax_mm",
+   "conditions": {
+    "field_mm": "60 x 60",
+    "ssd_mm": 900,
+    "detector": "Sun Nuclear SNC125c"
+   },
+   "points": [
+    [
+     12.6
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Gao 2019 Table 4, d_max 1DS row, 6 × 6 cm^{2} (cm → mm); PDD at 90 cm SSD"
+  },
+  {
+   "measurement_id": "gao2019-t4-dmax-8x8",
+   "kind": "scalar",
+   "quantity": "dmax_mm",
+   "conditions": {
+    "field_mm": "80 x 80",
+    "ssd_mm": 900,
+    "detector": "Sun Nuclear SNC125c"
+   },
+   "points": [
+    [
+     12.9
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Gao 2019 Table 4, d_max 1DS row, 8 × 8 cm^{2} (cm → mm); PDD at 90 cm SSD"
+  },
+  {
+   "measurement_id": "gao2019-t4-dmax-10x10",
+   "kind": "scalar",
+   "quantity": "dmax_mm",
+   "conditions": {
+    "field_mm": "100 x 100",
+    "ssd_mm": 900,
+    "detector": "Sun Nuclear SNC125c"
+   },
+   "points": [
+    [
+     12.5
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Gao 2019 Table 4, d_max 1DS row, 10 × 10 cm^{2} (cm → mm); PDD at 90 cm SSD"
+  },
+  {
+   "measurement_id": "gao2019-t4-dmax-20x20",
+   "kind": "scalar",
+   "quantity": "dmax_mm",
+   "conditions": {
+    "field_mm": "200 x 200",
+    "ssd_mm": 900,
+    "detector": "Sun Nuclear SNC125c"
+   },
+   "points": [
+    [
+     12.0
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Gao 2019 Table 4, d_max 1DS row, 20 × 20 cm^{2} (cm → mm); PDD at 90 cm SSD"
+  },
+  {
+   "measurement_id": "gao2019-t4-dmax-28x28",
+   "kind": "scalar",
+   "quantity": "dmax_mm",
+   "conditions": {
+    "field_mm": "280 x 280",
+    "ssd_mm": 900,
+    "detector": "Sun Nuclear SNC125c"
+   },
+   "points": [
+    [
+     10.6
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Gao 2019 Table 4, d_max 1DS row, 28 × 28 cm^{2} (cm → mm); PDD at 90 cm SSD"
+  },
+  {
+   "measurement_id": "gao2019-tg51",
+   "kind": "absolute",
+   "conditions": {
+    "field_mm": "100 x 100",
+    "ssd_mm": 1000,
+    "normalization": "dmax",
+    "detector": "PTW 30013 Farmer"
+   },
+   "points": [
+    [
+     0.01
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Gao 2019 Methods: TG-51 calibration to 1.00 cGy/MU in water at the depth of maximum dose, SSD 100 cm (10 × 10 reference field per TG-51)"
+  }
+ ],
+ "note": ""
+}

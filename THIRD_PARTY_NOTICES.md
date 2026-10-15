@@ -103,6 +103,13 @@ The kernel has no third-party crate dependencies.
 | `postgres:16` | Database service in `deploy/docker-compose.yml` | PostgreSQL License |
 | `rust:1.83-bookworm, node:22-bookworm` | Build stages only; not part of the shipped images | MIT / Apache-2.0 (Rust), MIT (Node.js) |
 
+## Data shipped with RT-Gaia
+
+- **Public beam data.** `rtgaia_dosecalc/public_beam_data/` reproduces tables from five open-access articles in
+  the Journal of Applied Clinical Medical Physics (Beyer 2013, CC BY 3.0; Akino 2020, Gao 2019, Lim 2019 and
+  Tanaka 2020, CC BY 4.0), with unit conversions and the other changes listed in the `NOTICE` file in that
+  directory. Each measurement names the table, row and column it comes from.
+
 ## Not bundled
 
 - **OpenTOPAS and Geant4.** The Monte Carlo dose engine runs the official OpenTOPAS container image

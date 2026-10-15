@@ -1094,6 +1094,72 @@ entered by users will be added later. Selecting a model shows:
 A model is identified by a hash of its parameters: changing a parameter, or the engine version, triggers a new MU
 calibration on the next calculation.
 
+### Beam data
+
+**Admin → Beam data** holds the measured data that beam models are fitted to and validated against. Viewing is
+open to every role; creating, editing, locking and deleting datasets require the administrator role and are
+recorded in the audit log. Beam models are fitted only to these data, never to TPS doses.
+
+- **A dataset** is one beam quality of one machine (or one published source): manufacturer, model and name of
+  the machine; energy and fluence mode; and the **source** — measured, vendor representative data, published
+  literature or research synthetic — with its citation, licence and URL. Models fitted to data that are not
+  measurements are marked **Demo**.
+- **Measurements** in a dataset are depth doses (PDD, TPR or TMR; a few points are enough, for example PDD at
+  10 cm), lateral profiles, output factor tables, single values (depth of maximum dose, TPR20/10, %dd(10)x,
+  80–20% penumbra, FWHM, FFF unflatness and slope, MLC and jaw transmission, leaf-end offset, dosimetric leaf
+  gap, leaf-end radius and leaf height) and the absolute calibration in Gy/MU. Each carries its conditions
+  (field size, SSD or SAD, depth, axis, normalization, collimation, MLC layer, detector), the statistic (single,
+  mean or median, with the number of values) and optionally an uncertainty per point.
+- **Built-in datasets** reproduce tables from five open-access articles (CC BY): Beyer 2013 (three TrueBeams,
+  6 MV, 15 MV and 10 MV FFF), Akino 2020 (TrueBeam small-field output factors, four beams), Tanaka 2020 (TrueBeam
+  FFF profile parameters), Gao 2019 (Halcyon output factors, depth of maximum dose and calibration) and Lim 2019
+  (Halcyon MLC transmission, leaf-end effect and geometry). Each measurement names the table, row and column it
+  comes from. They are summary values, not full curves, represent no particular machine and are read-only;
+  **Copy to new draft** starts an editable copy.
+- **Lifecycle.** A draft can be edited or deleted. **Lock** freezes it: a locked dataset cannot be edited or
+  deleted, so fitted models can always name the exact data they used. To change one, copy it.
+
+**Generic CSV.** Measurements are imported as text with one block per measurement. A block starts with
+`# kind:` (`depth_dose`, `profile`, `output_factor`, `scalar` or `absolute`), followed by `# key: value`
+conditions and then the data rows; other `#` lines and a header row are ignored:
+
+```
+# kind: depth_dose
+# quantity: pdd
+# field_mm: 100 x 100
+# ssd_mm: 1000
+# normalization: dmax
+# unit: percent
+# detector: IBA CC13
+# statistic: mean
+# n: 3
+depth_mm, value, uncertainty
+15, 100.0
+100, 66.4, 0.3
+
+# kind: output_factor
+# depth_mm: 100
+# ssd_mm: 900
+# reference_field_mm: 100
+# collimation: mlc
+20, 0.801
+100, 1.000
+280, 1.111
+
+# kind: scalar
+# quantity: mlc_transmission
+# layer: distal
+# depth_mm: 100
+0.0042
+```
+
+The columns default to `depth_mm, value[, uncertainty]` for depth doses, `position_mm, value[, uncertainty]` for
+profiles and `field_mm, value[, uncertainty]` (square fields) for output factors; rectangular fields use
+`# columns: field_x_mm, field_y_mm, value`. Field sizes are written `width x height` in millimetres, or one number
+for a square. **Edit as CSV** turns the measurements of a draft back into this text.
+
+Datasets are stored in the `app_setting` table under the key `beam_data` and are included in database backups.
+
 ## Resource limits
 
 | Limit | Default | Setting |

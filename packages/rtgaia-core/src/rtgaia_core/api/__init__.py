@@ -22,6 +22,7 @@ from ..limits import USERNAME_MAX
 from ..state import ConflictError
 from . import (
     routes_auth,
+    routes_beam_data,
     routes_cases,
     routes_catalog,
     routes_ct_calibration,
@@ -599,6 +600,7 @@ def create_app(
     for module in (
         routes_grids,
         routes_ct_calibration,  # 比 routes_series 先（/series/{id}/ct-calibration）
+        routes_beam_data,
         routes_series,
         routes_temporal_structures,  # 比 routes_structures 先（/studies/{id}/structures/… 的子路徑）
         routes_structures,

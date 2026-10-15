@@ -204,6 +204,14 @@ NOT_BUNDLED = """\
 """
 """Dose calculation components that RT-Gaia uses but does not ship (rendered under "Not bundled")."""
 
+BUNDLED_DATA = """\
+- **Public beam data.** `rtgaia_dosecalc/public_beam_data/` reproduces tables from five open-access articles in
+  the Journal of Applied Clinical Medical Physics (Beyer 2013, CC BY 3.0; Akino 2020, Gao 2019, Lim 2019 and
+  Tanaka 2020, CC BY 4.0), with unit conversions and the other changes listed in the `NOTICE` file in that
+  directory. Each measurement names the table, row and column it comes from.
+"""
+"""Data files shipped in the packages (rendered under "Data shipped with RT-Gaia")."""
+
 
 def render() -> str:
     py, js, rs = python_packages(), npm_packages(), rust_packages()
@@ -239,6 +247,10 @@ def render() -> str:
         "| Image | Used for | License |",
         "|---|---|---|",
         *[f"| `{image}` | {use} | {lic} |" for image, use, lic in CONTAINERS],
+        "",
+        "## Data shipped with RT-Gaia",
+        "",
+        *BUNDLED_DATA.splitlines(),
         "",
         "## Not bundled",
         "",

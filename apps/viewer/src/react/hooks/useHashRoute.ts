@@ -11,8 +11,8 @@
 import { useEffect, useState } from 'react';
 
 export type Route = 'viewer' | 'library' | 'login' | 'admin' | 'help' | 'trash' | 'archive' | 'exports';
-export type AdminTab = 'users' | 'audit' | 'nodes' | 'service' | 'plugins' | 'ctcal' | 'beammodel';
-export const ADMIN_TABS: readonly AdminTab[] = ['users', 'nodes', 'service', 'plugins', 'ctcal', 'beammodel', 'audit'];
+export type AdminTab = 'users' | 'audit' | 'nodes' | 'service' | 'plugins' | 'ctcal' | 'beammodel' | 'beamdata';
+export const ADMIN_TABS: readonly AdminTab[] = ['users', 'nodes', 'service', 'plugins', 'ctcal', 'beamdata', 'beammodel', 'audit'];
 
 export function routeFromHash(hash: string): Route {
   const path = hash.replace(/^#/, '').replace(/^\//, '');

@@ -1,0 +1,79 @@
+{
+ "dataset_id": "pub-akino2020-6x",
+ "name": "TrueBeam 6 MV small fields (Akino 2020)",
+ "machine": {
+  "manufacturer": "Varian",
+  "model": "TrueBeam",
+  "name": ""
+ },
+ "beam": {
+  "energy_mv": 6.0,
+  "fluence_mode": "STANDARD"
+ },
+ "source": {
+  "kind": "literature",
+  "citation": "Akino Y, Mizuno H, Isono M, Tanaka Y, Masai N, Yamamoto T. Small-field dosimetry of TrueBeam flattened and flattening filter-free beams: A multi-institutional analysis. J Appl Clin Med Phys. 2020;21(1):78-87. doi:10.1002/acm2.12791",
+  "licence": "CC BY 4.0",
+  "url": "https://doi.org/10.1002/acm2.12791",
+  "note": "12 TrueBeam linacs at 11 institutions (10 STx with HD120 MLC, 2 with Millennium 120). The authors do not recommend these values for clinical use."
+ },
+ "measurements": [
+  {
+   "measurement_id": "akino2020-t2-of-6x",
+   "kind": "output_factor",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "reference_field_mm": "100 x 100",
+    "collimation": "mlc",
+    "detector": "various (Table 1), corrected with IAEA TRS-483 factors"
+   },
+   "points": [
+    [
+     5.0,
+     0.545,
+     0.007398
+    ],
+    [
+     10.0,
+     0.708,
+     0.002551
+    ],
+    [
+     20.0,
+     0.799,
+     0.001276
+    ],
+    [
+     30.0,
+     0.835,
+     0.00102
+    ],
+    [
+     40.0,
+     0.868,
+     0.00051
+    ],
+    [
+     60.0,
+     0.921,
+     0.000255
+    ],
+    [
+     80.0,
+     0.966,
+     0.000255
+    ],
+    [
+     100.0,
+     1.0,
+     null
+    ]
+   ],
+   "statistic": "median",
+   "n": null,
+   "reference": "Akino 2020 Table 2, 6 MV, median Ω; uncertainty = (95% CI width) / 3.92; 5 mm row from HD120 MLC machines only; jaws 8×8 mm² for 5 mm, MLC + 2 mm for 10–40 mm, = MLC above 40 mm"
+  }
+ ],
+ "note": ""
+}

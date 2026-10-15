@@ -1,0 +1,17 @@
+Public beam data shipped with RT-Gaia
+
+The datasets in this directory reproduce tables from the open-access articles below, which are
+distributed under Creative Commons Attribution licences (CC BY 3.0 or CC BY 4.0, as stated in each
+dataset's `source.licence`). The values were taken cell by cell from the articles' JATS XML
+(Europe PMC); scripts/build-public-beam-data.py selects columns and converts units, and each
+measurement's `reference` names the table, row and column it comes from. Changes from the
+originals: unit conversions, the means and sample standard deviations of Beyer 2013 Table 4, and
+the conversion of Akino 2020 confidence intervals to standard uncertainties, all stated in the
+`reference` fields. None of these data represent a particular machine; models fitted to them are
+for demonstration only.
+
+- Akino Y, Mizuno H, Isono M, Tanaka Y, Masai N, Yamamoto T. Small-field dosimetry of TrueBeam flattened and flattening filter-free beams: A multi-institutional analysis. J Appl Clin Med Phys. 2020;21(1):78-87. https://doi.org/10.1002/acm2.12791 (CC BY 4.0)
+- Beyer GP. Commissioning measurements for photon beam data on three TrueBeam linear accelerators, and comparison with Trilogy and Clinac 2100 linear accelerators. J Appl Clin Med Phys. 2013;14(1):273-288. https://doi.org/10.1120/jacmp.v14i1.4077 (CC BY 3.0)
+- Gao S, Netherton T, Chetvertkov MA, Li Y, Court LE, Simon WE, Shi J, Balter PA. Acceptance and verification of the Halcyon-Eclipse linear accelerator-treatment planning system without 3D water scanning system. J Appl Clin Med Phys. 2019;20(10):111-117. https://doi.org/10.1002/acm2.12719 (CC BY 4.0)
+- Lim TY, Dragojević I, Hoffman D, Flores-Martinez E, Kim GY. Characterization of the Halcyon multileaf collimator system. J Appl Clin Med Phys. 2019;20(4):106-114. https://doi.org/10.1002/acm2.12568 (CC BY 4.0)
+- Tanaka Y, Akino Y, Mizuno H, Isono M, Masai N, Yamamoto T. Impact of detector selections on inter-institutional variability of flattening filter-free beam data for TrueBeam linear accelerators. J Appl Clin Med Phys. 2020;21(1):36-42. https://doi.org/10.1002/acm2.12766 (CC BY 4.0)

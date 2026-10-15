@@ -1,0 +1,419 @@
+{
+ "dataset_id": "pub-tanaka2020-10fff",
+ "name": "TrueBeam 10 MV FFF profiles (Tanaka 2020)",
+ "machine": {
+  "manufacturer": "Varian",
+  "model": "TrueBeam",
+  "name": ""
+ },
+ "beam": {
+  "energy_mv": 10.0,
+  "fluence_mode": "FFF"
+ },
+ "source": {
+  "kind": "literature",
+  "citation": "Tanaka Y, Akino Y, Mizuno H, Isono M, Masai N, Yamamoto T. Impact of detector selections on inter-institutional variability of flattening filter-free beam data for TrueBeam linear accelerators. J Appl Clin Med Phys. 2020;21(1):36-42. doi:10.1002/acm2.12766",
+  "licence": "CC BY 4.0",
+  "url": "https://doi.org/10.1002/acm2.12766",
+  "note": "24 TrueBeam data sets from 19 institutions, jaw-collimated fields, 100 cm SSD; values split by detector class."
+ },
+ "measurements": [
+  {
+   "measurement_id": "tanaka2020-t4-penumbra-10fff-30-chamber",
+   "kind": "scalar",
+   "quantity": "penumbra_80_20_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "30 x 30",
+    "detector": "IBA CC13 or PTW 31010 chamber"
+   },
+   "points": [
+    [
+     5.97,
+     0.04
+    ]
+   ],
+   "statistic": "mean",
+   "n": 6,
+   "reference": "Tanaka 2020 Table 4, CC13/PTW31010, 10 MV FFF beam / 30 × 30^{*}; crossline at 10 cm depth, profiles renormalized with the Fogliata factors"
+  },
+  {
+   "measurement_id": "tanaka2020-t4-penumbra-10fff-100-chamber",
+   "kind": "scalar",
+   "quantity": "penumbra_80_20_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "100 x 100",
+    "detector": "IBA CC13 or PTW 31010 chamber"
+   },
+   "points": [
+    [
+     7.08,
+     0.26
+    ]
+   ],
+   "statistic": "mean",
+   "n": 12,
+   "reference": "Tanaka 2020 Table 4, CC13/PTW31010, 10 MV FFF beam / 100 × 100^{*}; crossline at 10 cm depth, profiles renormalized with the Fogliata factors"
+  },
+  {
+   "measurement_id": "tanaka2020-t4-penumbra-10fff-200-chamber",
+   "kind": "scalar",
+   "quantity": "penumbra_80_20_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "200 x 200",
+    "detector": "IBA CC13 or PTW 31010 chamber"
+   },
+   "points": [
+    [
+     7.95,
+     0.26
+    ]
+   ],
+   "statistic": "mean",
+   "n": 13,
+   "reference": "Tanaka 2020 Table 4, CC13/PTW31010, 10 MV FFF beam / 200 × 200^{*}; crossline at 10 cm depth, profiles renormalized with the Fogliata factors"
+  },
+  {
+   "measurement_id": "tanaka2020-t4-penumbra-10fff-30-other",
+   "kind": "scalar",
+   "quantity": "penumbra_80_20_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "30 x 30",
+    "detector": "other detectors (diodes, diamond, small chambers)"
+   },
+   "points": [
+    [
+     4.39,
+     0.65
+    ]
+   ],
+   "statistic": "mean",
+   "n": 10,
+   "reference": "Tanaka 2020 Table 4, All other detectors, 10 MV FFF beam / 30 × 30^{*}; crossline at 10 cm depth, profiles renormalized with the Fogliata factors"
+  },
+  {
+   "measurement_id": "tanaka2020-t4-penumbra-10fff-100-other",
+   "kind": "scalar",
+   "quantity": "penumbra_80_20_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "100 x 100",
+    "detector": "other detectors (diodes, diamond, small chambers)"
+   },
+   "points": [
+    [
+     5.67,
+     0.69
+    ]
+   ],
+   "statistic": "mean",
+   "n": 7,
+   "reference": "Tanaka 2020 Table 4, All other detectors, 10 MV FFF beam / 100 × 100^{*}; crossline at 10 cm depth, profiles renormalized with the Fogliata factors"
+  },
+  {
+   "measurement_id": "tanaka2020-t4-penumbra-10fff-200-other",
+   "kind": "scalar",
+   "quantity": "penumbra_80_20_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "200 x 200",
+    "detector": "other detectors (diodes, diamond, small chambers)"
+   },
+   "points": [
+    [
+     6.32,
+     0.7
+    ]
+   ],
+   "statistic": "mean",
+   "n": 5,
+   "reference": "Tanaka 2020 Table 4, All other detectors, 10 MV FFF beam / 200 × 200^{*}; crossline at 10 cm depth, profiles renormalized with the Fogliata factors"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-fwhm-10fff-100-chamber",
+   "kind": "scalar",
+   "quantity": "fwhm_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "100 x 100",
+    "detector": "IBA CC13 or PTW 31010 chamber"
+   },
+   "points": [
+    [
+     110.1,
+     0.4
+    ]
+   ],
+   "statistic": "mean",
+   "n": 12,
+   "reference": "Tanaka 2020 Table 6, CC13/PTW31010, FWHM (mm) / 100 × 100"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-fwhm-10fff-200-chamber",
+   "kind": "scalar",
+   "quantity": "fwhm_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "200 x 200",
+    "detector": "IBA CC13 or PTW 31010 chamber"
+   },
+   "points": [
+    [
+     220.5,
+     0.6
+    ]
+   ],
+   "statistic": "mean",
+   "n": 13,
+   "reference": "Tanaka 2020 Table 6, CC13/PTW31010, FWHM (mm) / 200 × 200"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-unflatness-10fff-100-chamber",
+   "kind": "scalar",
+   "quantity": "unflatness",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "100 x 100",
+    "detector": "IBA CC13 or PTW 31010 chamber"
+   },
+   "points": [
+    [
+     1.173,
+     0.002
+    ]
+   ],
+   "statistic": "mean",
+   "n": 12,
+   "reference": "Tanaka 2020 Table 6, CC13/PTW31010, Unflatness (mm) / 100 × 100; unflatness = central-axis dose / off-axis dose (Tanaka eq. 1; the header prints “(mm)”)"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-unflatness-10fff-200-chamber",
+   "kind": "scalar",
+   "quantity": "unflatness",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "200 x 200",
+    "detector": "IBA CC13 or PTW 31010 chamber"
+   },
+   "points": [
+    [
+     1.419,
+     0.002
+    ]
+   ],
+   "statistic": "mean",
+   "n": 13,
+   "reference": "Tanaka 2020 Table 6, CC13/PTW31010, Unflatness (mm) / 200 × 200^{*}; unflatness = central-axis dose / off-axis dose (Tanaka eq. 1; the header prints “(mm)”)"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-slope-10fff-100-chamber",
+   "kind": "scalar",
+   "quantity": "slope_percent_per_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "100 x 100",
+    "detector": "IBA CC13 or PTW 31010 chamber"
+   },
+   "points": [
+    [
+     0.558,
+     0.006
+    ]
+   ],
+   "statistic": "mean",
+   "n": 12,
+   "reference": "Tanaka 2020 Table 6, CC13/PTW31010, Slope / 100 × 100; slope between 1/3 and 2/3 of half the FWHM (Tanaka eq. 2)"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-slope-10fff-200-chamber",
+   "kind": "scalar",
+   "quantity": "slope_percent_per_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "200 x 200",
+    "detector": "IBA CC13 or PTW 31010 chamber"
+   },
+   "points": [
+    [
+     0.705,
+     0.003
+    ]
+   ],
+   "statistic": "mean",
+   "n": 13,
+   "reference": "Tanaka 2020 Table 6, CC13/PTW31010, Slope / 200 × 200; slope between 1/3 and 2/3 of half the FWHM (Tanaka eq. 2)"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-fwhm-10fff-100-other",
+   "kind": "scalar",
+   "quantity": "fwhm_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "100 x 100",
+    "detector": "other detectors (diodes, diamond, small chambers)"
+   },
+   "points": [
+    [
+     109.8,
+     0.6
+    ]
+   ],
+   "statistic": "mean",
+   "n": 7,
+   "reference": "Tanaka 2020 Table 6, All other detectors, FWHM (mm) / 100 × 100"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-fwhm-10fff-200-other",
+   "kind": "scalar",
+   "quantity": "fwhm_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "200 x 200",
+    "detector": "other detectors (diodes, diamond, small chambers)"
+   },
+   "points": [
+    [
+     220.1,
+     0.6
+    ]
+   ],
+   "statistic": "mean",
+   "n": 5,
+   "reference": "Tanaka 2020 Table 6, All other detectors, FWHM (mm) / 200 × 200"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-unflatness-10fff-100-other",
+   "kind": "scalar",
+   "quantity": "unflatness",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "100 x 100",
+    "detector": "other detectors (diodes, diamond, small chambers)"
+   },
+   "points": [
+    [
+     1.173,
+     0.003
+    ]
+   ],
+   "statistic": "mean",
+   "n": 7,
+   "reference": "Tanaka 2020 Table 6, All other detectors, Unflatness (mm) / 100 × 100; unflatness = central-axis dose / off-axis dose (Tanaka eq. 1; the header prints “(mm)”)"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-unflatness-10fff-200-other",
+   "kind": "scalar",
+   "quantity": "unflatness",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "200 x 200",
+    "detector": "other detectors (diodes, diamond, small chambers)"
+   },
+   "points": [
+    [
+     1.424,
+     0.005
+    ]
+   ],
+   "statistic": "mean",
+   "n": 5,
+   "reference": "Tanaka 2020 Table 6, All other detectors, Unflatness (mm) / 200 × 200^{*}; unflatness = central-axis dose / off-axis dose (Tanaka eq. 1; the header prints “(mm)”)"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-slope-10fff-100-other",
+   "kind": "scalar",
+   "quantity": "slope_percent_per_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "100 x 100",
+    "detector": "other detectors (diodes, diamond, small chambers)"
+   },
+   "points": [
+    [
+     0.561,
+     0.008
+    ]
+   ],
+   "statistic": "mean",
+   "n": 7,
+   "reference": "Tanaka 2020 Table 6, All other detectors, Slope / 100 × 100; slope between 1/3 and 2/3 of half the FWHM (Tanaka eq. 2)"
+  },
+  {
+   "measurement_id": "tanaka2020-table6-slope-10fff-200-other",
+   "kind": "scalar",
+   "quantity": "slope_percent_per_mm",
+   "conditions": {
+    "ssd_mm": 1000,
+    "depth_mm": 100,
+    "axis": "x",
+    "collimation": "jaw",
+    "field_mm": "200 x 200",
+    "detector": "other detectors (diodes, diamond, small chambers)"
+   },
+   "points": [
+    [
+     0.711,
+     0.01
+    ]
+   ],
+   "statistic": "mean",
+   "n": 5,
+   "reference": "Tanaka 2020 Table 6, All other detectors, Slope / 200 × 200; slope between 1/3 and 2/3 of half the FWHM (Tanaka eq. 2)"
+  }
+ ],
+ "note": ""
+}
