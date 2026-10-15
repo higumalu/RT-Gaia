@@ -500,7 +500,7 @@ __device__ bool collimate(Rng &r, float px, float py, float pz, float dx, float 
   float path = 0.0f;
   for (int d = 0; d < ndev; d++) {
     int axis = dev_i[4 * d], nleaf = dev_i[4 * d + 1], boff = dev_i[4 * d + 2], poff = dev_i[4 * d + 3];
-    float top = dev_f[2 * d], thick = dev_f[2 * d + 1];
+    float top = dev_f[3 * d], thick = dev_f[3 * d + 1], dens = dev_f[3 * d + 2];
     int blocked = 0;
     for (int k = 0; k < 3; k++) {
       float depth = top + thick * (k + 0.5f) / 3.0f;  // 距靶
@@ -520,7 +520,7 @@ __device__ bool collimate(Rng &r, float px, float py, float pz, float dx, float 
       const float *pp = pos + poff + ((size_t)st * nleaf + lo) * 2;
       if (along < pp[0] || along > pp[1]) blocked++;
     }
-    if (blocked) path += thick * blocked / 3.0f / fabsf(dz);
+    if (blocked) path += dens * thick * blocked / 3.0f / fabsf(dz);  // dens：有效密度比（葉間漏射、鎢合金）
   }
   if (path <= 0.0f) return true;
   float f = (logf(e) - tb.lne0) / tb.dlne;
@@ -534,8 +534,10 @@ extern "C" __global__ void run_beam(unsigned long long *edep, unsigned int *lost
                                     int nx, int ny, int nz, float dx, float dy, float dz, float ox, float oy, float oz,
                                     const float *tab, const float *mumax, const float *rho_ref, const float *mu_w, int nmat,
                                     int ne, float lne0, float dlne, int nstate, const unsigned long long *st_cum,
-                                    const int *st_nef, const float *st_rot, const float *st_cone, float iso_x, float iso_y,
-                                    float iso_z, float sad, float z_ef, float sig_f, float sig_ef, float m_spread,
+                                    const int *st_nef, const int *st_nec, const float *st_rot, const float *st_cone,
+                                    float iso_x, float iso_y, float iso_z, float sad, float z_ef, float sig_f,
+                                    float sig_ef, float m_spread, float z_ec, float sig_ec, const float *ec_e,
+                                    const float *ec_cdf, int nec,
                                     int ndev, const int *dev_i, const float *dev_f, const float *bounds, const float *pos,
                                     const float *spec_e, const float *spec_cdf, int nspec, unsigned long long seed,
                                     unsigned long long h0, unsigned long long nhist, float escale, float pcut, float ecut,
@@ -557,9 +559,13 @@ extern "C" __global__ void run_beam(unsigned long long *edep, unsigned int *lost
       if (st_cum[mid] <= idx) lo = mid; else hi = mid - 1;
     }
     int st = lo;
-    bool ef = (idx - st_cum[st]) < (unsigned long long)st_nef[st];
-    float zs = ef ? z_ef : sad, sig = ef ? sig_ef : sig_f;
-    float ca = st_cone[4 * st + (ef ? 2 : 0)], cb = st_cone[4 * st + (ef ? 3 : 1)];
+    // 這一小段裡：前 nef 個是機頭散射（光子）、接著 nec 個是電子污染、其餘是原射源
+    unsigned long long k = idx - st_cum[st];
+    bool ef = k < (unsigned long long)st_nef[st];
+    bool ec = !ef && k < (unsigned long long)(st_nef[st] + st_nec[st]);
+    int src = ef ? 1 : (ec ? 2 : 0);
+    float zs = src == 0 ? sad : (src == 1 ? z_ef : z_ec), sig = src == 0 ? sig_f : (src == 1 ? sig_ef : sig_ec);
+    float ca = st_cone[6 * st + 2 * src], cb = st_cone[6 * st + 2 * src + 1];
     // 射源位置
     float gx, gy;
     do {
@@ -570,7 +576,7 @@ extern "C" __global__ void run_beam(unsigned long long *edep, unsigned int *lost
     // 方向（Marsaglia）
     float mx, my;
     for (int it = 0; it < 10000; it++) {
-      if (!ef && m_spread > 0.0f) {
+      if (src == 0 && m_spread > 0.0f) {
         mx = m_spread * gauss(r);
         my = m_spread * gauss(r);
       } else {
@@ -581,15 +587,18 @@ extern "C" __global__ void run_beam(unsigned long long *edep, unsigned int *lost
     }
     float r2 = mx * mx + my * my, t = sqrtf(fmaxf(0.0f, 1.0f - r2));
     float bdx = 2.0f * mx * t, bdy = 2.0f * my * t, bdz = -(1.0f - 2.0f * r2);
-    // 能量
+    // 能量（電子污染用自己的能譜）
+    const float *se = ec ? ec_e : spec_e, *sc = ec ? ec_cdf : spec_cdf;
+    int ns = ec ? nec : nspec;
     float xi = rnd(r);
-    int a = 0, b = nspec - 1;
+    int a = 0, b = ns - 1;
     while (a < b) {
       int mid = (a + b) / 2;
-      if (spec_cdf[mid] < xi) a = mid + 1; else b = mid;
+      if (sc[mid] < xi) a = mid + 1; else b = mid;
     }
-    float e = spec_e[a];
-    if (!collimate(r, gx, gy, zs, bdx, bdy, bdz, e, sad, st, ndev, dev_i, dev_f, bounds, pos, tb, mu_w)) {
+    float e = se[a];
+    // 電子污染：虛擬射源已經只往開口發射，不再過準直器（它的參數就是對量測擬合出來的有效值）
+    if (!ec && !collimate(r, gx, gy, zs, bdx, bdy, bdz, e, sad, st, ndev, dev_i, dev_f, bounds, pos, tb, mu_w)) {
       atomicAdd(absorbed, 1u);
       continue;
     }
@@ -603,7 +612,8 @@ extern "C" __global__ void run_beam(unsigned long long *edep, unsigned int *lost
     p.v = R[3] * bdx + R[4] * bdy + R[5] * bdz;
     p.w = R[6] * bdx + R[7] * bdy + R[8] * bdz;
     p.e = e;
-    p.type = T_PHOTON;
+    p.type = ec ? T_ELECTRON : T_PHOTON;
+    if (ec && !enter_grid(g, p)) continue;  // 帶電粒子：直接放到網格表面（射源到網格之間的空氣沒有模擬）
     int n = 0;
     stack[n++] = p;
     while (n > 0) {

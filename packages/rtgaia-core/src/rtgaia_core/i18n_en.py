@@ -885,7 +885,17 @@ EN: dict[str, str] = {
     "jaw 穿透之後加": "Jaw transmission will follow",
     "模型的葉片做不出 y {field_y} mm：實際 y {y} mm（MLC 葉寬與 jaw 決定）": "The model leaves cannot form y {field_y} mm: actual y {y} mm (set by the leaf width and the jaws)",
     "射束模型 {p0} 沒有 MLC：不能做 MLC 定義或關閉的射野": "Beam model {p0} has no MLC: MLC-defined or closed fields are not possible",
+    # 射束模型擬合
+    "沒有 jaw：不擬合監測游離腔反散射": "No jaws: monitor chamber backscatter is not fitted",
+    "能量分組邊界 {GROUP_EDGES_MEV} MeV；每組權重的先驗不確定度 {PRIOR_REL_SIGMA}": "Energy group boundaries {GROUP_EDGES_MEV} MeV; prior uncertainty of each group weight {PRIOR_REL_SIGMA}",
+    "格點 {FOCAL_GRID} mm": "Grid {FOCAL_GRID} mm",
+    "只有正方形射野：反散射只約束 b_x ＋ b_y，兩個各取一半": "Square fields only: backscatter constrains only b_x + b_y; each is set to half",
+    "穿透對密度比用兩點（1.0、0.8）模擬、ln T 線性內插": "Transmission simulated at density ratios 1.0 and 0.8, ln T interpolated linearly",
+    "未約束（擬合資料裡沒有對應的量測，照先驗）：{name}": "Unconstrained (no measurement in the fit data constrains it; prior kept): {name}",
+    "示範模型": "Demo model",
     # 劑量計算
+    "GPU Monte Carlo：機頭只算鎢的衰減（不模擬準直器散射）；電子污染用射束模型的虛擬射源": "GPU Monte Carlo: the head is modelled by tungsten attenuation only (no collimator scatter); electron contamination comes from the beam model's virtual source",
+    "OpenTOPAS 用實體機頭與空氣模擬，不加射束模型的虛擬電子污染（那是 GPU 引擎的擬合成分）": "OpenTOPAS simulates the physical head and air and does not add the beam model's virtual electron contamination (a fitted component of the GPU engine)",
     "RT-Gaia 劑量計算": "RT-Gaia dose calculation",
     "用的是示範射束模型：不代表任何實機": "Uses the demo beam model: it represents no real machine",
     "CT 用的是內建的通用校正曲線（示範用）": "The CT uses the built-in generic calibration curve (demo)",

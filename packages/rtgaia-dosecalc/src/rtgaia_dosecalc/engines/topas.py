@@ -33,7 +33,7 @@ import re
 import shutil
 import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +58,7 @@ ARC_STEP_DEG = 2.0
 AIR_DENSITY_LIMIT = 0.02
 """g/cm³：低於這個密度的體素（空氣）不報劑量（NaN）—— 質量太小，幾個粒子就讓「介質劑量」爆成雜訊（實測 2 百萬個歷史時
 空氣裡出現 30 Gy 以上的點）；TPS 在體外的劑量也不拿來判讀。"""
+TOPAS_EC_NOTE = "OpenTOPAS 用實體機頭與空氣模擬，不加射束模型的虛擬電子污染（那是 GPU 引擎的擬合成分）"
 AIR_NOTE = "體素中心是空氣（或密度 < 0.02 g/cm³）的地方不報劑量"
 DEFAULT_HISTORIES = 20_000_000
 MIN_HISTORIES_PER_BEAM = 100_000
@@ -331,15 +332,37 @@ class SourcePlan:
     m_equiv: float
     z_ef: float
     """機頭散射射源的高度（距等中心平面，mm；跟 BLD 的 z 同向）。"""
+    cones_c: list[tuple[float, float]] = field(default_factory=list)
+    hist_ec: list[int] = field(default_factory=list)
+    """電子污染（只有 GPU 引擎發射；OpenTOPAS 用實體機頭與空氣，不加這個虛擬射源）。"""
+    z_ec: float = 0.0
+    backscatter: list[float] = field(default_factory=list)
+    """每一小段的監測游離腔訊號比 s（參考射野 ＝ 1）：每 MU 的粒子數 ∝ 1／s。"""
+
+
+def backscatter_factor(model: dict[str, Any], cp: ControlPoint) -> float:
+    """監測游離腔的反散射：jaw 越小、打回游離腔的越多 → 同樣的 MU 打出的粒子越少。
+    s ＝ 1 ＋ b_x（X_ref − X）＋ b_y（Y_ref − Y），X、Y 是 jaw 開口（mm），參考射野 ＝ MU 校正的射野。沒有 jaw 或沒有
+    這個參數 → 1。"""
+    bs = model["params"].get("monitor_backscatter") or {}
+    if not bs or "jaw_x" not in model["params"]["collimators"]:
+        return 1.0
+    ref = float(model["calibration"]["field_mm"])
+    x = cp.jaw_x[1] - cp.jaw_x[0]
+    y = cp.jaw_y[1] - cp.jaw_y[0]
+    return 1.0 + float(bs.get("per_mm_x") or 0.0) * (ref - x) + float(bs.get("per_mm_y") or 0.0) * (ref - y)
 
 
 def source_plan(beam: Beam, model: dict[str, Any], histories: int) -> SourcePlan:
-    """原射源與機頭散射射源各自的錐角只蓋到會透光的範圍（省歷史數）；每個射源的歷史數 ∝ 權重 × 錐角內的機率質量，
-    M ＝ N ／ Σ 權重 × 質量比 —— 劑量 ÷ M 就跟錐角大小無關（MU 校正與計畫的錐角不同也能互換）。"""
+    """原射源、機頭散射、電子污染各自的錐角只蓋到會透光的範圍（省歷史數）；每個射源的歷史數 ∝ 權重 × 錐角內的機率
+    質量 ÷ 監測游離腔的反散射 s，M ＝ Σ 歷史數 × s ／ 質量比 —— 劑量 ÷ M 就跟錐角大小無關（MU 校正與計畫的錐角
+    不同也能互換），反散射只改變每 MU 的粒子數。"""
     p = model["params"]
     states = _states(beam)
     ef = p.get("extra_focal") or {}
     ef_frac = float(ef.get("fraction") or 0.0)
+    ec = p.get("electron_contamination") or {}
+    ec_frac = float(ec.get("fraction") or 0.0)
     sad = beam.sad_mm
     margin = float(p.get("field_margin_mm", 10.0))
     sig = p.get("angular_sigma_deg")
@@ -351,14 +374,18 @@ def source_plan(beam: Beam, model: dict[str, Any], histories: int) -> SourcePlan
         if ef_frac > 0
         else 1.0
     )
+    # 電子污染：方向只往開口（不加 3σ），射源的高斯 σ 把它在病人表面抹開 → 小射野抹出去的多、中心軸的電子少，
+    # 大射野飽和 —— 量測上表面劑量隨射野變大的趨勢靠這個
+    z_ec = sad - float(ec.get("distance_below_target_mm") or 0.0)
+    ref_c = _mass(*_ellipse(REFERENCE_FIELD_HALF_MM, REFERENCE_FIELD_HALF_MM, z_ec), None) if ec_frac > 0 else 1.0
     # 每一小段自己的錐角（VMAT 的開口小、射束的包絡大 —— 用包絡的話大部分粒子打在 MLC 上）
-    cones_p, cones_e, shares_p, shares_e = [], [], [], []
+    cones_p, cones_e, cones_c, shares_p, shares_e, shares_c = [], [], [], [], [], []
     for cp, _mu in states:
         ex, ey = _extent(cp, beam)
         ex, ey = ex + margin, ey + margin
         a_p, b_p = _ellipse(ex, ey, sad)
         cones_p.append((a_p, b_p))
-        shares_p.append((1 - ef_frac) * _mass(a_p, b_p, sig) / ref_p)
+        shares_p.append((1 - ef_frac - ec_frac) * _mass(a_p, b_p, sig) / ref_p)
         if ef_frac > 0:
             a_e, b_e = _ellipse(ex + sig_ef_mm, ey + sig_ef_mm, z_ef)
             cones_e.append((a_e, b_e))
@@ -366,13 +393,22 @@ def source_plan(beam: Beam, model: dict[str, Any], histories: int) -> SourcePlan
         else:
             cones_e.append((0.0, 0.0))
             shares_e.append(0.0)
-    share = [sp + se for sp, se in zip(shares_p, shares_e, strict=True)]
-    # 每一小段的歷史數 ∝ MU × 錐角內的質量 → 換算到參考錐角後每段的「每 MU 歷史數」一樣，總劑量可以一次換算
-    hist = _split(histories, [mu * sh for (_cp, mu), sh in zip(states, share, strict=True)])
+        if ec_frac > 0:
+            a_c, b_c = _ellipse(ex, ey, z_ec)
+            cones_c.append((a_c, b_c))
+            shares_c.append(ec_frac * _mass(a_c, b_c, None) / ref_c)
+        else:
+            cones_c.append((0.0, 0.0))
+            shares_c.append(0.0)
+    share = [a + b + c for a, b, c in zip(shares_p, shares_e, shares_c, strict=True)]
+    bscat = [backscatter_factor(model, cp) for cp, _mu in states]
+    # 每一小段的歷史數 ∝ MU ÷ s × 錐角內的質量 → 換算到參考錐角後每段的「每 MU 歷史數」只差反散射，總劑量可以一次換算
+    hist = _split(histories, [mu / s * sh for (_cp, mu), sh, s in zip(states, share, bscat, strict=True)])
     hist_ef = [int(round(h * se / sh)) if sh > 0 else 0 for h, se, sh in zip(hist, shares_e, share, strict=True)]
-    hist_pr = [h - e for h, e in zip(hist, hist_ef, strict=True)]
-    m_equiv = sum(h / sh for h, sh in zip(hist, share, strict=True) if sh > 0)
-    return SourcePlan(states, cones_p, cones_e, hist_pr, hist_ef, m_equiv, z_ef)
+    hist_ec = [int(round(h * sc / sh)) if sh > 0 else 0 for h, sc, sh in zip(hist, shares_c, share, strict=True)]
+    hist_pr = [h - e - c for h, e, c in zip(hist, hist_ef, hist_ec, strict=True)]
+    m_equiv = sum(h * s / sh for h, sh, s in zip(hist, share, bscat, strict=True) if sh > 0)
+    return SourcePlan(states, cones_p, cones_e, hist_pr, hist_ef, m_equiv, z_ef, cones_c, hist_ec, z_ec, bscat)
 
 
 def beam_parameters(
@@ -389,6 +425,8 @@ def beam_parameters(
     ef_frac = float(ef.get("fraction") or 0.0)
     sad = beam.sad_mm
     z_ef = plan.z_ef
+    # 電子污染只給 GPU 引擎：OpenTOPAS 用實體機頭（含空氣），不再加這個虛擬射源（它的歷史數不發射，M 照算 → 劑量的
+    # 換算不變，只是少了這一份）
     hist = [a + b for a, b in zip(hist_pr, hist_ef, strict=True)]
     rx, ry, rz = [], [], []
     for cp, _ in states:
@@ -485,6 +523,18 @@ def beam_parameters(
         L += source("ExtraFocal", z_ef, float(ef["sigma_mm"]), cones_e, hist_ef)
     col = p["collimators"]
 
+    def material(name: str, spec: dict[str, Any]) -> tuple[str, list[str]]:
+        """準直器材質；`density_factor` ≠ 1（葉間漏射、鎢合金的有效密度）→ 同組成、密度乘上去的自訂材質。"""
+        f = float(spec.get("density_factor") or 1.0)
+        if abs(f - 1.0) < 1e-9 or spec["material"] != "G4_W":
+            return str(spec["material"]), []
+        mat = f"W{name}Eff"
+        return mat, [
+            f'sv:Ma/{mat}/Components = 1 "Tungsten"',
+            f"uv:Ma/{mat}/Fractions = 1 1.0",
+            f"d:Ma/{mat}/Density = {19.3 * f:.6g} g/cm3",
+        ]
+
     def jaw(name: str, spec: dict[str, Any], axis: str, neg: list[float], pos: list[float]) -> list[str]:
         """一對 jaw ＝ 只有一片「葉片」的 TsDivergingMLC（沿 x 或 y 移動、端面對準射源）。
 
@@ -492,10 +542,12 @@ def beam_parameters(
         （jaw tracking）時，jaw 落在錯的位置（2026-10-13 實測：PROTEAS 的 SRS 計畫只算出 TPS 的 1/4；同一段
         「動態」對「逐步靜態」0.41，jaw 固定就 0.99）。TsDivergingMLC 的葉片是就地移動，不重建，沒有這個問題。"""
         susd, thick = float(spec["source_to_upstream_mm"]), float(spec["thickness_mm"])
+        mat, mat_lines = material(name, spec)
         out = [
+            *mat_lines,
             f's:Ge/{name}/Type = "TsDivergingMLC"',
             f's:Ge/{name}/Parent = "Head"',
-            f's:Ge/{name}/Material = "{spec["material"]}"',
+            f's:Ge/{name}/Material = "{mat}"',
             f"d:Ge/{name}/SAD = {sad} mm",
             f"d:Ge/{name}/SourceToUpstreamSurfaceDistance = {susd} mm",
             f"d:Ge/{name}/Thickness = {thick} mm",
@@ -536,10 +588,12 @@ def beam_parameters(
         widths = [b - a for a, b in zip(bounds, bounds[1:], strict=False)]
         n_leaves = len(widths)
         susd, thick = float(spec["source_to_upstream_mm"]), float(spec["thickness_mm"])
+        mat, mat_lines = material(name, spec)
         out = [
+            *mat_lines,
             f's:Ge/{name}/Type = "TsDivergingMLC"',
             f's:Ge/{name}/Parent = "Head"',
-            f's:Ge/{name}/Material = "{spec["material"]}"',
+            f's:Ge/{name}/Material = "{mat}"',
             f"d:Ge/{name}/SAD = {sad} mm",
             f"d:Ge/{name}/SourceToUpstreamSurfaceDistance = {susd} mm",
             f"d:Ge/{name}/Thickness = {thick} mm",
@@ -777,7 +831,7 @@ def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
             "unscored_mev": lost_mev,
             "air_voxels": int(air.sum()),
             "calc_grid": {"size": list(grid.size), "spacing_mm": list(grid.spacing)},
-            "notes": [AIR_NOTE],
+            "notes": [AIR_NOTE] + ([TOPAS_EC_NOTE] if "electron_contamination" in model["params"] else []),
         },
     )
 

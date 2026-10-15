@@ -221,3 +221,82 @@ def test_run_checks_residuals_with_a_fake_simulator(monkeypatch) -> None:  # typ
     t = next(r for r in lim["checks"] if r["measurement_id"] == "lim2019-t3-transmission-distal-d10")
     assert t["model"] == pytest.approx(0.004) and t["status"] == "pass"
     assert {r["status"] for r in lim["checks"] if r["quantity"] == "leaf_end_offset_mm"} == {"unsupported"}
+
+
+# ── 射源模型的擬合用成分：電子污染、監測游離腔反散射、準直器有效密度 ─────────
+
+
+def _with(model: dict, **params) -> dict:  # type: ignore[type-arg]
+    import copy
+
+    m = copy.deepcopy(model)
+    m["params"].update(params)
+    return m
+
+
+def test_backscatter_factor_and_its_effect_on_histories() -> None:
+    m6 = MODELS["demo-6x"]
+    small = water.setup_beam(m6, water.Setup(40, 40, 1000))
+    assert topas.backscatter_factor(m6, small.control_points[0]) == 1.0  # 沒有這個參數
+    bs = _with(m6, monitor_backscatter={"per_mm_x": 1e-4, "per_mm_y": 2e-4})
+    # s ＝ 1 ＋ 1e-4 × (100 − 40) ＋ 2e-4 × (100 − 40) ＝ 1.018
+    assert topas.backscatter_factor(bs, small.control_points[0]) == pytest.approx(1.018)
+    assert topas.backscatter_factor(bs, topas.reference_beam(bs).control_points[0]) == pytest.approx(1.0)
+    assert (
+        topas.backscatter_factor(
+            _with(MODELS["demo-6xfff-dual"], monitor_backscatter={"per_mm_x": 1e-3}), small.control_points[0]
+        )
+        == 1.0
+    )
+    a = topas.source_plan(small, m6, 1_000_000)
+    b = topas.source_plan(small, bs, 1_000_000)
+    # 同樣的錐角、同樣的歷史數；M 大 s 倍 → 每 MU 的劑量少 s 倍
+    assert sum(a.hist_pr) == sum(b.hist_pr) and b.m_equiv == pytest.approx(a.m_equiv * 1.018)
+    assert b.backscatter == [pytest.approx(1.018)] and a.backscatter == [1.0]
+
+
+def test_electron_contamination_in_the_source_plan() -> None:
+    m6 = MODELS["demo-6x"]
+    beam = water.setup_beam(m6, water.Setup(100, 100, 1000))
+    plain = topas.source_plan(beam, m6, 1_000_000)
+    assert plain.hist_ec == [0] and plain.cones_c == [(0.0, 0.0)]
+    ec = _with(
+        m6,
+        electron_contamination={
+            "fraction": 0.001,
+            "mean_energy_mev": 1.5,
+            "sigma_mm": 50.0,
+            "distance_below_target_mm": 500.0,
+        },
+    )
+    plan = topas.source_plan(beam, ec, 1_000_000)
+    total = plan.hist_pr[0] + plan.hist_ef[0] + plan.hist_ec[0]
+    assert total == 1_000_000 and 0 < plan.hist_ec[0] < 0.01 * total
+    # 電子污染的錐角只蓋開口（不像機頭散射加 3σ）
+    assert plan.cones_c[0] == pytest.approx(topas._ellipse(60.0, 60.0, 500.0))  # 半寬 50 ＋ 邊界 10
+    assert plan.z_ec == pytest.approx(500.0)
+    # OpenTOPAS 不發射電子污染：參數檔的歷史數 ＝ 原射源 ＋ 機頭散射
+    _text, n, _m = topas.beam_parameters(beam, ec, 1_000_000, iso=(0.0, 0.0, 0.0), world_hl_mm=2000.0)
+    assert n == plan.hist_pr[0] + plan.hist_ef[0]
+
+
+def test_electron_spectrum() -> None:
+    from rtgaia_dosecalc.gpumc import engine
+
+    e, w = engine.electron_spectrum(1.5, 6.0)
+    assert len(e) == engine.EC_LINES and w.sum() == pytest.approx(1.0)
+    assert e[0] > 0.1 and e[-1] < 6.0 and np.all(np.diff(w) < 0)
+    mean = float((e * w).sum())
+    assert 1.0 < mean < 1.6  # 切在 6 MeV、從 0.1 起 → 比 1.5 略小
+
+
+def test_collimator_density_factor_in_opentopas() -> None:
+    m6 = MODELS["demo-6x"]
+    col = {k: dict(v) for k, v in m6["params"]["collimators"].items()}
+    col["MLCX"]["density_factor"] = 0.85
+    beam = water.setup_beam(m6, water.Setup(100, 100, 1000, "closed"))
+    text, _n, _m = topas.beam_parameters(
+        beam, _with(m6, collimators=col), 1000, iso=(0.0, 0.0, 0.0), world_hl_mm=2000.0
+    )
+    assert 'sv:Ma/WMLCEff/Components = 1 "Tungsten"' in text and "d:Ma/WMLCEff/Density = 16.405 g/cm3" in text
+    assert 's:Ge/MLC/Material = "WMLCEff"' in text and 's:Ge/JawX/Material = "G4_W"' in text

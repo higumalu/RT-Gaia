@@ -176,7 +176,7 @@ class BeamSource:
     rot: np.ndarray
     """(nstate, 9) float32：BLD → LPS（列優先）。"""
     cone: np.ndarray
-    """(nstate, 4) float32：原射源、機頭散射的 Marsaglia 錐角 (a, b)。"""
+    """(nstate, 6) float32：原射源、機頭散射、電子污染的 Marsaglia 錐角 (a, b)。"""
     iso: tuple[float, float, float]
     sad: float
     z_ef: float
@@ -187,11 +187,17 @@ class BeamSource:
     dev_i: np.ndarray
     """(ndev, 4) int32：移動軸、葉片數、邊界的偏移、開口的偏移。"""
     dev_f: np.ndarray
-    """(ndev, 2) float32：上表面距靶、厚度。"""
+    """(ndev, 3) float32：上表面距靶、厚度、有效密度比。"""
     bounds: np.ndarray
     positions: np.ndarray
     energies_mev: np.ndarray
     weights: np.ndarray
+    nec: np.ndarray | None = None
+    """(nstate,) int32：每一小段裡電子污染的歷史數（排在機頭散射之後）。"""
+    z_ec: float = 0.0
+    sigma_ec: float = 0.0
+    ec_energies_mev: np.ndarray | None = None
+    ec_weights: np.ndarray | None = None
 
     @property
     def histories(self) -> int:
@@ -231,6 +237,13 @@ def simulate_beam(
         "mu_w": cp.asarray(tb.mu_tungsten),
         "cum": cp.asarray(src.cum.astype(np.uint64)),
         "nef": cp.asarray(src.nef.astype(np.int32)),
+        "nec": cp.asarray((src.nec if src.nec is not None else np.zeros_like(src.nef)).astype(np.int32)),
+        "ec_e": cp.asarray((src.ec_energies_mev if src.ec_energies_mev is not None else np.ones(1)).astype(np.float32)),
+        "ec_cdf": cp.asarray(
+            (np.cumsum(src.ec_weights) / np.sum(src.ec_weights) if src.ec_weights is not None else np.ones(1)).astype(
+                np.float32
+            )
+        ),
         "rot": cp.asarray(src.rot.astype(np.float32)),
         "cone": cp.asarray(src.cone.astype(np.float32)),
         "dev_i": cp.asarray(src.dev_i.astype(np.int32)),
@@ -256,8 +269,9 @@ def simulate_beam(
             (edep, lost, d["mat"], d["rho"], np.int32(nx), np.int32(ny), np.int32(nz), *(f32(v) for v in spacing),
              *(f32(v) for v in corner), d["tab"], d["mumax"], d["rho_ref"], d["mu_w"], np.int32(tb.values.shape[1]),
              np.int32(tb.values.shape[2]), f32(tb.lne0), f32(tb.dlne), np.int32(len(src.nef)), d["cum"], d["nef"],
-             d["rot"], d["cone"], *(f32(v) for v in src.iso), f32(src.sad), f32(src.z_ef), f32(src.sigma_focal),
-             f32(src.sigma_ef), f32(src.m_spread), np.int32(len(src.dev_i)), d["dev_i"], d["dev_f"], d["bounds"],
+             d["nec"], d["rot"], d["cone"], *(f32(v) for v in src.iso), f32(src.sad), f32(src.z_ef),
+             f32(src.sigma_focal), f32(src.sigma_ef), f32(src.m_spread), f32(src.z_ec), f32(src.sigma_ec), d["ec_e"],
+             d["ec_cdf"], np.int32(len(d["ec_e"])), np.int32(len(src.dev_i)), d["dev_i"], d["dev_f"], d["bounds"],
              d["pos"], d["spec_e"], d["spec_cdf"], np.int32(len(src.energies_mev)), np.uint64(seed),
              np.uint64(b * n), np.uint64(n), f32(ESCALE), f32(PHOTON_CUT_MEV), f32(ELECTRON_CUT_MEV), f32(tcut),
              f32(kcut), f32(float(min(spacing)) * STEP_VOXEL_FRACTION), f32(FRAC_E), absorbed),

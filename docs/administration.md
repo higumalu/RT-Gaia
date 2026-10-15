@@ -1094,6 +1094,18 @@ entered by users will be added later. Selecting a model shows:
 A model is identified by a hash of its parameters: changing a parameter, or the engine version, triggers a new MU
 calibration on the next calculation.
 
+Models fitted to beam data can carry three more components (the demo models have none of them):
+
+- **Electron contamination**: a virtual electron source with a fraction of the emitted particles, an exponential
+  energy spectrum (mean energy, cut at the nominal energy) and a Gaussian source size that spreads the electrons
+  over the patient surface, so that small fields receive fewer of them on the axis. Only the GPU engine emits it;
+  OpenTOPAS simulates the physical head and air instead, and its results say so.
+- **Monitor chamber backscatter**: the monitor signal grows as the jaws close,
+  s = 1 + b_x (X_ref − X) + b_y (Y_ref − Y), so a monitor unit delivers fewer particles in small fields. It
+  applies to both engines; models without jaws do not use it.
+- **Collimator density factor**: an effective density ratio per collimator (interleaf leakage, tungsten alloy),
+  applied to the path length on the GPU and as a material of the same composition in OpenTOPAS.
+
 ### Beam data
 
 **Admin → Beam data** holds the measured data that beam models are fitted to and validated against. Viewing is
@@ -1180,6 +1192,33 @@ for positions, 1 percentage point for PDD, 0.1 percentage point for transmission
 simulate yet (TPR and TMR curves, leaf-end offset, dosimetric leaf gap, jaw transmission) are listed with the
 reason. With the default statistics a dataset takes a few minutes on an RTX 5090; dual-layer MLC models are about
 three times slower.
+
+**Fitting a beam model to beam data.** `rtgaia-dosecalc fit-model` starts from a beam model (its geometry and its
+parameters as the prior), fits it to one or more datasets and checks the result against those datasets and,
+separately, against validation datasets that were not used in the fit:
+
+```
+uv run rtgaia-dosecalc fit-model --model demo-6x --fit pub-beyer2013-6x --validate pub-akino2020-6x \
+    --data-dir "$RTGAIA_DATA_DIR/dosecalc" --output /tmp/fit
+```
+
+The dose is linear in the source components, so each component (the primary source in four energy groups, head
+scatter, electron contamination) is simulated once per measurement condition and any weighting is a sum; non-linear
+parameters are searched on small grids. The fit runs in stages, each using only the measurements that constrain it
+physically: the spectrum from PDDs beyond 3 cm, TPR20,10 and %dd(10)x (pulled towards the prior); electron
+contamination from the depth of maximum dose; the focal spot (and the angular spread of FFF beams) from penumbra,
+field width, unflatness and slope; head scatter and monitor backscatter from output factors (with square fields
+only the sum b_x + b_y is constrained, and the report says so); the collimator density factor from MLC
+transmission. The sequence runs twice because the stages interact. Residuals are expressed in tolerance units,
+so a stage that ends with residuals at or below 1 reproduces its measurements within tolerance.
+
+The output directory holds `model.json` (the fitted model: new id, the datasets it was fitted to and the
+prior's id and hash), `fit.json` (for every stage: the parameters, their uncertainties, the measurement ids it
+used, the cost before and after, the grid it searched, and **equally good alternatives** — other grid points
+whose cost is within 1 of the best, which mark a weakly constrained parameter) and `checks.json` (the point-by-point
+comparison with the fit datasets and the validation datasets). Parameters that no measurement constrains keep
+the prior value and are listed as unconstrained in the model's limitations; a model fitted to any data that are
+not measurements is marked as a demo model.
 
 ## Resource limits
 

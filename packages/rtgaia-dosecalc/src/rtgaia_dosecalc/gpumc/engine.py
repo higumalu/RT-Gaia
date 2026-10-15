@@ -31,6 +31,18 @@ CALIBRATION_HISTORIES = 100_000_000
 JAW_HALF_WIDTH_MM = topas.JAW_WIDTH_MM / 2
 
 
+EC_LINES = 40
+"""電子污染能譜的離散線數（指數分佈切在標稱能量）。"""
+
+
+def electron_spectrum(mean_mev: float, max_mev: float, lines: int = EC_LINES) -> tuple[np.ndarray, np.ndarray]:
+    """電子污染的能譜：exp(−E／平均)，0.1 MeV 到標稱能量，`lines` 段的中點與機率。"""
+    edges = np.linspace(0.1, max(0.2, max_mev), lines + 1)
+    mids = (edges[:-1] + edges[1:]) / 2
+    w = np.exp(-mids / max(mean_mev, 1e-3)) * np.diff(edges)
+    return mids, w / w.sum()
+
+
 def _device(
     axis: int, spec: dict[str, Any], bounds: list[float], neg: list[list[float]], pos: list[list[float]]
 ) -> dict:
@@ -38,6 +50,7 @@ def _device(
         "axis": axis,
         "top": float(spec["source_to_upstream_mm"]),
         "thick": float(spec["thickness_mm"]),
+        "dens": float(spec.get("density_factor") or 1.0),
         "bounds": bounds,
         "neg": neg,
         "pos": pos,
@@ -80,18 +93,24 @@ def beam_source(beam: Beam, model: dict[str, Any], histories: int) -> tuple[tran
     for d in devs:
         nleaf = len(d["bounds"]) - 1
         dev_i.append([d["axis"], nleaf, len(bnd), len(posv)])
-        dev_f.append([d["top"], d["thick"]])
+        dev_f.append([d["top"], d["thick"], d["dens"]])
         bnd.extend(d["bounds"])
         for neg_row, pos_row in zip(d["neg"], d["pos"], strict=True):
             for lo, hi in zip(neg_row, pos_row, strict=True):
                 posv.extend([lo, hi])
-    counts = np.asarray([a + b for a, b in zip(plan.hist_pr, plan.hist_ef, strict=True)], dtype=np.uint64)
+    hist_ec = plan.hist_ec or [0] * len(states)
+    counts = np.asarray(
+        [a + b + c for a, b, c in zip(plan.hist_pr, plan.hist_ef, hist_ec, strict=True)], dtype=np.uint64
+    )
     cum = np.concatenate([[0], np.cumsum(counts)]).astype(np.uint64)
     rot = np.asarray(
         [bld_to_lps(cp.gantry_deg, cp.collimator_deg, cp.couch_deg, beam.patient_position).ravel() for cp, _ in states]
     )
-    cone = np.asarray([[*cpm, *cem] for cpm, cem in zip(plan.cones_p, plan.cones_e, strict=True)])
+    cones_c = plan.cones_c or [(0.0, 0.0)] * len(states)
+    cone = np.asarray([[*cpm, *cem, *ccm] for cpm, cem, ccm in zip(plan.cones_p, plan.cones_e, cones_c, strict=True)])
     ef = p.get("extra_focal") or {}
+    ec = p.get("electron_contamination") or {}
+    ec_e, ec_w = electron_spectrum(float(ec.get("mean_energy_mev") or 1.0), float(model["energy_mv"]))
     sig = p.get("angular_sigma_deg")
     src = transport.BeamSource(
         cum=cum,
@@ -105,11 +124,16 @@ def beam_source(beam: Beam, model: dict[str, Any], histories: int) -> tuple[tran
         sigma_ef=float(ef.get("sigma_mm") or 0.0),
         m_spread=math.sin(math.radians(float(sig)) / 2) if sig else 0.0,
         dev_i=np.asarray(dev_i, dtype=np.int32).reshape(-1, 4),
-        dev_f=np.asarray(dev_f, dtype=np.float32).reshape(-1, 2),
+        dev_f=np.asarray(dev_f, dtype=np.float32).reshape(-1, 3),
         bounds=np.asarray(bnd if bnd else [0.0], dtype=np.float32),
         positions=np.asarray(posv if posv else [0.0, 0.0], dtype=np.float32),
         energies_mev=np.asarray(p["spectrum_mev"], dtype=np.float64),
         weights=np.asarray(p["spectrum_weights"], dtype=np.float64),
+        nec=np.asarray(hist_ec, dtype=np.int32),
+        z_ec=float(plan.z_ec),
+        sigma_ec=float(ec.get("sigma_mm") or 0.0),
+        ec_energies_mev=ec_e,
+        ec_weights=ec_w,
     )
     return src, plan.m_equiv
 
@@ -246,9 +270,10 @@ def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
             "collimator_absorbed_fraction": float(np.mean(absorbed)) if absorbed else 0.0,
             "air_voxels": int(air.sum()),
             "calc_grid": {"size": list(grid.size), "spacing_mm": list(grid.spacing)},
-            "notes": [topas.AIR_NOTE, GPU_NOTE],
+            "notes": [topas.AIR_NOTE, GPU_NOTE if "electron_contamination" not in model["params"] else GPU_NOTE_EC],
         },
     )
 
 
 GPU_NOTE = "GPU Monte Carlo：機頭只算鎢的衰減，沒有準直器散射與電子污染（跟 OpenTOPAS 的機頭模擬比，絕對劑量約高 1.5%）"
+GPU_NOTE_EC = "GPU Monte Carlo：機頭只算鎢的衰減（不模擬準直器散射）；電子污染用射束模型的虛擬射源"

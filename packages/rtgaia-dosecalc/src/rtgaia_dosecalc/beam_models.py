@@ -18,6 +18,17 @@ v1 只有內建的**示範模型**（`demo-6x`）：參數是文獻與廠商公�
 * **MU 校正**：10 × 10 cm²、SSD 100 cm、水中 dmax 處 1 MU ＝ 1 cGy（`calibration`）；引擎第一次用這個模型時
   自己模擬參考條件求出「每 MU 幾個歷史」並快取。監測游離腔的反散射沒有模型。
 
+## 擬合用的成分（射束資料擬合出來的模型才有；示範模型沒有這些鍵，行為跟以前一樣）
+
+* `electron_contamination`：`fraction`（佔發射粒子的比例，約 1e-4–1e-3）、`mean_energy_mev`（能譜 exp(−E／平均)，
+  切在標稱能量）、`sigma_mm`（射源的高斯大小 → 在病人表面抹開的寬度：小射野中心軸分到的少）、
+  `distance_below_target_mm`。方向只往開口；不過準直器，直接放到網格表面。**只有 GPU 引擎發射**
+  （OpenTOPAS 用實體機頭與空氣，結果的備註會寫）。
+* `monitor_backscatter`：`per_mm_x`、`per_mm_y` —— 監測游離腔訊號 s ＝ 1 ＋ b_x（X_ref − X）＋ b_y（Y_ref − Y）
+  （jaw 開口，參考射野 ＝ MU 校正的射野）；每 MU 的粒子數 ∝ 1／s。沒有 jaw 的機型不用。
+* 準直器的 `density_factor`：有效密度比（葉間漏射、鎢合金）；GPU 乘在路徑長上、OpenTOPAS 用同組成的自訂材質。
+* `focal_spot_sigma_mm`、`extra_focal`、`angular_sigma_deg`、能譜本來就有，擬合會調。
+
 ## demo-6xfff、demo-6xfff-dual（無整平濾片）
 
 * **能譜**：上面的 Mohan 6 MV **扣回 1.5 cm 銅的衰減**（拿掉整平濾片 → 低能多、能譜變軟）：

@@ -275,3 +275,46 @@ def test_model_vs_public_beam_data(tb, tmp_path: Path) -> None:  # type: ignore[
         of = rows[("beyer2013-t2-of-6x", fs)]
         assert abs(of["diff_relative"]) < 0.03 and of["u_model"] < 0.01
     assert rows[("beyer2013-t2-of-6x", 100.0)]["model"] == pytest.approx(1.0)
+
+
+def test_source_model_components(tb) -> None:  # type: ignore[no-untyped-def]
+    """擬合用的射源成分在 GPU 上的效果方向對：電子污染抬高表面劑量、dmax 變淺、大射野效果比較大；
+    準直器有效密度變小 → 穿透變大（約 exp(0.15 μρL) 倍）；監測游離腔反散射 → 小射野每 MU 劑量少 s 倍。"""
+    import copy
+
+    from rtgaia_dosecalc import water
+
+    base = beam_models.demo_6x()
+    ec = copy.deepcopy(base)
+    ec["params"]["electron_contamination"] = {
+        "fraction": 0.002, "mean_energy_mev": 1.5, "sigma_mm": 50.0, "distance_below_target_mm": 500.0,
+    }  # fmt: skip
+
+    def surface_and_dmax(model: dict, field: float, n: float) -> tuple[float, float]:  # type: ignore[type-arg]
+        c = water.simulate(model, water.Setup(field, field, 1000.0), tb, int(n)).mean
+        dm = water.dmax_mm(c.depth_mm, c.cax)
+        return c.cax[0] / water.dose_at(c.depth_mm, c.cax, dm), dm
+
+    s0, d0 = surface_and_dmax(base, 100.0, 5e8)
+    s1, d1 = surface_and_dmax(ec, 100.0, 5e8)
+    s0b, _ = surface_and_dmax(base, 400.0, 2e9)
+    s1b, _ = surface_and_dmax(ec, 400.0, 2e9)
+    assert s1 > s0 + 0.04 and d1 < d0
+    assert (s1b - s0b) > (s1 - s0)  # 大射野的電子污染多
+
+    def transmission(model: dict) -> float:  # type: ignore[type-arg]
+        closed = water.simulate(model, water.Setup(100, 100, 1000, "closed"), tb, 1_000_000_000).mean
+        open_ = water.simulate(model, water.Setup(100, 100, 1000), tb, 300_000_000).mean
+        return water.dose_at(closed.depth_mm, closed.cax, 100.0) / water.dose_at(open_.depth_mm, open_.cax, 100.0)
+
+    dens = copy.deepcopy(base)
+    dens["params"]["collimators"]["MLCX"]["density_factor"] = 0.85
+    t1, t085 = transmission(base), transmission(dens)
+    assert 2.0 < t085 / t1 < 4.5
+
+    bs = copy.deepcopy(base)
+    bs["params"]["monitor_backscatter"] = {"per_mm_x": 1e-4, "per_mm_y": 1e-4}
+    a = water.simulate(base, water.Setup(40, 40, 1000), tb, 300_000_000, seed=5).mean
+    b = water.simulate(bs, water.Setup(40, 40, 1000), tb, 300_000_000, seed=5).mean
+    ratio = water.dose_at(b.depth_mm, b.cax, 100.0) / water.dose_at(a.depth_mm, a.cax, 100.0)
+    assert ratio == pytest.approx(1 / 1.012, abs=1e-6)  # 同一個種子、同一組粒子：只差 M

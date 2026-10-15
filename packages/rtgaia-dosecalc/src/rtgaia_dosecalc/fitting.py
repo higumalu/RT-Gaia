@@ -1,0 +1,653 @@
+"""射束模型對射束資料擬合（GPU）：分段、每段只用物理上約束它的量測，線性的權重用基底組合、非線性的用小格點。
+
+劑量對各射源成分是線性的：每個成分（原射源的某一組能量、機頭散射、電子污染）**單獨**當一個模型在每個量測條件下
+模擬一次（`water.simulate` 以「每個參考錐角歷史」正規化），任何權重的組合就是 Σ 權重 × 成分的劑量 —— 最佳化迴圈
+裡只做 numpy，不再跑 Monte Carlo。
+
+| 段 | 參數 | 用的量測 |
+|---|---|---|
+| 能譜 | 4 組能量的權重（平滑、往先驗拉） | PDD（dmax 之後）、TPR20,10、%dd(10)x |
+| 電子污染 | fraction（線性）× 平均能量、σ（格點） | dmax |
+| 焦點 | σ（格點；FFF 另加角分佈 σ） | 半影、FWHM、unflatness、slope |
+| 機頭散射與反散射 | 機頭散射 fraction（線性）× σ（格點）、b_x、b_y（解析） | 輸出因子 |
+| 準直器密度 | 每層的有效密度比（兩點模擬、對數內插） | MLC 穿透 |
+| 能譜（再一次） | 同第一段，含其他段的結果 | 同第一段 |
+
+殘差以容許為單位（`commissioning.TOLERANCE`：1%、1 mm…），所以「擬合後在容許內」就是殘差 ≤ 1。每個參數記下用了哪些
+量測（id）；沒有量測約束的參數保留先驗並標「未約束」。參數不確定度：最小平方解的 Jacobian（殘差以容許為單位）。
+"""
+
+from __future__ import annotations
+
+import copy
+import math
+import time
+from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
+
+from . import beam_models, commissioning, water
+
+GROUP_EDGES_MEV = (1.0, 2.0, 3.5)
+"""能譜分 4 組：< 1、1–2、2–3.5、≥ 3.5 MeV（每組裡的形狀照先驗）。"""
+PRIOR_REL_SIGMA = 0.3
+"""能譜每組權重的先驗不確定度（相對）：沒有資料時往先驗拉。"""
+EC_MEAN_GRID = (0.7, 1.5, 3.0)
+EC_SIGMA_GRID = (30.0, 80.0)
+EC_DISTANCE_MM = 500.0
+FOCAL_GRID = (0.4, 0.6, 0.8, 1.0, 1.3, 1.7)
+EF_SIGMA_GRID = (10.0, 25.0, 50.0)
+DENSITY_POINTS = (1.0, 0.8)
+PASSES = 2
+"""整串分段擬合跑幾輪。"""
+SPECTRUM_QUANTITIES = ("pdd", "tpr20_10", "pdd10x")
+PROFILE_QUANTITIES = commissioning.PROFILE_QUANTITIES
+
+
+@dataclass
+class Stage:
+    name: str
+    parameters: dict[str, Any]
+    measurements: list[str]
+    cost_before: float | None = None
+    cost_after: float | None = None
+    grid: list[dict[str, Any]] = field(default_factory=list)
+    note: str = ""
+    uncertainty: dict[str, float] = field(default_factory=dict)
+    round: int = 0
+
+    @property
+    def alternatives(self) -> list[dict[str, Any]]:
+        """格點裡成本跟最好的差 ≤ 1（殘差以容許為單位 → 一樣好）的其他點：有的話，這段的非線性參數是弱約束。"""
+        if not self.grid or self.cost_after is None:
+            return []
+        best = min(g["cost"] for g in self.grid)
+        return [g for g in self.grid if g["cost"] - best <= 1.0 and g["cost"] != best]
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "round": self.round,
+            "parameters": self.parameters,
+            "uncertainty": self.uncertainty,
+            "measurements": self.measurements,
+            "cost_before": self.cost_before,
+            "cost_after": self.cost_after,
+            "grid": self.grid,
+            "alternatives": self.alternatives,
+            "weakly_constrained": bool(self.alternatives),
+            "note": self.note,
+        }
+
+
+# ── 成分模型 ──────────────────────────────────────────────────────────────────
+
+
+def spectrum_groups(model: dict[str, Any]) -> list[np.ndarray]:
+    """能譜的線 → 4 組的遮罩（空的組不回）。"""
+    e = np.asarray(model["params"]["spectrum_mev"], dtype=float)
+    idx = np.searchsorted(np.asarray(GROUP_EDGES_MEV), e, side="right")
+    return [idx == g for g in range(len(GROUP_EDGES_MEV) + 1) if np.any(idx == g)]
+
+
+def _strip(model: dict[str, Any]) -> dict[str, Any]:
+    m = copy.deepcopy(model)
+    p = m["params"]
+    p.pop("monitor_backscatter", None)
+    p["extra_focal"] = {**(p.get("extra_focal") or {}), "fraction": 0.0}
+    p.pop("electron_contamination", None)
+    return m
+
+
+def primary_component(model: dict[str, Any], mask: np.ndarray | None = None, **params: Any) -> dict[str, Any]:
+    """只有原射源（能譜可以只留一組）；`params` 覆寫原射源的參數（焦點 σ、角分佈 σ）。"""
+    m = _strip(model)
+    p = m["params"]
+    if mask is not None:
+        w = np.asarray(p["spectrum_weights"], dtype=float) * mask
+        p["spectrum_weights"] = list(w / w.sum())
+    p.update(params)
+    m["model_id"] = f"{model['model_id']}~primary"
+    return m
+
+
+def extra_focal_component(model: dict[str, Any], sigma_mm: float) -> dict[str, Any]:
+    """只有機頭散射（光子、同一個能譜）。跟它無關的原射源參數設成固定值 → 焦點改了不用重算這個成分。"""
+    m = _strip(model)
+    m["params"]["extra_focal"] = {**(model["params"].get("extra_focal") or {}), "fraction": 1.0, "sigma_mm": sigma_mm}
+    m["params"]["focal_spot_sigma_mm"] = 0.0
+    m["params"].pop("angular_sigma_deg", None)
+    m["model_id"] = f"{model['model_id']}~ef"
+    return m
+
+
+def contamination_component(model: dict[str, Any], mean_mev: float, sigma_mm: float) -> dict[str, Any]:
+    """只有電子污染。光子能譜、焦點跟它無關 → 設成固定值（能譜、焦點改了不用重算這個成分）。"""
+    m = _strip(model)
+    m["params"]["spectrum_mev"] = [1.0]
+    m["params"]["spectrum_weights"] = [1.0]
+    m["params"]["focal_spot_sigma_mm"] = 0.0
+    m["params"].pop("angular_sigma_deg", None)
+    m["params"]["electron_contamination"] = {
+        "fraction": 1.0, "mean_energy_mev": mean_mev, "sigma_mm": sigma_mm,
+        "distance_below_target_mm": EC_DISTANCE_MM,
+    }  # fmt: skip
+    m["model_id"] = f"{model['model_id']}~ec"
+    return m
+
+
+# ── 基底：每個成分 × 每個條件模擬一次（快取）───────────────────────────────
+
+
+class Basis:
+    """`get(component_model, setup)` → `water.Simulated`；快取鍵是成分模型的參數雜湊 —— 焦點、密度比、能譜一改就是
+    另一個成分，不會拿舊參數的模擬來用。"""
+
+    def __init__(self, tb: Any, histories: int, progress: Any = None) -> None:
+        self.tb = tb
+        self.histories = histories
+        self.progress = progress
+        self.sims: dict[tuple[str, str], water.Simulated] = {}
+        self.seconds = 0.0
+
+    @property
+    def count(self) -> int:
+        return len(self.sims)
+
+    def get(self, model: dict[str, Any], setup: water.Setup) -> water.Simulated:
+        k = (beam_models.model_hash(model), setup.key)
+        if k not in self.sims:
+            if self.progress is not None:
+                self.progress(f"{model['model_id']} {setup.key}")
+            n = commissioning.histories_for(setup, self.histories)
+            self.sims[k] = water.simulate(model, setup, self.tb, n, seed=1 + len(self.sims))
+            self.seconds += self.sims[k].seconds
+        return self.sims[k]
+
+
+Parts = list[tuple[float, water.Simulated]]
+
+
+def combine(parts: Parts) -> tuple[water.Curves, list[water.Curves]]:
+    """Σ 權重 × 成分的曲線（平均與逐批）。"""
+    first = parts[0][1]
+
+    def mix(get: Any) -> water.Curves:
+        cax = sum(w * get(s).cax for w, s in parts)
+        prof = {d: sum(w * get(s).profiles[d] for w, s in parts) for d in get(first).profiles}
+        c = get(first)
+        return water.Curves(depth_mm=c.depth_mm, cax=cax, x_mm=c.x_mm, profiles=prof)
+
+    return mix(lambda s: s.mean), [mix(lambda s, k=k: s.batches[k]) for k in range(len(first.batches))]
+
+
+# ── 殘差 ──────────────────────────────────────────────────────────────────────
+
+
+def _tol_abs(c: commissioning.Check) -> float:
+    kind, tol = commissioning.TOLERANCE.get(c.quantity, ("relative", 0.01))
+    return tol * abs(c.measured) if kind == "relative" else tol
+
+
+def _key(s: water.Setup) -> str:
+    return str((s.field_x, s.field_y, s.ssd, s.collimation, s.closed_layer))
+
+
+@dataclass
+class Problem:
+    """一段要用的比較點，以及它們的條件（同條件合併、取側向分佈的深度聯集）。"""
+
+    checks: list[commissioning.Check]
+    setups: dict[str, water.Setup]
+
+    @classmethod
+    def of(cls, checks: list[commissioning.Check]) -> Problem:
+        out: dict[str, water.Setup] = {}
+        for s in (s for c in checks for s in (c.setup, c.reference) if s is not None):
+            prev = out.get(_key(s))
+            depths = tuple(sorted(set((prev.profile_depths if prev else ()) + s.profile_depths)))
+            out[_key(s)] = water.Setup(s.field_x, s.field_y, s.ssd, s.collimation, s.closed_layer, depths)
+        return cls(checks, out)
+
+    def ids(self) -> list[str]:
+        return sorted({c.measurement_id for c in self.checks})
+
+
+def residuals(problem: Problem, curves: dict[str, water.Curves], scale: dict[str, float] | None = None) -> np.ndarray:
+    """每個比較點的（模型 − 量測）／容許。`scale`：條件 → 劑量乘數（監測游離腔反散射 1／s，只用在輸出因子）。"""
+    out = []
+    for c in problem.checks:
+        cur = curves[_key(c.setup)]
+        ref = curves[_key(c.reference)] if c.reference is not None else None
+        f = 1.0
+        if scale and c.quantity == "output_factor" and c.reference is not None:
+            f = scale.get(_key(c.setup), 1.0) / scale.get(_key(c.reference), 1.0)
+        try:
+            v = commissioning._value(c, cur, ref, 1.0) * f
+        except (ValueError, IndexError, np.linalg.LinAlgError):
+            v = float("nan")
+        out.append((v - c.measured) / _tol_abs(c) if math.isfinite(v) else 10.0)
+    return np.asarray(out, dtype=float)
+
+
+def cost(r: np.ndarray) -> float:
+    return float(np.sum(r**2))
+
+
+# ── 擬合 ──────────────────────────────────────────────────────────────────────
+
+
+def _lsq(fun: Any, x0: np.ndarray, lo: np.ndarray, hi: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """有界的最小平方；回 (解, 參數的 1σ —— 殘差以容許為單位，所以是「容許尺度」下的不確定度)。"""
+    from scipy.optimize import least_squares
+
+    r = least_squares(fun, x0, bounds=(lo, hi), x_scale="jac", diff_step=1e-3)
+    try:
+        sd = np.sqrt(np.clip(np.diag(np.linalg.pinv(r.jac.T @ r.jac)), 0.0, None))
+    except np.linalg.LinAlgError:
+        sd = np.full(len(x0), np.nan)
+    return r.x, sd
+
+
+def _scan_1d(fun: Any, lo: float, hi: float, n: int = 41) -> tuple[float, float, float]:
+    """一個參數（正值、跨好幾個數量級）：對數格點掃描 → 最好的鄰近區間裡有界一維最小化。回 (值, 成本, 1σ)；1σ 取
+    成本 ≤ 最小 ＋ 1 的範圍的一半（殘差以容許為單位）。dmax 這種對參數是階梯狀的量，梯度法會卡在起點，所以不用。"""
+    from scipy.optimize import minimize_scalar
+
+    xs = np.geomspace(lo, hi, n)
+    cs = np.array([cost(fun(x)) for x in xs])
+    k = int(np.argmin(cs))
+    a, b = xs[max(0, k - 1)], xs[min(n - 1, k + 1)]
+    r = minimize_scalar(lambda x: cost(fun(x)), bounds=(a, b), method="bounded", options={"xatol": a * 1e-3})
+    x_best, c_best = (float(r.x), float(r.fun)) if r.fun <= cs[k] else (float(xs[k]), float(cs[k]))
+    inside = xs[cs <= c_best + 1.0]
+    sd = float((inside.max() - inside.min()) / 2) if len(inside) > 1 else 0.0
+    return x_best, c_best, sd
+
+
+@dataclass
+class State:
+    """擬合中的模型（逐段更新）與能譜分組。"""
+
+    model: dict[str, Any]
+    group_weights: np.ndarray
+    masks: list[np.ndarray]
+
+    def fractions(self) -> tuple[float, float]:
+        p = self.model["params"]
+        return (
+            float((p.get("extra_focal") or {}).get("fraction") or 0.0),
+            float((p.get("electron_contamination") or {}).get("fraction") or 0.0),
+        )
+
+    def primary(self, basis: Basis, setup: water.Setup) -> list[water.Simulated]:
+        """每一組能量的原射源成分（用目前模型的焦點、密度比）—— 只有能譜那一段要分組。"""
+        return [basis.get(primary_component(self.model, m), setup) for m in self.masks]
+
+    def primary_full(self, basis: Basis, setup: water.Setup) -> water.Simulated:
+        """整個能譜（已經是擬合後的權重）的原射源成分。"""
+        return basis.get(primary_component(self.model), setup)
+
+    def ef(self, basis: Basis, setup: water.Setup, sigma: float | None = None) -> water.Simulated:
+        ef = self.model["params"].get("extra_focal") or {}
+        return basis.get(
+            extra_focal_component(self.model, float(sigma if sigma is not None else ef["sigma_mm"])), setup
+        )
+
+    def ec(
+        self, basis: Basis, setup: water.Setup, mean: float | None = None, sigma: float | None = None
+    ) -> water.Simulated:
+        ec = self.model["params"].get("electron_contamination") or {}
+        return basis.get(
+            contamination_component(
+                self.model,
+                float(mean if mean is not None else ec["mean_energy_mev"]),
+                float(sigma if sigma is not None else ec["sigma_mm"]),
+            ),
+            setup,
+        )
+
+    def parts(self, basis: Basis, setup: water.Setup) -> Parts:
+        """目前的模型 ＝ (1 − f_ef − f_ec) × 原射源 ＋ f_ef × 機頭散射 ＋ f_ec × 電子污染。"""
+        f_ef, f_ec = self.fractions()
+        out: Parts = [(1 - f_ef - f_ec, self.primary_full(basis, setup))]
+        if f_ef > 0:
+            out.append((f_ef, self.ef(basis, setup)))
+        if f_ec > 0:
+            out.append((f_ec, self.ec(basis, setup)))
+        return out
+
+    def curves(self, basis: Basis, problem: Problem) -> dict[str, water.Curves]:
+        return {k: combine(self.parts(basis, s))[0] for k, s in problem.setups.items()}
+
+
+def fit_spectrum(st: State, basis: Basis, problem: Problem, prior: np.ndarray) -> Stage:
+    f_ef, f_ec = st.fractions()
+    prim = {k: st.primary(basis, s) for k, s in problem.setups.items()}
+    rest = {
+        k: ([(f_ef, st.ef(basis, s))] if f_ef > 0 else []) + ([(f_ec, st.ec(basis, s))] if f_ec > 0 else [])
+        for k, s in problem.setups.items()
+    }
+
+    def curves(w: np.ndarray) -> dict[str, water.Curves]:
+        wn = w / w.sum()
+        return {
+            k: combine([(float(wi) * (1 - f_ef - f_ec), s) for wi, s in zip(wn, prim[k], strict=True)] + rest[k])[0]
+            for k in problem.setups
+        }
+
+    def fun(w: np.ndarray) -> np.ndarray:
+        wn = w / w.sum()
+        return np.concatenate(
+            [residuals(problem, curves(w)), (wn - prior) / (PRIOR_REL_SIGMA * np.maximum(prior, 1e-3))]
+        )
+
+    x0 = st.group_weights.copy()
+    before = cost(residuals(problem, curves(x0)))
+    x, sd = _lsq(fun, x0, np.full(len(x0), 1e-4), np.full(len(x0), 10.0))
+    st.group_weights = x / x.sum()
+    p = st.model["params"]
+    prior_lines = np.asarray(p["spectrum_weights"], dtype=float)
+    w_all = np.zeros(len(prior_lines))
+    for wi, m in zip(st.group_weights, st.masks, strict=True):
+        w_all[m] = prior_lines[m] / prior_lines[m].sum() * wi
+    p["spectrum_weights"] = [float(v) for v in w_all]
+    e = np.asarray(p["spectrum_mev"], dtype=float)
+    return Stage(
+        "spectrum",
+        {
+            "group_weights": [round(float(v), 5) for v in st.group_weights],
+            "mean_energy_mev": round(float((e * w_all).sum()), 4),
+        },
+        problem.ids(),
+        before,
+        cost(residuals(problem, curves(x))),
+        uncertainty={"group_weights": [round(float(v), 5) for v in sd / x.sum()]},
+        note=f"能量分組邊界 {GROUP_EDGES_MEV} MeV；每組權重的先驗不確定度 {PRIOR_REL_SIGMA:.0%}",
+    )
+
+
+def fit_contamination(st: State, basis: Basis, problem: Problem) -> Stage:
+    f_ef, _ = st.fractions()
+    base: dict[str, Parts] = {}
+    for k, s in problem.setups.items():
+        base[k] = [(1 - f_ef, st.primary_full(basis, s))]
+        if f_ef > 0:
+            base[k].append((f_ef, st.ef(basis, s)))
+    before = cost(residuals(problem, {k: combine(v)[0] for k, v in base.items()}))
+    grid: list[dict[str, Any]] = []
+    best: dict[str, Any] | None = None
+    for mean in EC_MEAN_GRID:
+        for sig in EC_SIGMA_GRID:
+            ec = {k: st.ec(basis, s, mean, sig) for k, s in problem.setups.items()}
+
+            def fun(f: float, ec: dict = ec) -> np.ndarray:  # type: ignore[type-arg]
+                return residuals(
+                    problem,
+                    {k: combine([(w * (1 - f), x) for w, x in base[k]] + [(f, ec[k])])[0] for k in problem.setups},
+                )
+
+            f, c, sd = _scan_1d(fun, 1e-5, 2e-2)
+            row = {"mean_energy_mev": mean, "sigma_mm": sig, "fraction": f, "fraction_sd": sd, "cost": c}
+            grid.append(row)
+            if best is None or row["cost"] < best["cost"]:
+                best = row
+    assert best is not None
+    ec_params = {
+        "fraction": best["fraction"], "mean_energy_mev": best["mean_energy_mev"], "sigma_mm": best["sigma_mm"],
+        "distance_below_target_mm": EC_DISTANCE_MM,
+    }  # fmt: skip
+    st.model["params"]["electron_contamination"] = ec_params
+    return Stage(
+        "electron_contamination", dict(ec_params), problem.ids(), before, best["cost"], grid,
+        uncertainty={"fraction": best["fraction_sd"]},
+    )  # fmt: skip
+
+
+def fit_focal(st: State, basis: Basis, problem: Problem, fff: bool) -> Stage:
+    p = st.model["params"]
+    before = cost(residuals(problem, st.curves(basis, problem)))
+    angular = (
+        [round(float(p["angular_sigma_deg"]) * f, 4) for f in (0.8, 1.0, 1.25)]
+        if fff and p.get("angular_sigma_deg")
+        else [None]
+    )
+    original = {k: p.get(k) for k in ("focal_spot_sigma_mm", "angular_sigma_deg")}
+    grid: list[dict[str, Any]] = []
+    best: dict[str, Any] | None = None
+    for sf in FOCAL_GRID:
+        for ang in angular:
+            p["focal_spot_sigma_mm"] = sf
+            if ang is not None:
+                p["angular_sigma_deg"] = ang
+            row = {"focal_spot_sigma_mm": sf, **({"angular_sigma_deg": ang} if ang is not None else {})}
+            row["cost"] = cost(residuals(problem, st.curves(basis, problem)))
+            grid.append(row)
+            if best is None or row["cost"] < best["cost"]:
+                best = row
+    assert best is not None
+    for k, v in original.items():
+        if v is not None:
+            p[k] = v
+    params = {k: v for k, v in best.items() if k != "cost"}
+    p.update(params)
+    return Stage("focal_spot", params, problem.ids(), before, best["cost"], grid, note=f"格點 {FOCAL_GRID} mm")
+
+
+def fit_head_scatter(st: State, basis: Basis, problem: Problem, has_jaws: bool, ref_field: float) -> Stage:
+    _, f_ec = st.fractions()
+    prim = {k: [(1.0, st.primary_full(basis, s))] for k, s in problem.setups.items()}
+    ecp = {k: st.ec(basis, s) for k, s in problem.setups.items()} if f_ec > 0 else {}
+
+    def s_of(setup: water.Setup, bx: float, by: float) -> float:
+        """監測游離腔訊號比（`topas.backscatter_factor` 同一式；MLC 定義的射野 jaw 大 2 mm）。"""
+        if not has_jaws:
+            return 1.0
+        extra = water.JAW_MARGIN_MM if setup.collimation == "mlc" else 0.0
+        jx = max(water.JAW_MIN_MM, setup.field_x + extra) if extra else setup.field_x
+        jy = max(water.JAW_MIN_MM, setup.field_y + extra) if extra else setup.field_y
+        return 1.0 + bx * (ref_field - jx) + by * (ref_field - jy)
+
+    before = cost(residuals(problem, st.curves(basis, problem)))
+    grid: list[dict[str, Any]] = []
+    best: dict[str, Any] | None = None
+    # 只有正方形射野 → 反散射只約束得到 b_x ＋ b_y：只擬合總和、兩個各一半，報告寫明
+    square_only = all(abs(c.setup.field_x - c.setup.field_y) < 1e-6 for c in problem.checks)
+    n = (2 if square_only else 3) if has_jaws else 1
+    for sig in EF_SIGMA_GRID:
+        efp = {k: st.ef(basis, s, sig) for k, s in problem.setups.items()}
+
+        def fun(v: np.ndarray, efp: dict = efp) -> np.ndarray:  # type: ignore[type-arg]
+            f_ef = float(v[0])
+            if not has_jaws:
+                bx = by = 0.0
+            elif square_only:
+                bx = by = float(v[1]) / 2
+            else:
+                bx, by = float(v[1]), float(v[2])
+            curves = {
+                k: combine(
+                    [(w * (1 - f_ef - f_ec), x) for w, x in prim[k]]
+                    + [(f_ef, efp[k])]
+                    + ([(f_ec, ecp[k])] if f_ec > 0 else [])
+                )[0]
+                for k in problem.setups
+            }
+            return residuals(problem, curves, scale={k: 1.0 / s_of(s, bx, by) for k, s in problem.setups.items()})
+
+        lo = [0.0, -4e-4] if square_only else [0.0, -2e-4, -2e-4]
+        hi = [0.3, 1e-3] if square_only else [0.3, 5e-4, 5e-4]
+        x, sd = _lsq(fun, np.array([0.05, 0.0, 0.0][:n]), np.array(lo[:n]), np.array(hi[:n]))
+        row: dict[str, Any] = {
+            "sigma_mm": sig,
+            "fraction": float(x[0]),
+            "cost": cost(fun(x)),
+            "sd": [float(v) for v in sd],
+        }
+        if has_jaws:
+            bx, by = (float(x[1]) / 2, float(x[1]) / 2) if square_only else (float(x[1]), float(x[2]))
+            row.update(per_mm_x=bx, per_mm_y=by)
+        grid.append(row)
+        if best is None or row["cost"] < best["cost"]:
+            best = row
+    assert best is not None
+    p = st.model["params"]
+    p["extra_focal"] = {**(p.get("extra_focal") or {}), "fraction": best["fraction"], "sigma_mm": best["sigma_mm"]}
+    params: dict[str, Any] = {"extra_focal": dict(p["extra_focal"])}
+    unc = {"extra_focal_fraction": best["sd"][0]}
+    note = ""
+    if has_jaws:
+        p["monitor_backscatter"] = {"per_mm_x": best["per_mm_x"], "per_mm_y": best["per_mm_y"]}
+        params["monitor_backscatter"] = dict(p["monitor_backscatter"])
+        if square_only:
+            unc.update(per_mm_sum=best["sd"][1])
+            note = "只有正方形射野：反散射只約束 b_x ＋ b_y，兩個各取一半"
+        else:
+            unc.update(per_mm_x=best["sd"][1], per_mm_y=best["sd"][2])
+    else:
+        note = "沒有 jaw：不擬合監測游離腔反散射"
+    return Stage("head_scatter", params, problem.ids(), before, best["cost"], grid, note=note, uncertainty=unc)
+
+
+def fit_density(st: State, basis: Basis, problem: Problem) -> Stage:
+    """每一層 MLC：密度比 1.0 與 0.8 各模擬一次穿透（只用原射源：穿透是衰減），ln T 對密度線性 → 解到量測值
+    （多個量測取平均，限 0.6–1.1）。"""
+    p = st.model["params"]
+    out: dict[str, float] = {}
+    before: list[float] = []
+    after: list[float] = []
+    layers: dict[str, list[commissioning.Check]] = {}
+    for c in problem.checks:
+        layers.setdefault(str(c.extra.get("layer")), []).append(c)
+    for layer, checks in layers.items():
+        sub = Problem.of(checks)
+        logs = []
+        for dens in DENSITY_POINTS:
+            m = copy.deepcopy(st.model)
+            m["params"]["collimators"][layer]["density_factor"] = dens
+            trial = State(m, st.group_weights, st.masks)
+            curves = {k: combine([(1.0, trial.primary_full(basis, s))])[0] for k, s in sub.setups.items()}
+            logs.append(
+                np.log([commissioning._value(c, curves[_key(c.setup)], curves[_key(c.reference)], 1.0) for c in checks])
+            )
+        meas = np.log([c.measured for c in checks])
+        (d1, d2), (l1, l2) = DENSITY_POINTS, logs
+        slope = (l2 - l1) / (d2 - d1)
+        dens = float(np.clip(np.mean(d1 + (meas - l1) / slope), 0.6, 1.1))
+        p["collimators"][layer]["density_factor"] = round(dens, 4)
+        out[layer] = round(dens, 4)
+        tol = np.array([_tol_abs(c) for c in checks])
+        before += list((np.exp(l1) - np.exp(meas)) / tol)
+        after += list((np.exp(l1 + slope * (dens - d1)) - np.exp(meas)) / tol)
+    return Stage(
+        "collimator_density", {"density_factor": out}, problem.ids(), cost(np.array(before)), cost(np.array(after)),
+        note="穿透對密度比用兩點（1.0、0.8）模擬、ln T 線性內插",
+    )  # fmt: skip
+
+
+def fit(
+    model: dict[str, Any],
+    datasets: list[dict[str, Any]],
+    tb: Any,
+    *,
+    histories: int = commissioning.DEFAULT_HISTORIES,
+    progress: Any = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """`model` 當先驗與幾何，對 `datasets` 的量測分段擬合；回 (擬合後的模型, 報告)。"""
+    t0 = time.time()
+    st = State(copy.deepcopy(model), np.zeros(0), spectrum_groups(model))
+    prior_lines = np.asarray(model["params"]["spectrum_weights"], dtype=float)
+    prior = np.asarray([prior_lines[m].sum() for m in st.masks])
+    st.group_weights = prior / prior.sum()
+    checks = [
+        c for ds in datasets for c in commissioning.plan_checks(model, ds) if not c.unsupported and c.setup is not None
+    ]
+    basis = Basis(tb, histories, progress)
+    fff = model.get("fluence_mode") == "FFF"
+    has_jaws = "jaw_x" in model["params"]["collimators"]
+    ref_field = float(model["calibration"]["field_mm"])
+    stages: list[Stage] = []
+
+    def pick(*quantities: str, beyond_dmax: bool = False) -> Problem | None:
+        sel = [
+            c
+            for c in checks
+            if c.quantity in quantities and not (beyond_dmax and c.quantity == "pdd" and (c.depth or 0) < 30.0)
+        ]
+        return Problem.of(sel) if sel else None
+
+    spec = pick(*SPECTRUM_QUANTITIES, beyond_dmax=True)
+    dmax = pick("dmax_mm")
+    prof = pick(*PROFILE_QUANTITIES)
+    of = pick("output_factor")
+    trans = pick("mlc_transmission")
+    unconstrained = [
+        name
+        for name, prob in (
+            ("spectrum", spec), ("electron_contamination", dmax), ("focal_spot", prof), ("head_scatter", of),
+            ("collimator_density", trans),
+        )
+        if prob is None
+    ]  # fmt: skip
+    # 各段互相影響（電子污染的 dmax 跟機頭散射、能譜有關；輸出因子跟焦點有關）：整串跑兩輪，第二輪從第一輪的結果出發
+    for round_no in range(1, PASSES + 1):
+        done: list[Stage] = []
+        if spec:
+            done.append(fit_spectrum(st, basis, spec, prior / prior.sum()))
+        if dmax:
+            done.append(fit_contamination(st, basis, dmax))
+        if prof:
+            done.append(fit_focal(st, basis, prof, fff))
+        if of:
+            done.append(fit_head_scatter(st, basis, of, has_jaws, ref_field))
+        if trans:
+            done.append(fit_density(st, basis, trans))
+        for stage in done:
+            stage.round = round_no
+        stages += done
+    fitted = st.model
+    fitted["params"]["spectrum_weights"] = [float(v) for v in fitted["params"]["spectrum_weights"]]
+    report = {
+        "prior_model_id": model["model_id"],
+        "prior_model_hash": beam_models.model_hash(model),
+        "datasets": [d.get("dataset_id") for d in datasets],
+        "stages": [s.to_json() for s in stages],
+        "unconstrained": unconstrained,
+        "basis_simulations": basis.count,
+        "seconds_simulation": round(basis.seconds, 1),
+        "seconds": round(time.time() - t0, 1),
+        "histories_per_setup": histories,
+    }
+    return fitted, report
+
+
+def finalize(
+    fitted: dict[str, Any],
+    prior: dict[str, Any],
+    report: dict[str, Any],
+    *,
+    model_id: str | None = None,
+    demo: bool = True,
+) -> dict[str, Any]:
+    """擬合後的模型：新的 id 與名稱、示範標記（擬合用的資料只要有一份不是實測就是示範）、來源寫明先驗與資料集、
+    限制加上「未約束」的參數。"""
+    m = copy.deepcopy(fitted)
+    m["model_id"] = model_id or f"{prior['model_id']}-fit"
+    m["name"] = f"{prior['name']} (fitted)"
+    m["demo"] = demo
+    m["fit"] = {
+        "prior_model_id": prior["model_id"],
+        "prior_model_hash": report["prior_model_hash"],
+        "datasets": report["datasets"],
+        "unconstrained": report["unconstrained"],
+    }
+    m["reference"] = (
+        f"Fitted to beam datasets {', '.join(str(d) for d in report['datasets'])} starting from {prior['model_id']}. "
+        + str(prior.get("reference") or "")
+    ).strip()
+    lim = [x for x in m.get("limitations") or [] if demo or not x.startswith("示範模型")]
+    for name in report["unconstrained"]:
+        lim.append(f"未約束（擬合資料裡沒有對應的量測，照先驗）：{name}")
+    m["limitations"] = lim
+    return m

@@ -91,6 +91,13 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   output factors, penumbra, field width, FFF unflatness and slope, MLC transmission, absolute calibration), with
   the detector's volume averaging applied to profiles, batch uncertainties for every derived value and
   tolerances of 1 % or 1 mm; unsupported measurements are listed with the reason.
+- Beam model fitting (`rtgaia-dosecalc fit-model`, GPU): staged fits of the spectrum, electron contamination,
+  focal spot, head scatter, monitor backscatter and collimator density to beam data from linear combinations of
+  simulated source components, with the measurements each parameter was fitted to, parameter uncertainties,
+  equally good alternatives for weakly constrained parameters, unconstrained parameters kept at the prior, and a
+  point-by-point check against fit and validation datasets.
+- Beam models can carry fitted components: a virtual electron contamination source (GPU engine), monitor chamber
+  backscatter and an effective collimator density factor (both engines).
 - The reference field of dual-layer MLC beam models now opens every leaf that overlaps the field; the upper
   layer previously opened 9 cm instead of 10 cm in the MU calibration field. Cached MU calibrations are redone.
 - Plan display (view only): beam table, isocenter markers, beam's-eye view with jaws and MLC, a
