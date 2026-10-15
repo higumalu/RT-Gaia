@@ -290,3 +290,14 @@ def test_fff_angular_spread_needs_off_axis_profiles(fake) -> None:  # type: igno
     assert fitted["params"]["angular_sigma_deg"] == prior["params"]["angular_sigma_deg"]
     final = fitting.finalize(fitted, prior, report, demo=True)
     assert any("FFF 角分佈" in x for x in final["limitations"])
+
+
+def test_large_detector_profiles_weigh_less_in_the_fit() -> None:
+    from rtgaia_dosecalc import commissioning as cm
+
+    pen = cm.Check("p", "p", "penumbra_80_20_mm", 100.0, 5.6, None, extra={"detector_r": 3.0})
+    diode = cm.Check("d", "d", "penumbra_80_20_mm", 100.0, 4.1, None, extra={"detector_r": 0.4})
+    assert fitting._tol_abs(pen) == pytest.approx(math.hypot(1.0, 1.5))  # 1 mm 容許 ⊕ 0.5 × 3 mm
+    assert fitting._tol_abs(diode) == pytest.approx(math.hypot(1.0, 0.2))
+    of = cm.Check("o", "o", "output_factor", 30.0, 0.877, None, extra={"detector_r": 3.0})
+    assert fitting._tol_abs(of) == pytest.approx(0.01 * 0.877)  # 偵檢器的項只用在側向分佈量

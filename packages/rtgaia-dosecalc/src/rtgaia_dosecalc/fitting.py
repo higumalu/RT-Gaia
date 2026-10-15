@@ -211,9 +211,20 @@ def combine(parts: Parts) -> tuple[water.Curves, list[water.Curves]]:
 # ── 殘差 ──────────────────────────────────────────────────────────────────────
 
 
+DETECTOR_UNCERTAINTY_PER_RADIUS = 0.5
+"""側向分佈量（半影、FWHM）的偵檢器模型不確定度 ＝ 0.5 × 偵檢器半徑（mm）：體積平均只用弦長核近似，
+6 mm 的游離腔（CC13 → 1.5 mm）量的半影對焦點是弱約束 —— 沒有這一項，擬合會把偵檢器模型少算的展寬塞進焦點
+（實測：Beyer 的 CC13 半影把焦點撐到 1.3 mm，獨立驗證的 1 cm 小照野低 9 倍容許）。只用在擬合的權重；
+比對的合格判定照容許。"""
+
+
 def _tol_abs(c: commissioning.Check) -> float:
     kind, tol = commissioning.TOLERANCE.get(c.quantity, ("relative", 0.01))
-    return tol * abs(c.measured) if kind == "relative" else tol
+    base = tol * abs(c.measured) if kind == "relative" else tol
+    r = float(c.extra.get("detector_r") or 0.0)
+    if c.quantity in ("penumbra_80_20_mm", "fwhm_mm") and r > 0:
+        return math.hypot(base, DETECTOR_UNCERTAINTY_PER_RADIUS * r)
+    return base
 
 
 def _key(s: water.Setup) -> str:
