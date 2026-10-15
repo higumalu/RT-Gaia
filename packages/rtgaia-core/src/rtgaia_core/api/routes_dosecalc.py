@@ -42,31 +42,53 @@ def _reject(code: str, problems: list[str]) -> HTTPException:
 
 
 @router.get(API + "/dosecalc/engines")
-async def dosecalc_engines() -> Any:
+async def dosecalc_engines(app: AppState = Depends(state)) -> Any:
     from rtgaia_dosecalc import beam_models, engines
 
+    from .. import beam_model_jobs
+
     rows = await run_cpu(engines.available)
+    users = [r for r in await beam_model_jobs.items(app) if r["status"] in ("active", "draft")]
     return {
         "engines": [{**e, "reason": translate(str(e.get("reason") or ""))} for e in rows],
         "beam_models": [
-            {k: m[k] for k in ("model_id", "name", "demo", "energy_mv", "fluence_mode")}
+            {**{k: m[k] for k in ("model_id", "name", "demo", "energy_mv", "fluence_mode")}, "status": "builtin"}
             for m in beam_models.builtin_models()
+        ]
+        + [
+            {
+                **{k: r["model"][k] for k in ("model_id", "name", "energy_mv", "fluence_mode")},
+                "demo": bool(r["model"].get("demo")),
+                "status": r["status"],
+            }
+            for r in users
         ],
     }
 
 
 @router.get(API + "/dosecalc/beam-models")
-async def dosecalc_beam_models() -> Any:
-    """內建射束模型的完整參數 ＋ 這台機器上做過的 MU 校正（每 MU 歷史數、參考條件的深度劑量）—— 管理頁「射束模型」。"""
+async def dosecalc_beam_models(app: AppState = Depends(state)) -> Any:
+    """內建射束模型的完整參數 ＋ 這台機器上做過的 MU 校正（每 MU 歷史數、參考條件的深度劑量）；擬合出來的模型
+    （`user_models`：參數 ＋ 狀態與擬合摘要）—— 管理頁「射束模型」。"""
     from rtgaia_dosecalc import beam_models
     from rtgaia_dosecalc.engines import topas
 
+    from .. import beam_model_jobs
+
     cache = dosecalc_jobs.work_root() / "calibration"
+    users = await beam_model_jobs.items(app)
     return {
         "engine_version": topas.ENGINE_VERSION,
         "models": [
             _beam_model_row(m, await run_cpu(lambda m=m: topas.cached_calibration(m, cache)))
             for m in beam_models.builtin_models()
+        ],
+        "user_models": [
+            {
+                **_beam_model_row(r["model"], await run_cpu(lambda m=r["model"]: topas.cached_calibration(m, cache))),
+                **beam_model_jobs.summary(r),
+            }
+            for r in reversed(users)
         ],
     }
 
@@ -109,6 +131,8 @@ def _beam_model_row(m: dict[str, Any], cal: dict[str, Any] | None) -> dict[str, 
         "focal_spot_sigma_mm": p.get("focal_spot_sigma_mm"),
         "angular_sigma_deg": p.get("angular_sigma_deg"),
         "extra_focal": p.get("extra_focal"),
+        "electron_contamination": p.get("electron_contamination"),
+        "monitor_backscatter": p.get("monitor_backscatter"),
         "field_margin_mm": p.get("field_margin_mm"),
         "collimators": [
             {"device": name, "kind": COLLIMATOR_KIND.get(name, "mlc"), **spec}
@@ -144,14 +168,23 @@ async def submit_dosecalc(study_id: str, body: dict[str, Any], request: Request,
     ):
         raise _reject("BAD_CALC_SPACING", ["calc_spacing_mm 要是 1–10 的數字，或 null（跟輸出網格相同）"])
     options["calc_spacing_mm"] = float(spacing) if spacing is not None else None
+    model_id = body.get("beam_model_id")
+    if model_id is not None:
+        if not isinstance(model_id, str) or not 1 <= len(model_id) <= 64:
+            raise _reject("BAD_BEAM_MODEL", ["beam_model_id 要是射束模型的 id"])
+        options["beam_model_id"] = model_id
     calibrations = await calibration_items(app)
+    from .. import beam_model_jobs
+
+    user_models = await beam_model_jobs.items(app)
     try:
         engine = dosecalc_jobs.engine_choice(body.get("engine"))
         inp, summary = await run_cpu(
             lambda: dosecalc_jobs.prepare(
-                session, plan_sop_uid=plan_sop, engine=engine, calibrations=calibrations, options=options
+                session, plan_sop_uid=plan_sop, engine=engine, calibrations=calibrations, options=options,
+                user_models=user_models,
             )
-        )
+        )  # fmt: skip
     except dosecalc_jobs.PrepareError as exc:
         raise _reject(exc.code, exc.problems) from exc
     job = new_job(session.case.case_id, KIND, {"study_id": study_id, "summary": summary}, requested_by=user)

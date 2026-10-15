@@ -494,9 +494,10 @@ struct Dev {
   float top, thick;
 };
 
-__device__ bool collimate(Rng &r, float px, float py, float pz, float dx, float dy, float dz, float e, float sad,
-                          int st, int ndev, const int *dev_i, const float *dev_f, const float *bounds,
-                          const float *pos, const Tab &tb, const float *mu_w) {
+// 射源點沿直線穿過準直器的鎢的路徑長（mm，已乘有效密度比）：上中下三個高度取樣被擋的比例 × 厚度／|cos|
+__device__ float collimator_path(float px, float py, float pz, float dx, float dy, float dz, float sad, int st,
+                                 int ndev, const int *dev_i, const float *dev_f, const float *bounds,
+                                 const float *pos) {
   float path = 0.0f;
   for (int d = 0; d < ndev; d++) {
     int axis = dev_i[4 * d], nleaf = dev_i[4 * d + 1], boff = dev_i[4 * d + 2], poff = dev_i[4 * d + 3];
@@ -505,6 +506,7 @@ __device__ bool collimate(Rng &r, float px, float py, float pz, float dx, float 
     for (int k = 0; k < 3; k++) {
       float depth = top + thick * (k + 0.5f) / 3.0f;  // 距靶
       float z = sad - depth;
+      if (z >= pz) continue;  // 在射源上面的那一層：粒子不會經過（射源可以在準直器之間）
       float lam = (pz - z) / (-dz);
       float x = px + lam * dx, y = py + lam * dy;
       float sc = sad / depth;  // 投影到等中心平面
@@ -522,6 +524,13 @@ __device__ bool collimate(Rng &r, float px, float py, float pz, float dx, float 
     }
     if (blocked) path += dens * thick * blocked / 3.0f / fabsf(dz);  // dens：有效密度比（葉間漏射、鎢合金）
   }
+  return path;
+}
+
+__device__ bool collimate(Rng &r, float px, float py, float pz, float dx, float dy, float dz, float e, float sad,
+                          int st, int ndev, const int *dev_i, const float *dev_f, const float *bounds,
+                          const float *pos, const Tab &tb, const float *mu_w) {
+  float path = collimator_path(px, py, pz, dx, dy, dz, sad, st, ndev, dev_i, dev_f, bounds, pos);
   if (path <= 0.0f) return true;
   float f = (logf(e) - tb.lne0) / tb.dlne;
   f = fminf(fmaxf(f, 0.0f), (float)(tb.ne - 1) - 1e-3f);
@@ -597,8 +606,10 @@ extern "C" __global__ void run_beam(unsigned long long *edep, unsigned int *lost
       if (sc[mid] < xi) a = mid + 1; else b = mid;
     }
     float e = se[a];
-    // 電子污染：虛擬射源已經只往開口發射，不再過準直器（它的參數就是對量測擬合出來的有效值）
-    if (!ec && !collimate(r, gx, gy, zs, bdx, bdy, bdz, e, sad, st, ndev, dev_i, dev_f, bounds, pos, tb, mu_w)) {
+    // 光子：鎢的衰減；電子污染：直線上碰到任何鎢就停（電子穿不過幾公分的鎢）—— 關起來的葉片、jaw 下面沒有電子
+    bool through = ec ? collimator_path(gx, gy, zs, bdx, bdy, bdz, sad, st, ndev, dev_i, dev_f, bounds, pos) <= 0.0f
+                      : collimate(r, gx, gy, zs, bdx, bdy, bdz, e, sad, st, ndev, dev_i, dev_f, bounds, pos, tb, mu_w);
+    if (!through) {
       atomicAdd(absorbed, 1u);
       continue;
     }

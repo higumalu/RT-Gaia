@@ -235,9 +235,14 @@ def test_fit_recovers_the_truth(fake) -> None:  # type: ignore[no-untyped-def]
     assert ec["cost_after"] < 1.0 and p["electron_contamination"]["fraction"] > 1e-4
     for s in report["stages"]:
         assert s["cost_after"] <= s["cost_before"] + 1e-9 and s["measurements"]
-    assert last["focal_spot"]["measurements"] == ["pen"] and last["head_scatter"]["measurements"] == ["of"]
+    assert last["focal_spot"]["measurements"] == ["of", "pen"]  # 半影 ＋ 小射野的輸出因子
+    assert last["head_scatter"]["measurements"] == ["of"]
     final = fitting.finalize(fitted, prior, report, demo=True)
     assert final["model_id"] == "demo-6x-fit" and final["fit"]["datasets"] == ["synthetic"] and final["demo"] is True
+    lim = final["limitations"]
+    # 擬合過的成分：示範模型「沒有電子污染」「沒有反散射」那兩句拿掉，改寫擬合的說明；弱約束的段列出來
+    assert not any(x.startswith("沒有電子污染的模型") or x.startswith("監測游離腔的反散射沒有模型") for x in lim)
+    assert "電子污染是擬合出來的虛擬射源（只有 GPU 引擎發射）" in lim
 
 
 def test_grid_alternatives_flag_weak_constraints() -> None:
@@ -256,9 +261,19 @@ def test_unconstrained_parameters_keep_the_prior(fake) -> None:  # type: ignore[
     ds = _dataset(_truth(prior))
     ds["measurements"] = [m for m in ds["measurements"] if m["kind"] == "output_factor"]
     fitted, report = fitting.fit(prior, [ds], tb=None, histories=10)
-    assert set(report["unconstrained"]) == {"spectrum", "electron_contamination", "focal_spot", "collimator_density"}
-    assert fitted["params"]["focal_spot_sigma_mm"] == prior["params"]["focal_spot_sigma_mm"]
+    # 3 cm 的輸出因子約束得到焦點（小射野）；能譜、電子污染、準直器密度沒有資料
+    assert set(report["unconstrained"]) == {"spectrum", "electron_contamination", "collimator_density"}
+    assert "electron_contamination" not in fitted["params"]
     assert fitted["params"]["spectrum_weights"] == pytest.approx(prior["params"]["spectrum_weights"])
     final = fitting.finalize(fitted, prior, report, demo=False)
-    assert any("未約束" in x and "spectrum" in x for x in final["limitations"])
+    assert any("未約束" in x and "能譜" in x for x in final["limitations"])
     assert not any(x.startswith("示範模型") for x in final["limitations"]) and final["demo"] is False
+    demo = fitting.finalize(fitted, prior, report, demo=True)["limitations"]
+    assert demo[0].startswith("示範模型：擬合自") and sum(x.startswith("示範模型") for x in demo) == 1
+
+
+def test_parameters_at_the_search_bounds_are_flagged() -> None:
+    assert fitting._edge("f", 0.3, 0.0, 0.3) == ["f"] and fitting._edge("f", 0.0, 0.0, 0.3) == ["f"]
+    assert fitting._edge("f", 0.15, 0.0, 0.3) == []
+    st = fitting.Stage("head_scatter", {}, [], 2.0, 1.0, at_bounds=["extra_focal.fraction"])
+    assert st.to_json()["at_bounds"] == ["extra_focal.fraction"]

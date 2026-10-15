@@ -24,7 +24,7 @@ from typing import Any, Literal, Protocol
 
 log = logging.getLogger(__name__)
 
-JobKind = Literal["export", "import", "send", "retrieve", "plugin", "service.call", "dosecalc"]
+JobKind = Literal["export", "import", "send", "retrieve", "plugin", "service.call", "dosecalc", "beamfit"]
 JobStatus = Literal["queued", "running", "done", "failed"]
 
 MAX_ATTEMPTS = 3
@@ -858,7 +858,14 @@ HANDLERS = {
     "plugin": run_plugin,
     "service.call": run_service_call,
     "dosecalc": lambda app, job: _dosecalc(app, job),
+    "beamfit": lambda app, job: _beamfit(app, job),
 }
+
+
+async def _beamfit(app: Any, job: Job) -> None:
+    from .beam_model_jobs import run_beamfit
+
+    await run_beamfit(app, job)
 
 
 async def _dosecalc(app: Any, job: Job) -> None:

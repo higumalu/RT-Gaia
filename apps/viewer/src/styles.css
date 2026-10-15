@@ -1533,3 +1533,10 @@ kbd { font: inherit; font-size: 11px; padding: 1px 5px; border: 1px solid var(--
 .beamdata-form textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .badge.beamdata-status.locked { color: var(--ok); border-color: var(--ok); }
 .badge.beamdata-status.draft { color: var(--warn); border-color: var(--warn); }
+.badge.beammodel-status.active { color: var(--ok); border-color: var(--ok); }
+.badge.beammodel-status.draft { color: var(--warn); border-color: var(--warn); }
+.badge.beammodel-status.retired, .badge.beammodel-status.builtin { color: var(--muted); }
+.beammodel-fit { margin-top: 12px; }
+.beammodel-checks tr.fail td:last-child { color: var(--warn); }
+.beammodel-fit-form { display: flex; flex-direction: column; gap: 6px; max-width: 720px; margin-top: 8px; }
+.beammodel-fit-form label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }

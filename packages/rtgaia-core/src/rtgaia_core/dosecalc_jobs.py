@@ -75,6 +75,7 @@ def prepare(
     engine: str,
     calibrations: list[dict[str, Any]],
     options: dict[str, Any],
+    user_models: list[dict[str, Any]] | None = None,
 ) -> tuple[CalcInput, dict[str, Any]]:
     """回 `(封包, 摘要)`；不能算 → `PrepareError`（列出全部原因）。"""
     if engine == engines.PIPELINE_TEST:
@@ -98,7 +99,10 @@ def prepare(
     resolved = cc.resolve(calibrations, scanner)
     models = []
     for b in delivery.beams:
-        m, why = beam_models.model_for(b.energy_mv, b.fluence_mode, options.get("beam_model_id"), b.mlc_devices)
+        m, why = beam_models.model_for(
+            b.energy_mv, b.fluence_mode, options.get("beam_model_id"), b.mlc_devices,
+            user_models=user_models, machine=b.machine,
+        )  # fmt: skip
         if m is None:
             problems.append(f"{b.name}：{why}")
         else:
@@ -153,7 +157,11 @@ def prepare(
         "calibration": cc.summary(resolved["calibration"]),
         "calibration_fallback": resolved["fallback"],
         "calibration_reason": resolved["reason"],
-        "beam_model": {k: model[k] for k in ("model_id", "name", "demo", "energy_mv", "fluence_mode")},
+        "beam_model": {
+            **{k: model[k] for k in ("model_id", "name", "demo", "energy_mv", "fluence_mode")},
+            "model_hash": beam_models.model_hash(model),
+            "fitted_to": list((model.get("fit") or {}).get("datasets") or []),
+        },
         "dose_grid": "tps" if tps is not None and options.get("grid", "tps") == "tps" else "ct",
         "dose_grid_voxels": dose_grid.voxel_count,
         "calc_spacing_mm": options.get("calc_spacing_mm"),

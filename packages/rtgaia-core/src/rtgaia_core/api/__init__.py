@@ -23,6 +23,7 @@ from ..state import ConflictError
 from . import (
     routes_auth,
     routes_beam_data,
+    routes_beam_models,
     routes_cases,
     routes_catalog,
     routes_ct_calibration,
@@ -608,6 +609,7 @@ def create_app(
         routes_misc,
         routes_dose,
         routes_dose_ops,
+        routes_beam_models,  # 比 routes_dosecalc 先（/dosecalc/beam-models/… 的子路徑）
         routes_dosecalc,
         routes_plan,
         routes_measurements,

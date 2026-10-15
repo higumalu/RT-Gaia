@@ -96,6 +96,11 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   simulated source components, with the measurements each parameter was fitted to, parameter uncertainties,
   equally good alternatives for weakly constrained parameters, unconstrained parameters kept at the prior, and a
   point-by-point check against fit and validation datasets.
+- Fitted beam models on the administrator page **Beam models**: fit jobs on the GPU from built-in or locked beam
+  data with separate validation data, drafts with their fit reports and point-by-point checks, activation that
+  retires the previous model for the same beams, optional machine names, and automatic use of the active fitted
+  model in dose calculations (the built-in demo models remain the fallback). The dose calculation request accepts
+  an explicit `beam_model_id`.
 - Beam models can carry fitted components: a virtual electron contamination source (GPU engine), monitor chamber
   backscatter and an effective collimator density factor (both engines).
 - The reference field of dual-layer MLC beam models now opens every leaf that overlaps the field; the upper

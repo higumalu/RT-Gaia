@@ -245,17 +245,41 @@ def _fits(m: dict[str, Any], energy: float, mode: str, mlc: list[str]) -> bool:
 
 
 def model_for(
-    beam_energy_mv: float, fluence_mode: str, model_id: str | None = None, mlc_devices: list[str] | None = None
+    beam_energy_mv: float,
+    fluence_mode: str,
+    model_id: str | None = None,
+    mlc_devices: list[str] | None = None,
+    *,
+    user_models: list[dict[str, Any]] | None = None,
+    machine: str = "",
 ) -> tuple[dict[str, Any] | None, str | None]:
-    """這個射束用哪個模型（能量、模式、MLC 種類都要對得上）；對不上 → 拒絕並說明。"""
+    """這個射束用哪個模型（能量、模式、MLC 種類都要對得上）；對不上 → 拒絕並說明。
+
+    `user_models`：使用者的模型（擬合出來的），每個是 `{"model": …, "status": …, "machines": [...]}`。
+    沒指定 `model_id` 時：**啟用中**的使用者模型優先（有寫機器名稱的，要跟射束的 TreatmentMachineName 一樣才算；
+    寫了的比沒寫的優先），都沒有才用內建的示範模型。指定 `model_id` 時：內建、啟用中或草稿都可以（草稿是給管理者
+    啟用前試算用；停用的不行）。"""
     mlc = list(mlc_devices or [])
-    models = builtin_models()
+    users = list(user_models or [])
+    builtin = builtin_models()
     if model_id is not None:
-        m = next((x for x in models if x["model_id"] == model_id), None)
+        m = next((x for x in builtin if x["model_id"] == model_id), None)
         if m is None:
-            return None, f"沒有射束模型 {model_id}"
+            rec = next((u for u in users if u["model"]["model_id"] == model_id), None)
+            if rec is None:
+                return None, f"沒有射束模型 {model_id}"
+            if rec.get("status") == "retired":
+                return None, f"射束模型 {model_id} 已停用"
+            m = rec["model"]
     else:
-        m = next((x for x in models if _fits(x, beam_energy_mv, fluence_mode, mlc)), None)
+        name = (machine or "").strip().lower()
+        active = [
+            u for u in users if u.get("status") == "active" and _fits(u["model"], beam_energy_mv, fluence_mode, mlc)
+        ]
+        named = [u for u in active if name and name in [str(x).strip().lower() for x in u.get("machines") or []]]
+        anyone = [u for u in active if not u.get("machines")]
+        pick = (named or anyone or [None])[0]
+        m = pick["model"] if pick else next((x for x in builtin if _fits(x, beam_energy_mv, fluence_mode, mlc)), None)
         if m is None:
             return None, f"沒有 {_describe(beam_energy_mv, fluence_mode, mlc)} 的射束模型"
     if not _fits(m, beam_energy_mv, fluence_mode, mlc):

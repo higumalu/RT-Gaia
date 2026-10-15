@@ -1193,6 +1193,24 @@ simulate yet (TPR and TMR curves, leaf-end offset, dosimetric leaf gap, jaw tran
 reason. With the default statistics a dataset takes a few minutes on an RTX 5090; dual-layer MLC models are about
 three times slower.
 
+**Fitting from the administrator page.** **Admin → Beam models → + Fit a new model** runs the same fit as a
+background job on the server's GPU (tens of minutes): choose the prior model, mark built-in or locked beam
+datasets of the same energy and fluence mode as **Fit** or **Validation** (validation data are never used in
+the fit), optionally restrict the model to machine names (the RT Plan's TreatmentMachineName), and start. The
+fitted model appears as a **draft** with its fit report (each stage's parameters, the measurements it used, the
+cost before and after, and a *Weakly constrained* badge where other grid values fit equally well) and the
+point-by-point check against every dataset, in multiples of the tolerance. A draft can be used for a dose
+calculation only by naming it explicitly (`beam_model_id`), for trying it out. **Activate** makes dose
+calculations choose it automatically and retires an older active model with the same energy, fluence mode, MLC
+and machine names; an active model cannot be deleted, only **Retire**d. Fits only accept built-in or locked
+datasets, so a model always names fixed data. Fitting, activating, retiring and deleting require the
+administrator role and are recorded in the audit log; the models are stored in the `app_setting` table under the
+key `beam_models`.
+
+**Choosing the model for a beam.** For each beam the calculation looks for an active fitted model with the
+beam's energy, fluence mode and MLC type, preferring one whose machine names include the beam's machine; models
+without machine names apply to every machine. Without one, it uses the built-in demo model.
+
 **Fitting a beam model to beam data.** `rtgaia-dosecalc fit-model` starts from a beam model (its geometry and its
 parameters as the prior), fits it to one or more datasets and checks the result against those datasets and,
 separately, against validation datasets that were not used in the fit:

@@ -563,11 +563,13 @@ async def save_dose_op(series_id: str, body: dict[str, Any], request: Request, a
     ops = [n["op"] for n in _all_nodes(chain) if "op" in n]
     ascii_text = _ascii_chain(chain)
     computed = derived.get("dosecalc") if isinstance(derived.get("dosecalc"), dict) else None
+    bm = (computed or {}).get("beam_model") or {}
     description = " | ".join(
         [
             f"RT-Gaia dose calculation: {computed.get('engine')} {computed.get('engine_version') or ''}".strip(),
-            f"beam model {(computed.get('beam_model') or {}).get('name')}"
-            + (" (demo)" if (computed.get("beam_model") or {}).get("demo") else ""),
+            f"beam model {bm.get('name')}"
+            + (f" [{bm.get('model_id')} {bm.get('model_hash')}]" if bm.get("model_hash") else "")
+            + (" (demo)" if bm.get("demo") else ""),
             f"CT calibration {(computed.get('calibration') or {}).get('name')}"
             + (" (generic fallback)" if computed.get("calibration_fallback") else ""),
             f"histories {computed.get('histories')}",

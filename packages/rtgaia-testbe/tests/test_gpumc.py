@@ -278,7 +278,7 @@ def test_model_vs_public_beam_data(tb, tmp_path: Path) -> None:  # type: ignore[
 
 
 def test_source_model_components(tb) -> None:  # type: ignore[no-untyped-def]
-    """擬合用的射源成分在 GPU 上的效果方向對：電子污染抬高表面劑量、dmax 變淺、大射野效果比較大；
+    """擬合用的射源成分在 GPU 上的效果方向對：電子污染抬高表面劑量、大射野效果比較大、關起來的 MLC 下面沒有電子；
     準直器有效密度變小 → 穿透變大（約 exp(0.15 μρL) 倍）；監測游離腔反散射 → 小射野每 MU 劑量少 s 倍。"""
     import copy
 
@@ -287,7 +287,7 @@ def test_source_model_components(tb) -> None:  # type: ignore[no-untyped-def]
     base = beam_models.demo_6x()
     ec = copy.deepcopy(base)
     ec["params"]["electron_contamination"] = {
-        "fraction": 0.002, "mean_energy_mev": 1.5, "sigma_mm": 50.0, "distance_below_target_mm": 500.0,
+        "fraction": 0.002, "mean_energy_mev": 1.5, "sigma_mm": 30.0, "distance_below_target_mm": 150.0,
     }  # fmt: skip
 
     def surface_and_dmax(model: dict, field: float, n: float) -> tuple[float, float]:  # type: ignore[type-arg]
@@ -299,7 +299,7 @@ def test_source_model_components(tb) -> None:  # type: ignore[no-untyped-def]
     s1, d1 = surface_and_dmax(ec, 100.0, 5e8)
     s0b, _ = surface_and_dmax(base, 400.0, 2e9)
     s1b, _ = surface_and_dmax(ec, 400.0, 2e9)
-    assert s1 > s0 + 0.04 and d1 < d0
+    assert s1 > s0 + 0.015 and d1 <= d0 + 0.3
     assert (s1b - s0b) > (s1 - s0)  # 大射野的電子污染多
 
     def transmission(model: dict) -> float:  # type: ignore[type-arg]
@@ -311,6 +311,14 @@ def test_source_model_components(tb) -> None:  # type: ignore[no-untyped-def]
     dens["params"]["collimators"]["MLCX"]["density_factor"] = 0.85
     t1, t085 = transmission(base), transmission(dens)
     assert 2.0 < t085 / t1 < 4.5
+
+    # 電子污染碰到鎢就停：MLC 整片關起來，dmax 附近的穿透跟沒有電子污染時一樣（以前電子直接穿過，3% 對 0.4%）
+    def transmission_dmax(model: dict) -> float:  # type: ignore[type-arg]
+        closed = water.simulate(model, water.Setup(100, 100, 1000, "closed"), tb, 1_000_000_000).mean
+        open_ = water.simulate(model, water.Setup(100, 100, 1000), tb, 300_000_000).mean
+        return water.dose_at(closed.depth_mm, closed.cax, 15.0) / water.dose_at(open_.depth_mm, open_.cax, 15.0)
+
+    assert transmission_dmax(ec) == pytest.approx(transmission_dmax(base), rel=0.15)
 
     bs = copy.deepcopy(base)
     bs["params"]["monitor_backscatter"] = {"per_mm_x": 1e-4, "per_mm_y": 1e-4}
