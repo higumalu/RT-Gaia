@@ -33,12 +33,18 @@ GROUP_EDGES_MEV = (1.0, 2.0, 3.5)
 """能譜分 4 組：< 1、1–2、2–3.5、≥ 3.5 MeV（每組裡的形狀照先驗）。"""
 PRIOR_REL_SIGMA = 0.3
 """能譜每組權重的先驗不確定度（相對）：沒有資料時往先驗拉。"""
-EC_MEAN_GRID = (0.7, 1.5, 3.0)
-EC_SIGMA_GRID = (30.0, 80.0)
+EC_MEAN_GRID = (0.5, 1.0, 2.0, 4.0)
+EC_SIGMA_GRID = (20.0, 50.0, 120.0)
+EC_PRIOR_FRACTION = 1e-3
+EC_PRIOR_LOG10_SIGMA = 0.5
+"""電子污染 fraction 的先驗：1e-3、±半個數量級（射源在靶下 150 mm 時，10 × 10 表面劑量多 2–5%）。只有 dmax 約束時
+（FFF 的峰很平、dmax 對 fraction 是階梯狀），沒有先驗的話 fraction 會跑到格點邊上去補別的誤差。"""
 EC_DISTANCE_MM = 150.0
 """電子污染射源在靶下多遠（整平濾片、監測游離腔附近：電子污染主要從這裡來，往下要過 jaw、MLC）。"""
 FOCAL_GRID = (0.4, 0.6, 0.8, 1.0, 1.3, 1.7)
-EF_SIGMA_GRID = (10.0, 25.0, 50.0)
+ANGULAR_FACTORS = (0.7, 0.85, 1.0, 1.2, 1.45)
+"""FFF 角分佈 σ 的格點（先驗的倍數）。"""
+EF_SIGMA_GRID = (10.0, 25.0, 50.0, 100.0)
 EF_MAX = 0.8
 """機頭散射 fraction 的上限。fraction 是「發射到開口 ＋ 3σ 錐角裡的光子」的比例，大部分打在準直器上被吸收 ——
 實測 10 × 10 中心軸上每單位 fraction 的劑量只有原射源的 4–31%（σ 50–10 mm），所以 0.2–0.3 才是常見的
@@ -50,6 +56,7 @@ STAGE_NAME_ZH = {
     "focal_spot": "焦點",
     "head_scatter": "機頭散射與反散射",
     "collimator_density": "準直器有效密度",
+    "angular_spread": "FFF 角分佈",
 }
 PASSES = 2
 SMALL_FIELD_MM = 40.0
@@ -426,13 +433,25 @@ def fit_contamination(st: State, basis: Basis, problem: Problem) -> Stage:
             ec = {k: st.ec(basis, s, mean, sig) for k, s in problem.setups.items()}
 
             def fun(f: float, ec: dict = ec) -> np.ndarray:  # type: ignore[type-arg]
+                prior = (math.log10(max(f, 1e-12)) - math.log10(EC_PRIOR_FRACTION)) / EC_PRIOR_LOG10_SIGMA
+                return np.append(_ec_residuals(f, ec), prior)
+
+            def _ec_residuals(f: float, ec: dict = ec) -> np.ndarray:  # type: ignore[type-arg]
                 return residuals(
                     problem,
                     {k: combine([(w * (1 - f), x) for w, x in base[k]] + [(f, ec[k])])[0] for k in problem.setups},
                 )
 
             f, c, sd = _scan_1d(fun, 1e-5, 2e-2)
-            row = {"mean_energy_mev": mean, "sigma_mm": sig, "fraction": f, "fraction_sd": sd, "cost": c}
+            data_cost = cost(_ec_residuals(f))
+            row = {
+                "mean_energy_mev": mean,
+                "sigma_mm": sig,
+                "fraction": f,
+                "fraction_sd": sd,
+                "cost": c,
+                "data_cost": data_cost,
+            }
             grid.append(row)
             if best is None or row["cost"] < best["cost"]:
                 best = row
@@ -448,19 +467,22 @@ def fit_contamination(st: State, basis: Basis, problem: Problem) -> Stage:
         + _edge("sigma_mm", best["sigma_mm"], EC_SIGMA_GRID[0], EC_SIGMA_GRID[-1])
     )
     return Stage(
-        "electron_contamination", dict(ec_params), problem.ids(), before, best["cost"], grid,
+        "electron_contamination", dict(ec_params), problem.ids(), before, best["data_cost"], grid,
         uncertainty={"fraction": best["fraction_sd"]}, at_bounds=bounds,
+        note=f"fraction 的先驗 {EC_PRIOR_FRACTION:g}（±{EC_PRIOR_LOG10_SIGMA:g} 個數量級）；格點的成本含先驗項",
     )  # fmt: skip
 
 
-def fit_focal(st: State, basis: Basis, problem: Problem, fff: bool) -> Stage:
+def fit_focal(st: State, basis: Basis, problem: Problem, fff: bool, prior_angular: float | None = None) -> Stage:
+    """焦點 σ（格點）；FFF 的角分佈 σ **只在有離軸的側向分佈量測（FWHM、unflatness、slope）時**一起擬，格點相對先驗
+    （不相對目前的值 —— 不然每一輪都往外飄）。只有輸出因子的話角分佈約束不了：Halcyon 公開資料只有輸出因子，
+    角分佈被輸出因子推到格點邊上（7.6° → 11.9°），射野外圍的通量多 4–5%，臨床計畫整體高 3.6%。"""
     p = st.model["params"]
     scale = backscatter_scale(st.model, problem)  # 小射野的輸出因子也在這一段：用目前的反散射
     before = cost(residuals(problem, st.curves(basis, problem), scale))
+    off_axis = any(c.quantity in ("fwhm_mm", "unflatness", "slope_percent_per_mm") for c in problem.checks)
     angular = (
-        [round(float(p["angular_sigma_deg"]) * f, 4) for f in (0.8, 1.0, 1.25)]
-        if fff and p.get("angular_sigma_deg")
-        else [None]
+        [round(float(prior_angular) * f, 4) for f in ANGULAR_FACTORS] if fff and prior_angular and off_axis else [None]
     )
     original = {k: p.get(k) for k in ("focal_spot_sigma_mm", "angular_sigma_deg")}
     grid: list[dict[str, Any]] = []
@@ -660,6 +682,12 @@ def fit(
         )
         if prob is None
     ]  # fmt: skip
+    if (
+        fff
+        and model["params"].get("angular_sigma_deg")
+        and not any(c.quantity in ("fwhm_mm", "unflatness", "slope_percent_per_mm") for c in checks)
+    ):
+        unconstrained.append("angular_spread")  # 沒有離軸的側向分佈：FFF 角分佈照先驗
     # 各段互相影響（電子污染的 dmax 跟機頭散射、能譜有關；輸出因子跟焦點有關）：整串跑兩輪，第二輪從第一輪的結果出發
     for round_no in range(1, PASSES + 1):
         done: list[Stage] = []
@@ -668,7 +696,7 @@ def fit(
         if dmax:
             done.append(fit_contamination(st, basis, dmax))
         if prof:
-            done.append(fit_focal(st, basis, prof, fff))
+            done.append(fit_focal(st, basis, prof, fff, model["params"].get("angular_sigma_deg")))
         if of:
             done.append(fit_head_scatter(st, basis, of, has_jaws))
         if trans:

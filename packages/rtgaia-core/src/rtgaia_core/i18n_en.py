@@ -918,6 +918,8 @@ EN: dict[str, str] = {
     "未約束（擬合資料裡沒有對應的量測，照先驗）：{p0}": "Unconstrained (no measurement in the fit data constrains it; prior kept): {p0}",
     "弱約束（格點裡有一樣好的其他值）：{p0}": "Weakly constrained (other grid values fit equally well): {p0}",
     "停在搜尋範圍邊上：{p0}": "At the edge of the search range: {p0}",
+    "fraction 的先驗 {EC_PRIOR_FRACTION}（±{EC_PRIOR_LOG10_SIGMA} 個數量級）；格點的成本含先驗項": "Prior on the fraction {EC_PRIOR_FRACTION} (±{EC_PRIOR_LOG10_SIGMA} decades); the grid costs include the prior term",
+    "FFF 角分佈": "FFF angular spread",
     # 劑量計算
     "GPU Monte Carlo：機頭只算鎢的衰減（不模擬準直器散射）；電子污染用射束模型的虛擬射源": "GPU Monte Carlo: the head is modelled by tungsten attenuation only (no collimator scatter); electron contamination comes from the beam model's virtual source",
     "OpenTOPAS 用實體機頭與空氣模擬，不加射束模型的虛擬電子污染（那是 GPU 引擎的擬合成分）": "OpenTOPAS simulates the physical head and air and does not add the beam model's virtual electron contamination (a fitted component of the GPU engine)",

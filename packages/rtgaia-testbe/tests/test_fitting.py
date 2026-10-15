@@ -277,3 +277,16 @@ def test_parameters_at_the_search_bounds_are_flagged() -> None:
     assert fitting._edge("f", 0.15, 0.0, 0.3) == []
     st = fitting.Stage("head_scatter", {}, [], 2.0, 1.0, at_bounds=["extra_focal.fraction"])
     assert st.to_json()["at_bounds"] == ["extra_focal.fraction"]
+
+
+def test_fff_angular_spread_needs_off_axis_profiles(fake) -> None:  # type: ignore[no-untyped-def]
+    """FFF 的角分佈只在有 FWHM／unflatness／slope 時擬合；只有輸出因子 → 照先驗、列未約束（Halcyon 的教訓：只靠輸出因子
+    會把角分佈推到格點邊上，臨床計畫整體高 3.6%）。"""
+    prior = beam_models.demo_6xfff()
+    ds = _dataset(_truth(beam_models.demo_6x()))
+    ds["measurements"] = [m for m in ds["measurements"] if m["kind"] == "output_factor"]
+    fitted, report = fitting.fit(prior, [ds], tb=None, histories=10)
+    assert "angular_spread" in report["unconstrained"]
+    assert fitted["params"]["angular_sigma_deg"] == prior["params"]["angular_sigma_deg"]
+    final = fitting.finalize(fitted, prior, report, demo=True)
+    assert any("FFF 角分佈" in x for x in final["limitations"])

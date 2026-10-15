@@ -114,6 +114,7 @@ export const STAGE_LABEL: Record<string, string> = {
   focal_spot: msg('焦點'),
   head_scatter: msg('機頭散射與反散射'),
   collimator_density: msg('準直器有效密度'),
+  angular_spread: msg('FFF 角分佈'),
 };
 
 function num(v: unknown): string {

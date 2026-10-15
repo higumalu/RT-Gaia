@@ -2319,6 +2319,7 @@ export const EN: Readonly<Record<string, MessageEntry>> = {
   "存成草稿": "Save as draft",
   "建立／啟用": "Created / activated",
   "（所有沒有對到的 CT）": "(every CT that matches nothing else)",
+  "FFF 角分佈": "FFF angular spread",
   "停在搜尋範圍邊上：{names} —— 資料要的可能是模型沒有的東西": "Stopped at the edge of the search range: {names} — the data may ask for something the model does not have",
   "碰到邊界": "At bound",
   "劑量計算（Monte Carlo）用的射束模型：能譜、射源、機頭散射、電子污染、jaw／MLC 的幾何、MU 校正。依射束的能量、通量模式、MLC 種類（與機器名稱）自動挑選：啟用中的擬合模型優先，沒有就用內建的示範模型。擬合模型從「射束資料」擬合（GPU）；擬合自非實測資料的一律標示範用。": "Beam models for the Monte Carlo dose calculation: spectrum, source, head scatter, electron contamination, jaw and MLC geometry, MU calibration. The model for a beam is chosen from its energy, fluence mode, MLC type (and machine name): an active fitted model first, otherwise the built-in demo model. Fitted models are fitted to Beam data (GPU); a model fitted to data that are not measurements is always marked as demo.",
