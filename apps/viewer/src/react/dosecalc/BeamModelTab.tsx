@@ -232,7 +232,10 @@ function UserModelPanel({ m, onChanged, onError }: { m: UserBeamModel; onChanged
                   <td>{r.label}</td>
                   <td>{r.x ?? ''}</td>
                   <td>{r.measured}</td>
-                  <td>{r.model !== null ? Number(r.model.toPrecision(4)) : '—'}</td>
+                  <td>
+                    {r.model !== null ? Number(r.model.toPrecision(4)) : '—'}
+                    {r.u_model ? <span className="muted"> ± {Number(r.u_model.toPrecision(2))}</span> : null}
+                  </td>
                   <td title={r.reason ?? r.note ?? ''}>{r.in_tolerance !== undefined ? r.in_tolerance.toFixed(2) : r.status === 'unsupported' ? t('不支援') : '—'}</td>
                 </tr>
               ))}

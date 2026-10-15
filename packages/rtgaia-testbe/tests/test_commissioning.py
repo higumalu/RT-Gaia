@@ -188,6 +188,14 @@ def test_histories_scale_with_field_area() -> None:
     assert commissioning.histories_for(water.Setup(30, 30, 1000), 1000) == 1000
     assert commissioning.histories_for(water.Setup(200, 200, 1000), 1000) == 4000
     assert commissioning.histories_for(water.Setup(400, 400, 1000), 1000) == 4000
+    # 機頭散射的 fraction 大 → 原射源分到的歷史少 → 再加（最多 3 倍）；示範模型的機頭散射少，加得少
+    import copy
+
+    heavy = copy.deepcopy(MODELS["demo-6xfff-dual"])
+    heavy["params"]["extra_focal"] = {**heavy["params"]["extra_focal"], "fraction": 0.27, "sigma_mm": 25.0}
+    small = water.Setup(20, 20, 900, "mlc")
+    assert commissioning.histories_for(small, 1000, heavy) > 2.5 * commissioning.histories_for(small, 1000)
+    assert commissioning.histories_for(small, 1000, MODELS["demo-6xfff-dual"]) < 1.2 * 1000
 
 
 def test_run_checks_residuals_with_a_fake_simulator(monkeypatch) -> None:  # type: ignore[no-untyped-def]

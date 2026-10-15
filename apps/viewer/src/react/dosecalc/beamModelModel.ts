@@ -93,6 +93,7 @@ export interface CheckRow {
   readonly x: number | null;
   readonly measured: number;
   readonly model: number | null;
+  readonly u_model?: number | null;
   readonly diff?: number;
   readonly in_tolerance?: number;
   readonly status: 'pass' | 'fail' | 'unsupported' | 'error';

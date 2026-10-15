@@ -330,14 +330,25 @@ def _value(check: Check, curves: water.Curves, ref: water.Curves | None, hpm: fl
 
 
 MAX_HISTORY_SCALE = 4.0
+MAX_MIXTURE_SCALE = 3.0
+"""機頭散射的 fraction 大時，大部分歷史是被準直器吸收的機頭散射光子 → 原射源分到的少、雜訊大（Halcyon 2×2：
+65% 的歷史是機頭散射，中心軸雜訊 0.9%，對純原射源 0.2%）。歷史數再乘 1／原射源的比例，最多 3 倍。"""
 DEFAULT_HISTORIES = 1_000_000_000
 """每個 10 × 10 條件的歷史數：中心軸附近的統計不確定度約 0.2–0.4%（RTX 5090 上單層 MLC 約 10 秒，雙層約 3 倍）。"""
 
 
-def histories_for(setup: water.Setup, base: int) -> int:
+def histories_for(setup: water.Setup, base: int, model: dict[str, Any] | None = None) -> int:
     """大射野的錐角大、中心軸附近分到的歷史少：歷史數跟射野面積（相對 10 × 10）走，最多 4 倍、最少 1 倍
-    （大射野的中心軸平均範圍也比較大，所以不用完全照面積加）。"""
+    （大射野的中心軸平均範圍也比較大，所以不用完全照面積加）；給了模型的話，再乘 1／原射源佔的歷史比例
+    （`MAX_MIXTURE_SCALE`）。"""
     scale = float(np.clip(setup.field_x * setup.field_y / 100.0**2, 1.0, MAX_HISTORY_SCALE))
+    if model is not None:
+        from .engines import topas
+
+        plan = topas.source_plan(water.setup_beam(model, setup), model, 1_000_000)
+        primary = sum(plan.hist_pr) / max(1, sum(plan.hist_pr) + sum(plan.hist_ef) + sum(plan.hist_ec))
+        if primary > 0:
+            scale *= float(np.clip(1.0 / primary, 1.0, MAX_MIXTURE_SCALE))
     return int(base * scale)
 
 
@@ -366,7 +377,7 @@ def run_checks(
     for i, (key, s) in enumerate(setups.items()):
         if progress is not None:
             progress(i / max(1, len(setups)), s.key)
-        sims[key] = water.simulate(model, s, tb, histories_for(s, histories), seed=1 + i)
+        sims[key] = water.simulate(model, s, tb, histories_for(s, histories, model), seed=1 + i)
     if progress is not None:
         progress(1.0, "")
 
