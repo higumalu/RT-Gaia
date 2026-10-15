@@ -249,3 +249,29 @@ def test_engine_plan_matches_topas(tmp_path: Path) -> None:
         assert 0.97 <= ratio <= 1.05, f"射束 {n} GPU／TOPAS {ratio:.3f}"
         assert dice >= 0.9, f"射束 {n} 50% 範圍重疊 {dice:.2f}"
     assert out["gpu"].info["seconds"] < out["topas"].info["seconds"]
+
+
+def test_model_vs_public_beam_data(tb, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    """示範 6X 模型對 Beyer 2013（三台 TrueBeam）的 PDD10 與中間射野的輸出因子：用來確認比對流程在 GPU 上跑得通、
+    取值合理（示範模型不是擬合出來的，門檻放寬；擬合之後另有更嚴的測試）。"""
+    from rtgaia_dosecalc import beam_data, commissioning
+    from rtgaia_dosecalc.gpumc import engine
+
+    model = beam_models.demo_6x()
+    ds = {d["dataset_id"]: d for d in beam_data.builtin_datasets()}["pub-beyer2013-6x"]
+    keep = {"beyer2013-t1-pdd10-6x-10x10", "beyer2013-t1-dmax-6x-10x10", "beyer2013-t2-of-6x"}
+    sub = {**ds, "measurements": [m for m in ds["measurements"] if m["measurement_id"] in keep]}
+    sub["measurements"] = [
+        {**m, "points": [r for r in m["points"] if r[0] in (60.0, 100.0, 150.0)]} if m["kind"] == "output_factor" else m
+        for m in sub["measurements"]
+    ]
+    hpm = engine.calibration(model, tmp_path / "calibration", tb)
+    rep = commissioning.run_checks(model, sub, tb, hpm, histories=500_000_000)
+    rows = {(r["measurement_id"], r["x"]): r for r in rep["checks"]}
+    pdd = rows[("beyer2013-t1-pdd10-6x-10x10", 100.0)]
+    assert abs(pdd["diff"]) < 1.5 and pdd["u_model"] < 0.6  # 百分點
+    assert abs(rows[("beyer2013-t1-dmax-6x-10x10", None)]["diff"]) < 3.0  # mm
+    for fs in (60.0, 150.0):
+        of = rows[("beyer2013-t2-of-6x", fs)]
+        assert abs(of["diff_relative"]) < 0.03 and of["u_model"] < 0.01
+    assert rows[("beyer2013-t2-of-6x", 100.0)]["model"] == pytest.approx(1.0)

@@ -86,6 +86,13 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   beam with their source, citation and licence; depth doses, profiles, output factors, single values and absolute
   calibration with conditions and uncertainties; import as generic CSV; drafts, locking and copies. Built-in
   datasets reproduce tables from five open-access TrueBeam and Halcyon articles (CC BY).
+- Beam model check against beam data (`rtgaia-dosecalc check-model`, GPU): every measurement is simulated in a
+  water tank under its own conditions and compared point by point (depth doses, depth of maximum, TPR20,10,
+  output factors, penumbra, field width, FFF unflatness and slope, MLC transmission, absolute calibration), with
+  the detector's volume averaging applied to profiles, batch uncertainties for every derived value and
+  tolerances of 1 % or 1 mm; unsupported measurements are listed with the reason.
+- The reference field of dual-layer MLC beam models now opens every leaf that overlaps the field; the upper
+  layer previously opened 9 cm instead of 10 cm in the MU calibration field. Cached MU calibrations are redone.
 - Plan display (view only): beam table, isocenter markers, beam's-eye view with jaws and MLC, a
   control-point timeline, arc ticks on axial images, beams in 3D, a gantry and couch sketch, and a DRR
   computed from the planning CT.

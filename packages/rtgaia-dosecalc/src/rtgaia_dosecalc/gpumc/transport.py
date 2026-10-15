@@ -209,9 +209,11 @@ def simulate_beam(
     batches: int,
     seed: int = 1,
     progress: Any = None,
+    on_batch: Any = None,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
     """同一份射源跑 `batches` 批（歷史編號接續）；回每一批的沉積能量總和（MeV）的平均與 1σ（批次法），
-    以及統計（被準直器吸收的比例等）。"""
+    以及統計（被準直器吸收的比例等）。`on_batch(edep)`：每一批的沉積能量（(nz, ny, nx) MeV）—— 從劑量分佈
+    導出的量（dmax、半影…）要逐批算才有自己的批次不確定度。"""
     import time
 
     import cupy as cp
@@ -263,6 +265,8 @@ def simulate_beam(
         e = cp.asnumpy(edep).astype(np.float64) / ESCALE
         s1 += e
         s2 += e * e
+        if on_batch is not None:
+            on_batch(e.reshape(nz, ny, nx))
         if progress is not None:
             progress((b + 1) / batches)
     mean = s1 / batches

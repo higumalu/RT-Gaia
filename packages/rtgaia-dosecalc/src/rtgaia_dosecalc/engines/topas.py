@@ -47,7 +47,7 @@ from ..delivery import Beam, ControlPoint, bld_to_lps, interpolate, segments
 from ..package import CalcInput, CalcResult
 
 IMAGE = os.environ.get("RTGAIA_TOPAS_IMAGE", "opentopas/opentopas:v4.3.0-geant4-11.4.2")
-ENGINE_VERSION = f"opentopas {IMAGE.rsplit(':', 1)[-1]} / rtgaia-topas 4"
+ENGINE_VERSION = f"opentopas {IMAGE.rsplit(':', 1)[-1]} / rtgaia-topas 5"
 DENSITY_STEP = 0.002
 DENSITY_BINS = 2600
 """每段 2600 格 × 0.002 g/cm³ ＝ 0–5.2 g/cm³（鈦 4.54）；更密的夾到上限並計數。"""
@@ -817,16 +817,24 @@ def reference_beam(model: dict[str, Any]) -> Beam:
         leaves = model["params"]["calibration_leaves"]
         ref_beam.mlc_devices = list(model.get("mlc_devices") or [])
 
-        def opening(bounds: list[float]) -> tuple[list[float], list[float]]:
-            mids = [(a + b) / 2 for a, b in zip(bounds, bounds[1:], strict=False)]
-            return [-half if abs(m) < half else 0.0 for m in mids], [half if abs(m) < half else 0.0 for m in mids]
-
         ref_beam.leaf_boundaries_mm = leaves["MLCX1"]
         ref_beam.leaf2_boundaries_mm = leaves["MLCX2"]
         for cp in ref_beam.control_points:
-            cp.mlc_a, cp.mlc_b = opening(leaves["MLCX1"])
-            cp.mlc2_a, cp.mlc2_b = opening(leaves["MLCX2"])
+            cp.mlc_a, cp.mlc_b = mlc_opening(leaves["MLCX1"], -half, half, -half, half)
+            cp.mlc2_a, cp.mlc2_b = mlc_opening(leaves["MLCX2"], -half, half, -half, half)
     return ref_beam
+
+
+def mlc_opening(bounds: list[float], x1: float, x2: float, y1: float, y2: float) -> tuple[list[float], list[float]]:
+    """矩形射野 [x1, x2] × [y1, y2]（等中心平面 mm）→ 一層 MLC 的 A、B 側位置：跟射野在 y 上**有重疊**的葉片打開到
+    x1…x2，其他關在 0（gap 0）。只開中心點在射野內的葉片會讓錯開半片的那一層少開半片（Halcyon 上層在 10 × 10 只開
+    到 9 cm）。"""
+    a, b = [], []
+    for lo, hi in zip(bounds, bounds[1:], strict=False):
+        inside = hi > y1 + 1e-6 and lo < y2 - 1e-6
+        a.append(x1 if inside else 0.0)
+        b.append(x2 if inside else 0.0)
+    return a, b
 
 
 def calibration(model: dict[str, Any], cache_dir: Path, *, progress: Any = None, label: str = "calibration") -> float:

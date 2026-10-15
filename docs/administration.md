@@ -1160,6 +1160,27 @@ for a square. **Edit as CSV** turns the measurements of a draft back into this t
 
 Datasets are stored in the `app_setting` table under the key `beam_data` and are included in database backups.
 
+**Checking a beam model against beam data.** On a server with the GPU engine, compare a beam model with a
+dataset from the command line:
+
+```
+uv run rtgaia-dosecalc check-model --model demo-6x --dataset pub-beyer2013-6x \
+    --data-dir "$RTGAIA_DATA_DIR/dosecalc" --output /tmp/check
+```
+
+Each measurement is simulated in a water tank under its own conditions (field size at the isocentre, SSD or
+isocentric depth, jaw- or MLC-defined field, closed MLC layer for transmission), with the same definitions as the
+measurement: depth of maximum from a fit over the peak; PDD normalized at that depth; TPR20,10 from PDD20/PDD10
+with the TRS-398 formula; output factors as ratios of central-axis doses; penumbra (80–20 %) and field width (50 %)
+after averaging the profile over the detector named in the measurement (CC13, PTW 31010, Farmer, diodes, diamond
+…; profiles from an unknown detector are not averaged and the result says so); FFF profiles renormalized so that
+the inflection point is 50 %. `report.json` lists every point with the measured value, the model value, both
+uncertainties, the difference and whether it is within tolerance (1 % for dose ratios and output factors, 1 mm
+for positions, 1 percentage point for PDD, 0.1 percentage point for transmission). Measurements the check cannot
+simulate yet (TPR and TMR curves, leaf-end offset, dosimetric leaf gap, jaw transmission) are listed with the
+reason. With the default statistics a dataset takes a few minutes on an RTX 5090; dual-layer MLC models are about
+three times slower.
+
 ## Resource limits
 
 | Limit | Default | Setting |
