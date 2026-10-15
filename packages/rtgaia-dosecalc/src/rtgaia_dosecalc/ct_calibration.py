@@ -21,6 +21,12 @@ simulations of clinical dose distributions.* Phys Med Biol 2000;45:459–478.
 使用者給 HU → 密度的點表（假體實測；分段線性內插，HU 嚴格遞增）。元素組成依 HU 套 Schneider 的 25 段
 （只換密度、不換組成 —— 組成要從化學計量法另外推，之後有需要再開欄位）。
 
+* **任何一條都能拿來當底**（`points_of`）：內建曲線也換成點表（每段取頭尾兩個整數 HU，整數 HU 上跟原公式
+  逐點相同），複製成新草稿再改；`derived_from` 記下從哪一條來。
+* 草稿可以改；**啟用後不能改**（舊的結果要說得出用了哪一條、內容是什麼）—— 要改就複製成新草稿再啟用，
+  同一組比對規則的舊曲線自動停用。
+* **預設曲線**（`match.default`）：沒有更具體的曲線對到時都用它，取代內建當通用曲線；同時只有一條啟用中。
+
 ## 範圍外
 
 HU 低於曲線最小值或高於最大值 → 夾到端點的值，**另外計數**（`clamped_low`／`clamped_high`）：高的通常是金屬或
@@ -29,7 +35,7 @@ HU 低於曲線最小值或高於最大值 → 夾到端點的值，**另外計�
 ## 哪一條曲線套到哪個 CT（`resolve`）
 
 啟用中的使用者曲線依比對規則（製造商、機型、kVp；空的欄位不比）挑**最具體**的，同樣具體挑最晚啟用的；
-都對不到 → 內建的通用曲線，`fallback: true` 並說明原因。
+再對不到 → 啟用中的預設曲線；都沒有 → 內建的通用曲線，`fallback: true` 並說明原因。
 """
 
 from __future__ import annotations
@@ -148,7 +154,7 @@ def builtin_calibration() -> dict[str, Any]:
             ],
         },
         "materials": {"type": "schneider2000"},
-        "match": {"manufacturer": "", "model": "", "kvp": None},
+        "match": {"manufacturer": "", "model": "", "kvp": None, "default": False},
         "note": "",
     }
 
@@ -227,6 +233,21 @@ def convert(cal: dict[str, Any], hu: np.ndarray) -> Converted:
     )
 
 
+def points_of(cal: dict[str, Any]) -> list[list[float]]:
+    """任何一條曲線 → 可編輯的點表。分段公式取每段頭尾兩個整數 HU：CT 的 HU 是整數，整數上的值跟原公式相同
+    （段與段之間的跳躍落在相鄰兩個整數之間）。"""
+    d = cal["density"]
+    if d["type"] == "points":
+        return [[float(h), float(r)] for h, r in d["points"]]
+    hus: list[float] = []
+    for sec in d["sections"]:
+        for h in (float(sec["hu_lo"]), float(sec["hu_hi"]) - 1):
+            if not hus or h > hus[-1]:
+                hus.append(h)
+    rho = density_of(cal, np.asarray(hus))
+    return [[h, round(float(r), 6)] for h, r in zip(hus, rho, strict=True)]
+
+
 def sampled_curve(cal: dict[str, Any], step: int = CURVE_STEP_HU) -> dict[str, Any]:
     """畫圖用：從曲線最小 HU 到最大 HU 每 `step` 取一點的密度與材質編號（段的邊界兩側也取，跳躍畫得出來）。"""
     lo, hi = hu_range(cal)
@@ -290,8 +311,11 @@ def check_user_curve(body: dict[str, Any]) -> tuple[dict[str, Any] | None, list[
         problems.append("kVp 要在 40–200")
     manufacturer = str(match.get("manufacturer") or "").strip()
     model = str(match.get("model") or "").strip()
-    if not manufacturer and not model and kvp is None:
-        problems.append("比對規則至少要填一項（製造商、機型或 kVp）；不填就永遠不會被選到")
+    default = match.get("default") is True
+    if default and (manufacturer or model or kvp is not None):
+        problems.append("預設曲線不填製造商、機型、kVp（它給所有沒對到的 CT 用）")
+    elif not default and not manufacturer and not model and kvp is None:
+        problems.append("比對規則至少要填一項（製造商、機型或 kVp），或設成預設曲線；不然永遠不會被選到")
     if problems:
         return None, problems
     return {
@@ -301,8 +325,14 @@ def check_user_curve(body: dict[str, Any]) -> tuple[dict[str, Any] | None, list[
         "reference": str(body.get("reference") or "").strip()[:500],
         "density": {"type": "points", "points": pts},
         "materials": {"type": "schneider2000"},
-        "match": {"manufacturer": manufacturer, "model": model, "kvp": float(kvp) if kvp is not None else None},
+        "match": {
+            "manufacturer": manufacturer,
+            "model": model,
+            "kvp": float(kvp) if kvp is not None else None,
+            "default": default,
+        },
         "note": str(body.get("note") or "").strip()[:1000],
+        "derived_from": str(body.get("derived_from") or "").strip()[:64] or None,
     }, []
 
 
@@ -318,6 +348,11 @@ def new_record(draft: dict[str, Any], *, user: str) -> dict[str, Any]:
         "retired_by": None,
         "retired_at": None,
     }
+
+
+def update_draft(item: dict[str, Any], draft: dict[str, Any], *, user: str) -> None:
+    """改草稿的內容（id、建立者、狀態不變）。呼叫端要先確定是草稿。"""
+    item.update(draft, updated_by=user, updated_at=_now())
 
 
 def activate(items: list[dict[str, Any]], calibration_id: str, *, user: str) -> list[str]:
@@ -337,8 +372,13 @@ def retire(item: dict[str, Any], *, user: str) -> None:
     item.update(status="retired", retired_by=user, retired_at=_now())
 
 
-def _match_key(m: dict[str, Any]) -> tuple[str, str, float | None]:
-    return (str(m.get("manufacturer") or "").lower(), str(m.get("model") or "").lower(), m.get("kvp"))
+def _match_key(m: dict[str, Any]) -> tuple[str, str, float | None, bool]:
+    return (
+        str(m.get("manufacturer") or "").lower(),
+        str(m.get("model") or "").lower(),
+        m.get("kvp"),
+        m.get("default") is True,
+    )
 
 
 # ── 哪一條套到哪個 CT ─────────────────────────────────────────────────────────
@@ -381,7 +421,8 @@ def _rule_matches(m: dict[str, Any], scanner: dict[str, Any]) -> bool:
 
 def resolve(items: list[dict[str, Any]], scanner: dict[str, Any]) -> dict[str, Any]:
     """`{calibration, fallback, reason}`：啟用中的使用者曲線挑最具體的；都對不到 → 內建通用曲線。"""
-    candidates = [x for x in items if x["status"] == "active" and _rule_matches(x["match"], scanner)]
+    active = [x for x in items if x["status"] == "active"]
+    candidates = [x for x in active if not x["match"].get("default") and _rule_matches(x["match"], scanner)]
     if candidates:
 
         def rank(x: dict[str, Any]) -> tuple[int, str]:
@@ -394,6 +435,14 @@ def resolve(items: list[dict[str, Any]], scanner: dict[str, Any]) -> dict[str, A
     desc = " ".join(x for x in (scanner.get("manufacturer"), scanner.get("model")) if x) or "機型不明"
     kvp = scanner.get("kvp")
     kvp_text = f"{kvp:g} kVp" if kvp is not None else "kVp 不明"
+    defaults = [x for x in active if x["match"].get("default")]
+    if defaults:
+        best = max(defaults, key=lambda x: x.get("activated_at") or "")
+        return {
+            "calibration": best,
+            "fallback": False,
+            "reason": f"沒有符合的曲線（{desc}、{kvp_text}）：用預設曲線",
+        }
     return {
         "calibration": builtin_calibration(),
         "fallback": True,
@@ -407,7 +456,8 @@ def summary(cal: dict[str, Any]) -> dict[str, Any]:
     return {
         k: cal.get(k)
         for k in (
-            "calibration_id", "name", "status", "builtin", "demo", "reference", "match", "note",
-            "created_by", "created_at", "activated_by", "activated_at", "retired_by", "retired_at",
+            "calibration_id", "name", "status", "builtin", "demo", "reference", "match", "note", "derived_from",
+            "created_by", "created_at", "updated_by", "updated_at", "activated_by", "activated_at",
+            "retired_by", "retired_at",
         )
     } | {"hu_range": [lo, hi], "points": len(cal["density"].get("points") or []) or None}  # fmt: skip

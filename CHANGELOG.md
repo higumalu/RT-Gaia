@@ -79,7 +79,9 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   its MU calibration on this server with the simulated reference depth dose, and its sources and limitations.
 - CT calibration curves for dose calculation (HU → mass density and material): a built-in generic
   Schneider 2000 curve marked as demo, administrator-managed curves from phantom tables with draft, active
-  and retired states, and matching by scanner manufacturer, model and kVp with the reason shown.
+  and retired states, and matching by scanner manufacturer, model and kVp with the reason shown. Any curve,
+  the built-in one included, can be copied to an editable draft, and a default curve can replace the
+  built-in one for scanners that match nothing else.
 - Plan display (view only): beam table, isocenter markers, beam's-eye view with jaws and MLC, a
   control-point timeline, arc ticks on axial images, beams in 3D, a gantry and couch sketch, and a DRR
   computed from the planning CT.

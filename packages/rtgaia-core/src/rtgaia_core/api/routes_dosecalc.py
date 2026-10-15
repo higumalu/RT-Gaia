@@ -252,6 +252,8 @@ async def load_dosecalc(study_id: str, job_id: str, request: Request, app: AppSt
         warnings.append("用的是示範射束模型：不代表任何實機")
     if summary.get("calibration_fallback"):
         warnings.append("CT 用的是內建的通用校正曲線（示範用）")
+    elif (summary.get("calibration") or {}).get("demo"):
+        warnings.append("CT 校正曲線標為示範用：不是這台 CT 的實測")
     if res.info.get("engine") == "pipeline-test":
         warnings.append("流程測試引擎：不是劑量計算")
     warnings += [str(n) for n in res.info.get("notes") or [] if str(n) not in warnings]

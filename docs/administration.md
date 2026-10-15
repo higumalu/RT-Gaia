@@ -1009,25 +1009,33 @@ connection to the case closes, and when the API restarts.
 
 **CT calibration** (an administrator page, next to **Plugins**) holds the curves that convert CT numbers (HU) to mass density and
 material (elemental composition) for dose calculation. Viewing the list is open to every role; creating,
-activating, retiring and deleting curves require the administrator role and are recorded in the audit log.
+editing, activating, retiring and deleting curves require the administrator role and are recorded in the audit log.
 
 - **Built-in curve.** Schneider W, Bortfeld T, Schlegel W, *Phys Med Biol* 2000;45:459–478: seven density
   segments and 25 material bins (air, lung, adipose and soft tissue, connective tissue, bone mixtures,
   titanium), with values taken from OpenTOPAS (`examples/Patient/HUtoMaterialSchneider.txt`, MIT). The
   density correction factors in that file, which were tuned to a particular planning system, are not used.
-  It represents no particular scanner and is marked **Demo**; it is used whenever no active curve matches.
+  It represents no particular scanner and is marked **Demo**; it is used whenever no active curve matches
+  and no default curve is active. It cannot be edited itself, but it can be copied (see below).
 - **Your curves.** Paste a phantom table, one `HU, density (g/cm³)` point per line with HU increasing; a
   header line and `#` comments are ignored. Densities between points are interpolated linearly; values
   outside the table are clamped to its ends and counted. Elemental compositions follow the 25 built-in
   material bins by HU. **Preview** checks the table and draws the curve; **Save as draft** stores it.
+- **Copy to new draft.** Any curve, the built-in one included, can be the starting point of a new draft:
+  its points, match rule, source and note are filled in, and the new curve records which curve it was
+  copied from. The built-in curve becomes a 13-point table that gives the same density at every integer
+  HU (each jump between segments falls between two neighbouring integers). Tick **Demo** while the curve
+  is not a measurement of the scanner; results calculated with it carry a warning.
 - **Matching.** Each curve has a match rule of manufacturer, model and kVp (empty fields are not compared;
-  at least one is required). For a CT series, RT-Gaia reads these from the first image and picks the
-  active curve with the most specific matching rule, the most recently activated one on a tie. When nothing
-  matches, the built-in curve is used and the reason is given. CBCT is matched the same way, with a note
+  at least one is required), or is the **default curve**. For a CT series, RT-Gaia reads these from the
+  first image and picks the active curve with the most specific matching rule, the most recently activated
+  one on a tie. When nothing matches, the active default curve is used; without one, the built-in curve is
+  used. The reason is given either way. CBCT is matched the same way, with a note
   that CBCT HU values are usually inaccurate.
-- **Lifecycle.** A draft can be deleted or **Activate**d. Activating retires any other active curve with
-  the same rule. An active curve cannot be changed or deleted, only **Retire**d, so earlier results can
-  still name the curve they used. To change a curve, add a new one and activate it.
+- **Lifecycle.** A draft can be **Edit**ed, deleted or **Activate**d. Activating retires any other active
+  curve with the same rule (a new default curve retires the previous default). An active curve cannot be
+  changed or deleted, only **Retire**d, so earlier results can still name the curve they used. To change
+  a curve, copy it to a new draft, edit it and activate it.
 
 The curves are stored in the `app_setting` table under the key `ct_calibrations` and are included in
 database backups.

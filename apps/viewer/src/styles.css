@@ -1504,6 +1504,7 @@ kbd { font: inherit; font-size: 11px; padding: 1px 5px; border: 1px solid var(--
 .ctcal-form label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
 .ctcal-form fieldset label .num { width: 5em; }
 .ctcal-form textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.ctcal-form label.check { flex-direction: row; align-items: center; gap: 6px; flex-basis: 100%; }
 
 /* 重算劑量（計畫面板） */
 .plan-dosecalc { margin-top: 8px; }

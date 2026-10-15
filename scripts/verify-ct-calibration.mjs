@@ -6,6 +6,8 @@
  *   病例的 CT 現在用內建曲線（fallback）
  *   ＋ 新增曲線：比對規則填病例 CT 的機型與 kVp、貼點表（含表頭）→ 預覽有曲線 → 存成草稿 → 清單多一列「草稿」
  *   啟用 → 「啟用中」、病例的 CT 改用它；停用 → 「已停用」、病例的 CT 退回內建
+ *   內建「複製成新草稿」：點表帶過來、預設曲線與示範用已勾 → 存成草稿 → 「編輯」改名稱與一點 → 存檔 →
+ *   啟用 → 病例的 CT 用這條預設曲線（不是 fallback、但標示範用）→ 停用，退回內建
  *   英文模式沒有中文
  *
  * 需要量測堆疊（auth off、病例已載入）：
@@ -184,7 +186,42 @@ res = await evaluate(`fetch('/api/v1/series/' + encodeURIComponent(${JSON.string
 if (!res.fallback) throw new Error(`停用後應退回內建：${JSON.stringify(res)}`);
 step('停用 → 「已停用」、病例 CT 退回內建');
 
-// 5. 英文
+// 5. 拿內建當底：複製 → 草稿 → 編輯 → 設成預設 → 啟用
+const rowSel = (status) => `[...${tab}.querySelectorAll('.ctcal-list tbody tr')].find((tr) => tr.dataset.status === ${JSON.stringify(status)})`;
+await clickEl(rowSel('builtin'));
+await waitFor(`${tab}.querySelector('.ctcal-detail')?.dataset.id === 'builtin-schneider2000'`, '選內建', 10000);
+await clickEl(`${tab}.querySelector('button[data-action="ctcal-copy"]')`);
+await waitFor(`${tab}.querySelector('.ctcal-form')?.dataset.mode === 'copy'`, '複製表單', 5000);
+const seeded = await evaluate(`({ lines: ${tab}.querySelector('[data-field="ctcal-points"]').value.split('\\n').length, def: ${tab}.querySelector('[data-field="ctcal-default"]').checked, demo: ${tab}.querySelector('[data-field="ctcal-demo"]').checked, kvpDisabled: ${tab}.querySelector('[data-field="ctcal-kvp"]').disabled, name: ${tab}.querySelector('[data-field="ctcal-name"]').value })`);
+if (seeded.lines !== 13 || !seeded.def || !seeded.demo || !seeded.kvpDisabled) throw new Error(`複製內建應帶 13 點、預設、示範用：${JSON.stringify(seeded)}`);
+await clickEl(`${tab}.querySelector('button[data-action="ctcal-save"]')`);
+await waitFor(`!!${rowSel('draft')}`, '複製出的草稿', 10000);
+await waitFor(`!!${tab}.querySelector('button[data-action="ctcal-edit"]')`, '編輯按鈕', 10000);
+await clickEl(`${tab}.querySelector('button[data-action="ctcal-edit"]')`);
+await waitFor(`${tab}.querySelector('.ctcal-form')?.dataset.mode === 'edit'`, '編輯表單', 5000);
+await setValue(`${tab}.querySelector('[data-field="ctcal-name"]')`, 'Schneider edited');
+const edited = (await evaluate(`${tab}.querySelector('[data-field="ctcal-points"]').value`)).replace(/^22, 1\.03$/m, '22, 1.04');
+await evaluate(`(() => { const el = ${tab}.querySelector('[data-field="ctcal-points"]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(el, ${JSON.stringify(edited)}); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+await clickEl(`${tab}.querySelector('button[data-action="ctcal-save"]')`);
+await waitFor(`${tab}.querySelector('.ctcal-detail h3')?.textContent === 'Schneider edited'`, '改好的草稿', 10000);
+const draftId = await evaluate(`${tab}.querySelector('.ctcal-detail').dataset.id`);
+const saved = await evaluate(`fetch('/api/v1/ct-calibrations/' + encodeURIComponent(${JSON.stringify(draftId)})).then((r) => r.json())`);
+if (!saved.point_table.some(([h, r]) => h === 22 && r === 1.04) || saved.derived_from !== 'builtin-schneider2000' || !saved.match.default) throw new Error(`草稿內容不對：${JSON.stringify(saved)}`);
+step(`複製內建 → 草稿 → 編輯（名稱、22 HU 的密度）→ ${draftId}`);
+await clickEl(`${tab}.querySelector('button[data-action="ctcal-activate"]')`);
+await waitFor(`${rowSel('active')}?.dataset.id === ${JSON.stringify(draftId)}`, '預設曲線啟用', 10000);
+res = await evaluate(`fetch('/api/v1/series/' + encodeURIComponent(${JSON.stringify(ct)}) + '/ct-calibration').then((r) => r.json())`);
+if (res.fallback || res.calibration.calibration_id !== draftId || !res.calibration.demo) throw new Error(`沒對到的 CT 應改用預設曲線：${JSON.stringify(res)}`);
+await shot('ctcal-default.png');
+step(`啟用預設曲線 → 病例 CT 用「${res.calibration.name}」（${res.reason}；示範用）`);
+await waitFor(`!!${tab}.querySelector('button[data-action="ctcal-retire"]')`, '停用按鈕', 10000);
+await clickEl(`${tab}.querySelector('button[data-action="ctcal-retire"]')`);
+await waitFor(`!${rowSel('active')}`, '預設曲線停用', 10000);
+res = await evaluate(`fetch('/api/v1/series/' + encodeURIComponent(${JSON.stringify(ct)}) + '/ct-calibration').then((r) => r.json())`);
+if (!res.fallback) throw new Error(`停用預設曲線後應退回內建：${JSON.stringify(res)}`);
+step('停用預設曲線 → 病例 CT 退回內建');
+
+// 6. 英文
 await send('Page.navigate', { url: url.replace('/#/', '/?lang=en#/') });
 await waitFor(`!!${tab}?.querySelector('.ctcal-list tbody tr')`, '英文模式');
 await clickEl(`${tab}.querySelector('.ctcal-list tbody tr')`);

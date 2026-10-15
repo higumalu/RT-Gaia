@@ -1,8 +1,9 @@
 /**
  * 管理頁「CT 校正曲線」分頁 —— HU → 密度 ＋ 材質，劑量計算用。
  *
- * 內建 Schneider 2000（通用、示範用）一直都在：沒有符合比對規則的曲線時用它。使用者的曲線貼點表 → 預覽 → 存成草稿 →
- * 啟用（同一組比對規則的舊曲線自動停用）；啟用過的不能改、不能刪，只能停用。
+ * 內建 Schneider 2000（通用、示範用）一直都在：沒有符合比對規則的曲線、也沒有預設曲線時用它。使用者的曲線貼點表
+ * （或拿任何一條當底複製）→ 預覽 → 存成草稿（草稿可以再改）→ 啟用（同一組比對規則的舊曲線自動停用）；
+ * 啟用過的不能改、不能刪，只能停用 —— 要改就複製成新草稿。
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -12,6 +13,7 @@ import {
   CLASS_LABEL,
   compositionText,
   curvePath,
+  formatPoints,
   matchText,
   parsePoints,
   STATUS_LABEL,
@@ -37,13 +39,19 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
+/** 表單的起始內容：新增（空白）、複製（別條當底）、改草稿。 */
+interface FormSeed {
+  readonly mode: 'new' | 'copy' | 'edit';
+  readonly from?: CalibrationDetail;
+}
+
 export function CtCalibrationTab(): React.JSX.Element {
   const [rows, setRows] = useState<CalibrationSummary[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<CalibrationDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState<FormSeed | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -84,7 +92,7 @@ export function CtCalibrationTab(): React.JSX.Element {
   return (
     <section className="ctcal-tab">
       <h2>{t('CT 校正曲線')}</h2>
-      <p className="muted">{t('劑量計算用的 HU → 質量密度 ＋ 材質（元素組成）。每組 CT 依製造商、機型、kVp 對到一條啟用中的曲線；都對不到時用內建的 Schneider 2000 通用曲線（示範用，不代表任何一台 CT），結果會標出來。')}</p>
+      <p className="muted">{t('劑量計算用的 HU → 質量密度 ＋ 材質（元素組成）。每組 CT 依製造商、機型、kVp 對到一條啟用中的曲線；都對不到時用預設曲線，沒有預設曲線就用內建的 Schneider 2000 通用曲線（示範用，不代表任何一台 CT），結果會標出來。任何一條（包括內建）都可以複製成新草稿再改；啟用後不能改，要改就再複製一份。')}</p>
       {error && <p className="error">{error}</p>}
       <table className="admin-table ctcal-list">
         <thead>
@@ -105,7 +113,7 @@ export function CtCalibrationTab(): React.JSX.Element {
               <td>
                 <span className={`badge ctcal-status ${r.status}`}>{t(STATUS_LABEL[r.status])}</span>
               </td>
-              <td>{r.builtin ? t('（沒有對到的都用它）') : matchText(r.match)}</td>
+              <td>{r.builtin ? t('（沒有對到、也沒有預設曲線時用它）') : matchText(r.match)}</td>
               <td>
                 {r.hu_range[0]} … {r.hu_range[1]}
               </td>
@@ -115,15 +123,18 @@ export function CtCalibrationTab(): React.JSX.Element {
         </tbody>
       </table>
       <div className="buttons">
-        <button type="button" onClick={() => setCreating((v) => !v)} aria-pressed={creating} data-action="ctcal-new">
+        <button type="button" onClick={() => setForm(form?.mode === 'new' ? null : { mode: 'new' })} aria-pressed={form?.mode === 'new'} data-action="ctcal-new">
           {t('＋ 新增曲線')}
         </button>
       </div>
-      {creating && (
+      {form && (
         <CtCalibrationForm
+          key={`${form.mode}:${form.from?.calibration_id ?? ''}`}
+          seed={form}
           busy={busy}
+          onCancel={() => setForm(null)}
           onSaved={(id) => {
-            setCreating(false);
+            setForm(null);
             void load().then(() => setSelected(id));
           }}
           onError={setError}
@@ -133,11 +144,18 @@ export function CtCalibrationTab(): React.JSX.Element {
         <div className="ctcal-detail" data-id={detail.calibration_id}>
           <h3>{detail.name}</h3>
           {detail.reference && <p className="muted small">{detail.reference}</p>}
+          {detail.derived_from && <p className="muted small">{t('複製自 {id}', { id: detail.derived_from })}</p>}
           {detail.note && <p className="small">{detail.note}</p>}
           <CurvePlot curve={detail.curve} materials={detail.materials} />
           <div className="buttons">
+            <button type="button" disabled={busy} onClick={() => setForm({ mode: 'copy', from: detail })} title={t('拿這條的點表、比對規則與來源當底，存成新的草稿再改')} data-action="ctcal-copy">
+              {t('複製成新草稿')}
+            </button>
             {detail.status === 'draft' && (
               <>
+                <button type="button" disabled={busy} onClick={() => setForm({ mode: 'edit', from: detail })} data-action="ctcal-edit">
+                  {t('編輯')}
+                </button>
                 <button type="button" className="primary" disabled={busy} onClick={() => void act(`/ct-calibrations/${encodeURIComponent(detail.calibration_id)}/activate`, post({}))} title={t('啟用後內容不能改；同一組比對規則的舊曲線會自動停用')} data-action="ctcal-activate">
                   {t('啟用')}
                 </button>
@@ -189,14 +207,18 @@ export function CtCalibrationTab(): React.JSX.Element {
   );
 }
 
-function CtCalibrationForm({ busy, onSaved, onError }: { busy: boolean; onSaved: (id: string) => void; onError: (msg: string) => void }): React.JSX.Element {
-  const [name, setName] = useState('');
-  const [manufacturer, setManufacturer] = useState('');
-  const [model, setModel] = useState('');
-  const [kvp, setKvp] = useState('');
-  const [reference, setReference] = useState('');
-  const [note, setNote] = useState('');
-  const [pointsText, setPointsText] = useState('');
+function CtCalibrationForm({ seed, busy, onSaved, onCancel, onError }: { seed: FormSeed; busy: boolean; onSaved: (id: string) => void; onCancel: () => void; onError: (msg: string) => void }): React.JSX.Element {
+  const from = seed.from;
+  const copy = seed.mode === 'copy';
+  const [name, setName] = useState(from ? (copy ? t('{name}（副本）', { name: from.name }) : from.name) : '');
+  const [isDefault, setIsDefault] = useState(from?.match.default === true || (copy && from?.builtin === true));
+  const [manufacturer, setManufacturer] = useState(from?.match.manufacturer ?? '');
+  const [model, setModel] = useState(from?.match.model ?? '');
+  const [kvp, setKvp] = useState(from?.match.kvp != null ? String(from.match.kvp) : '');
+  const [demo, setDemo] = useState(from?.demo ?? false);
+  const [reference, setReference] = useState(from?.reference ?? '');
+  const [note, setNote] = useState(from?.note ?? '');
+  const [pointsText, setPointsText] = useState(from ? formatPoints(from.point_table) : '');
   const [preview, setPreview] = useState<SampledCurve | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [points, parseProblem] = parsePoints(pointsText);
@@ -205,7 +227,9 @@ function CtCalibrationForm({ busy, onSaved, onError }: { busy: boolean; onSaved:
     points,
     reference,
     note,
-    match: { manufacturer, model, kvp: kvp.trim() === '' ? null : Number(kvp) },
+    demo,
+    derived_from: copy ? from?.calibration_id : from?.derived_from,
+    match: isDefault ? { default: true } : { manufacturer, model, kvp: kvp.trim() === '' ? null : Number(kvp) },
   });
   const doPreview = async (): Promise<void> => {
     if (parseProblem) {
@@ -218,31 +242,39 @@ function CtCalibrationForm({ busy, onSaved, onError }: { busy: boolean; onSaved:
   };
   const save = async (): Promise<void> => {
     try {
-      const r = await api<CalibrationDetail>('/ct-calibrations', post(body()));
+      const r =
+        seed.mode === 'edit' && from
+          ? await api<CalibrationDetail>(`/ct-calibrations/${encodeURIComponent(from.calibration_id)}`, { ...post(body()), method: 'PUT' })
+          : await api<CalibrationDetail>('/ct-calibrations', post(body()));
       onSaved(r.calibration_id);
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e));
     }
   };
   return (
-    <form className="ctcal-form" onSubmit={(e) => e.preventDefault()}>
+    <form className="ctcal-form" onSubmit={(e) => e.preventDefault()} data-mode={seed.mode}>
+      {from && <p className="muted small">{seed.mode === 'edit' ? t('編輯草稿「{name}」', { name: from.name }) : t('以「{name}」為底的新草稿', { name: from.name })}</p>}
       <label>
         {t('名稱')}
         <input value={name} onChange={(e) => setName(e.target.value)} data-field="ctcal-name" />
       </label>
       <fieldset>
         <legend>{t('比對規則（空的欄位不比；至少填一項）')}</legend>
+        <label className="check">
+          <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} data-field="ctcal-default" />
+          {t('預設曲線：沒有更具體的曲線對到的 CT 都用這條（取代內建）')}
+        </label>
         <label>
           {t('製造商')}
-          <input value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} placeholder="Siemens" data-field="ctcal-manufacturer" />
+          <input value={manufacturer} disabled={isDefault} onChange={(e) => setManufacturer(e.target.value)} placeholder="Siemens" data-field="ctcal-manufacturer" />
         </label>
         <label>
           {t('機型')}
-          <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="SOMATOM go.Up" data-field="ctcal-model" />
+          <input value={model} disabled={isDefault} onChange={(e) => setModel(e.target.value)} placeholder="SOMATOM go.Up" data-field="ctcal-model" />
         </label>
         <label>
           kVp
-          <input className="num" inputMode="decimal" value={kvp} onChange={(e) => setKvp(e.target.value)} placeholder="120" data-field="ctcal-kvp" />
+          <input className="num" inputMode="decimal" value={kvp} disabled={isDefault} onChange={(e) => setKvp(e.target.value)} placeholder="120" data-field="ctcal-kvp" />
         </label>
       </fieldset>
       <label className="ctcal-points">
@@ -257,6 +289,10 @@ function CtCalibrationForm({ busy, onSaved, onError }: { busy: boolean; onSaved:
         {t('備註')}
         <input value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
+      <label className="check">
+        <input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} data-field="ctcal-demo" />
+        {t('示範用（不是這台 CT 的實測；用它算的結果會標出來）')}
+      </label>
       {(problem ?? (pointsText.trim() ? parseProblem : null)) && <p className="warning">{problem ?? parseProblem}</p>}
       {preview && <CurvePlot curve={preview} materials={null} />}
       <div className="buttons">
@@ -264,7 +300,10 @@ function CtCalibrationForm({ busy, onSaved, onError }: { busy: boolean; onSaved:
           {t('預覽')}
         </button>
         <button type="button" className="primary" disabled={busy || parseProblem !== null || name.trim() === ''} onClick={() => void save()} data-action="ctcal-save">
-          {t('存成草稿')}
+          {seed.mode === 'edit' ? t('存檔') : t('存成草稿')}
+        </button>
+        <button type="button" disabled={busy} onClick={onCancel}>
+          {t('取消')}
         </button>
       </div>
     </form>

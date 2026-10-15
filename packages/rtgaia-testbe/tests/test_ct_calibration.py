@@ -78,6 +78,20 @@ def test_sampled_curve_includes_section_edges() -> None:
 # ── 使用者曲線與比對 ──────────────────────────────────────────────────────────
 
 
+def test_builtin_as_points_is_identical_on_integer_hu() -> None:
+    """內建的分段公式換成點表（複製成草稿的底）：每個整數 HU 的密度跟原公式相同，範圍也相同。"""
+    builtin = cc.builtin_calibration()
+    pts = cc.points_of(builtin)
+    copy = {"density": {"type": "points", "points": pts}}
+    hu = np.arange(-1000, 2996, dtype=np.float64)
+    assert np.abs(cc.density_of(copy, hu) - cc.density_of(builtin, hu)).max() < 1e-6
+    assert cc.hu_range(copy) == cc.hu_range(builtin)
+    draft, problems = cc.check_user_curve({"name": "copy", "points": pts, "match": {"default": True}})
+    assert draft is not None and problems == []
+    # 點表本來就是點表 → 原樣
+    assert cc.points_of(draft) == pts
+
+
 def _curve(**over):  # type: ignore[no-untyped-def]
     body = {
         "name": "CIRS 062M 120 kV",
@@ -100,6 +114,7 @@ def test_user_curve_checks() -> None:
         _curve(points=[[0, 1.0], ["x", 1.1]]),
         _curve(match={"kvp": 500}),
         _curve(match={}),
+        _curve(match={"default": True, "kvp": 120}),  # 預設曲線不帶比對欄位
     ]
     for b in bad:
         d, p = cc.check_user_curve(b)
@@ -133,6 +148,21 @@ def test_resolve_picks_most_specific_then_latest_and_falls_back() -> None:
     assert "SOMATOM go.Up" in r2["reason"] and "kVp 不明" in r2["reason"]
 
 
+def test_default_curve_replaces_builtin_but_loses_to_specific() -> None:
+    scanner = {"manufacturer": "GE", "model": "Revolution", "kvp": 120.0}
+    default = _active(match={"default": True})
+    r = cc.resolve([default], scanner)
+    assert r["calibration"] is default and r["fallback"] is False and "預設曲線" in r["reason"]
+    specific = _active(match={"model": "Revolution"})
+    assert cc.resolve([default, specific], scanner)["calibration"] is specific
+    # 新的預設曲線啟用 → 舊的預設停用；不影響有比對欄位的
+    draft, _ = cc.check_user_curve(_curve(match={"default": True}))
+    assert draft is not None
+    new = cc.new_record(draft, user="admin")
+    assert cc.activate([default, specific, new], new["calibration_id"], user="admin") == [default["calibration_id"]]
+    assert specific["status"] == "active"
+
+
 def test_activate_retires_same_rule() -> None:
     old = _active(match={"model": "A"})
     draft, _ = cc.check_user_curve(_curve(match={"model": "a"}))
@@ -150,6 +180,7 @@ def test_admin_only_writes() -> None:
     assert required_role_for("POST", "/api/v1/ct-calibrations/preview") == "viewer"
     for method, path in (
         ("POST", "/api/v1/ct-calibrations"),
+        ("PUT", "/api/v1/ct-calibrations/ctc_1"),
         ("POST", "/api/v1/ct-calibrations/ctc_1/activate"),
         ("POST", "/api/v1/ct-calibrations/ctc_1/retire"),
         ("DELETE", "/api/v1/ct-calibrations/ctc_1"),
@@ -221,3 +252,27 @@ def test_api_lifecycle_and_series_resolution(synth: SynthCase, tmp_path: Path, m
         with pytest.raises(RuntimeError, match="404"):
             s._get(f"{base}/nope")
         assert [x["status"] for x in s._get(base)["calibrations"]] == ["builtin", "retired"]
+
+        # 拿內建當底複製 → 改草稿 → 設成預設、啟用 → 沒對到的 CT 用它；啟用後不能改、內建不能改
+        pts = builtin["point_table"]
+        assert pts[0] == [-1000, 0.00121] and pts[-1] == [2995, 4.54]
+        copy = s._post(
+            base,
+            {"name": "copy", "points": pts, "match": {"default": True}, "demo": True, "derived_from": cc.BUILTIN_ID},
+        )
+        cid2 = copy["calibration_id"]
+        assert copy["derived_from"] == cc.BUILTIN_ID and copy["demo"] is True and copy["point_table"] == pts
+        edited = s._put(
+            f"{base}/{cid2}",
+            {"name": "copy v2", "points": [*pts[:7], [50, 1.05], *pts[7:]], "match": {"default": True}, "demo": True},
+        )
+        assert edited["name"] == "copy v2" and edited["updated_by"] == "admin" and edited["status"] == "draft"
+        assert edited["created_by"] == "admin" and [50, 1.05] in edited["point_table"]
+        with pytest.raises(RuntimeError, match="422"):
+            s._put(f"{base}/{cid2}", {"name": "bad", "points": [[0, 1]], "match": {"default": True}})
+        s._post(f"{base}/{cid2}/activate", {})
+        r = s._get(f"/api/v1/series/{ct}/ct-calibration")
+        assert r["fallback"] is False and r["calibration"]["calibration_id"] == cid2 and r["calibration"]["demo"]
+        for target in (cid2, cc.BUILTIN_ID):
+            with pytest.raises(RuntimeError, match="422"):
+                s._put(f"{base}/{target}", {"name": "x", "points": pts, "match": {"default": True}})

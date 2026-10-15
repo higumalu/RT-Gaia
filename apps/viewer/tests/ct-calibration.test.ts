@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { compositionText, curvePath, matchText, parsePoints } from '../src/react/dosecalc/ctCalibrationModel';
+import { compositionText, curvePath, formatPoints, matchText, parsePoints } from '../src/react/dosecalc/ctCalibrationModel';
 
 describe('點表', () => {
   it('逗號、Tab、空白、分號都可以；表頭與 # 註解略過', () => {
@@ -21,12 +21,22 @@ describe('點表', () => {
     expect(parsePoints('0, 1')[1]).not.toBeNull();
     expect(parsePoints('')[1]).not.toBeNull();
   });
+  it('點表 → 文字 → 點表：原樣（編輯與複製的底）', () => {
+    const pts: Array<[number, number]> = [
+      [-1000, 0.00121],
+      [100, 1.1199],
+      [101, 1.076792],
+      [2995, 4.54],
+    ];
+    expect(parsePoints(formatPoints(pts))).toEqual([pts, null]);
+  });
 });
 
 describe('顯示', () => {
   it('比對規則', () => {
     expect(matchText({ manufacturer: 'Siemens', model: 'SOMATOM go.Up', kvp: 120 })).toBe('Siemens · SOMATOM go.Up · 120 kVp');
     expect(matchText({ manufacturer: '', model: 'X', kvp: null })).toBe('X');
+    expect(matchText({ manufacturer: '', model: '', kvp: null, default: true })).toMatch(/預設/);
   });
   it('畫圖座標：HU 從 −1000 開始、密度軸留 10% 空間', () => {
     const { x, y, path, rhoMax } = curvePath({ hu: [-1000, 0, 2000], density: [0.001, 1, 2], material: [0, 5, 23] }, 528, 228, 14);

@@ -1,16 +1,17 @@
-"""CT 校正曲線（HU → 密度 ＋ 材質）：清單、內容、新增草稿、啟用、停用、刪草稿；某個 CT 用哪一條。
+"""CT 校正曲線（HU → 密度 ＋ 材質）：清單、內容、新增草稿、改草稿、啟用、停用、刪草稿；某個 CT 用哪一條。
 
 * `GET    /ct-calibrations`                  ：內建 ＋ 使用者的（摘要）
-* `GET    /ct-calibrations/{id}`             ：完整內容 ＋ 畫圖用的取樣曲線 ＋ 材質表
+* `GET    /ct-calibrations/{id}`             ：完整內容 ＋ 可編輯的點表 ＋ 畫圖用的取樣曲線 ＋ 材質表
 * `POST   /ct-calibrations/preview`          ：還沒存的點表 → 檢查 ＋ 取樣曲線（表單預覽）
-* `POST   /ct-calibrations`                  ：新增草稿（admin）
+* `POST   /ct-calibrations`                  ：新增草稿（admin；複製別條時帶 `derived_from`）
+* `PUT    /ct-calibrations/{id}`             ：改草稿（admin；啟用過的不能改）
 * `POST   /ct-calibrations/{id}/activate`    ：啟用（admin；同一組比對規則的其他啟用中曲線改成停用）
 * `POST   /ct-calibrations/{id}/retire`      ：停用（admin）
 * `DELETE /ct-calibrations/{id}`             ：刪草稿（admin；啟用過的不能刪，只能停用 —— 舊結果要說得出用了哪一條）
 * `GET    /series/{series_id}/ct-calibration`：這組 CT 會用哪一條、為什麼
 
 存在 `app_setting` 的 `ct_calibrations` 一筆（曲線少、改得少；不另開資料表）。讀改寫在同一個行程裡用鎖串起來。
-啟用後內容不能改（要改就新增一條再啟用），停用的留著。
+啟用後內容不能改（要改就複製成新草稿再啟用），停用的留著。
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ def _detail(cal: dict[str, Any]) -> dict[str, Any]:
     return {
         **cc.summary(cal),
         "density": cal["density"],
+        "point_table": cc.points_of(cal),
         "curve": cc.sampled_curve(cal),
         "materials": cc.schneider_materials(),
     }
@@ -92,9 +94,39 @@ async def create_calibration(body: dict[str, Any], request: Request, app: AppSta
         items.append(rec)
         await _save(app, items, user)
     request.state.audit_detail = {
-        "ct_calibration": {"action": "create", "calibration_id": rec["calibration_id"], "name": rec["name"]}
+        "ct_calibration": {
+            "action": "create",
+            "calibration_id": rec["calibration_id"],
+            "name": rec["name"],
+            "derived_from": rec.get("derived_from"),
+        }
     }
     return _detail(rec)
+
+
+@router.put(API + "/ct-calibrations/{calibration_id}")
+async def update_calibration(
+    calibration_id: str, body: dict[str, Any], request: Request, app: AppState = Depends(state)
+) -> Any:
+    if calibration_id == cc.BUILTIN_ID:
+        raise _reject("BUILTIN", "內建曲線不能改：複製成新草稿再改")
+    draft, problems = cc.check_user_curve(body)
+    if draft is None:
+        raise _reject("BAD_CALIBRATION", "；".join(problems), problems=problems)
+    user = actor(request)
+    async with _lock:
+        items = await _items(app)
+        item = _find(items, calibration_id)
+        if item["status"] != "draft":
+            raise _reject(
+                "NOT_DRAFT", "啟用過的曲線不能改（舊的結果要說得出用了哪一條）：複製成新草稿再改", status=item["status"]
+            )
+        cc.update_draft(item, draft, user=user)
+        await _save(app, items, user)
+    request.state.audit_detail = {
+        "ct_calibration": {"action": "update", "calibration_id": calibration_id, "name": item["name"]}
+    }
+    return _detail(item)
 
 
 @router.post(API + "/ct-calibrations/{calibration_id}/activate")

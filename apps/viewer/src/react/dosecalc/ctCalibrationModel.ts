@@ -10,6 +10,8 @@ export interface CalibrationMatch {
   readonly manufacturer: string;
   readonly model: string;
   readonly kvp: number | null;
+  /** 預設曲線：沒有更具體的曲線對到的 CT 都用它（取代內建）。 */
+  readonly default?: boolean;
 }
 
 export interface CalibrationSummary {
@@ -21,8 +23,11 @@ export interface CalibrationSummary {
   readonly reference: string;
   readonly match: CalibrationMatch;
   readonly note: string;
+  readonly derived_from?: string | null;
   readonly created_by?: string | null;
   readonly created_at?: string | null;
+  readonly updated_by?: string | null;
+  readonly updated_at?: string | null;
   readonly activated_by?: string | null;
   readonly activated_at?: string | null;
   readonly retired_by?: string | null;
@@ -48,6 +53,8 @@ export interface CalibrationMaterial {
 
 export interface CalibrationDetail extends CalibrationSummary {
   readonly density: { readonly type: 'sections' | 'points'; readonly points?: readonly (readonly [number, number])[] };
+  /** 可編輯的點表（內建的分段公式也換成點表，拿來當新草稿的底）。 */
+  readonly point_table: readonly (readonly [number, number])[];
   readonly curve: SampledCurve;
   readonly materials: readonly CalibrationMaterial[];
 }
@@ -68,8 +75,9 @@ export const CLASS_LABEL: Record<CalibrationMaterial['class'], string> = {
   metal: msg('金屬'),
 };
 
-/** 「Siemens · SOMATOM go.Up · 120 kVp」；全空 ＝「（所有沒有對到的 CT）」。 */
+/** 「Siemens · SOMATOM go.Up · 120 kVp」；預設曲線 ＝「預設（所有沒有對到的 CT）」。 */
 export function matchText(m: CalibrationMatch): string {
+  if (m.default) return t('預設（所有沒有對到的 CT）');
   const parts = [m.manufacturer, m.model, m.kvp !== null ? `${m.kvp} kVp` : ''].filter(Boolean);
   return parts.length > 0 ? parts.join(' · ') : t('（所有沒有對到的 CT）');
 }
@@ -94,6 +102,11 @@ export function parsePoints(text: string): [Array<[number, number]>, string | nu
   }
   if (out.length < 2) return [out, t('至少要兩點')];
   return [out, null];
+}
+
+/** 點表 → 文字（一行一點「HU, 密度」），編輯表單用；`parsePoints` 的反向。 */
+export function formatPoints(points: readonly (readonly [number, number])[]): string {
+  return points.map(([h, r]) => `${h}, ${r}`).join('\n');
 }
 
 /** 畫圖：HU 軸 −1000 … 曲線最大值，密度軸 0 … 最大值的 1.1 倍；回 SVG path（`M x y L …`）與座標換算。 */
