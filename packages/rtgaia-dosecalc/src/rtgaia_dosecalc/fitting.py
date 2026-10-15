@@ -60,6 +60,8 @@ STAGE_NAME_ZH = {
 }
 PASSES = 2
 SMALL_FIELD_MM = 40.0
+FOCAL_PROFILE_MAX_FIELD_MM = 100.0
+"""焦點那一段只用這個射野以下的半影、FWHM。"""
 """焦點那一段也用的小射野輸出因子（邊長 ≤ 這個值）。"""
 """整串分段擬合跑幾輪。"""
 SPECTRUM_QUANTITIES = ("pdd", "tpr20_10", "pdd10x")
@@ -664,15 +666,27 @@ def fit(
 
     spec = pick(*SPECTRUM_QUANTITIES, beyond_dmax=True)
     dmax = pick("dmax_mm")
+
     # 焦點：側向分佈 ＋ 小射野（≤ 4 cm）的輸出因子 —— 小射野的輸出因子對焦點大小很敏感，只看半影的話跟輸出因子
     # 那一段互相拉（實測：第二輪焦點 1.3 → 0.8 mm、輸出因子的成本 2.8 → 6.1）
+    # 半影、FWHM 只用小射野（≤ 10 × 10）：大射野的半影主要是機頭散射與假體散射，拿來擬焦點會把焦點撐大
+    # （實測：加了 40 × 40 的半影，焦點 0.8 → 1.3 mm，獨立驗證的 1 cm 小照野從 +1.5 倍容許變成 −6.9 倍）。
+    # FFF 的形狀（unflatness、slope）不管射野大小都在這段（角分佈）。大射野的半影、FWHM 交給機頭散射那段。
+    def small(c: commissioning.Check, limit: float) -> bool:
+        return min(c.setup.field_x, c.setup.field_y) <= limit
+
     focal_checks = [
         c for c in checks
-        if c.quantity in PROFILE_QUANTITIES
-        or (c.quantity == "output_factor" and min(c.setup.field_x, c.setup.field_y) <= SMALL_FIELD_MM)
+        if c.quantity in ("unflatness", "slope_percent_per_mm")
+        or (c.quantity in ("penumbra_80_20_mm", "fwhm_mm") and small(c, FOCAL_PROFILE_MAX_FIELD_MM))
+        or (c.quantity == "output_factor" and small(c, SMALL_FIELD_MM))
     ]  # fmt: skip
     prof = Problem.of(focal_checks) if focal_checks else None
-    of = pick("output_factor")
+    large_profiles = [
+        c for c in checks if c.quantity in ("penumbra_80_20_mm", "fwhm_mm") and not small(c, FOCAL_PROFILE_MAX_FIELD_MM)
+    ]
+    of_checks = [c for c in checks if c.quantity == "output_factor"] + large_profiles
+    of = Problem.of(of_checks) if of_checks else None
     trans = pick("mlc_transmission")
     unconstrained = [
         name
