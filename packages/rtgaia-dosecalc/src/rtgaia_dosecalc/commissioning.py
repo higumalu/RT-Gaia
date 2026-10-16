@@ -22,8 +22,12 @@ import numpy as np
 from . import water
 
 LAYER_DEVICE = {"distal": "MLCX1", "lower": "MLCX1", "proximal": "MLCX2", "upper": "MLCX2"}
+DTA_MM = 1.0
+"""曲線點（PDD、側向分佈）的位置容許：高梯度處的容許 ＝ 1 個百分點 ⊕ 梯度 × 1 mm（逐點的 1%／1 mm）。"""
+CURVE_QUANTITIES = ("pdd", "profile")
 TOLERANCE = {
     "pdd": ("percent_points", 1.0),
+    "profile": ("percent_points", 1.0),
     "dmax_mm": ("mm", 1.0),
     "tpr20_10": ("relative", 0.01),
     "pdd10x": ("percent_points", 1.0),
@@ -154,6 +158,45 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
                         depth=float(row[0]),
                     )
                 )
+        elif kind == "profile":
+            f = _field(cond)
+            d = float(cond["depth_mm"])
+            if cond.get("axis", "x") != "x" or f is None:
+                for row in m["points"]:
+                    out.append(
+                        base(
+                            quantity="profile",
+                            x=row[0],
+                            measured=row[vi],
+                            u_measured=unc(row),
+                            unsupported="只支援 x 方向（jaw X／葉片移動方向）的側向分佈",
+                        )
+                    )  # noqa: E501
+                continue
+            scale = 100.0 if m.get("unit") == "fraction" else 1.0
+            s = water.Setup(f[0], f[1], ssd, col, profile_depths=(d,))
+            r = water.detector_radius(str(cond.get("detector") or ""))
+            norm_note = "" if cond.get("normalization") in (None, "central_axis") else "側向分佈一律以中心軸正規化比較"
+            values = [float(row[vi]) * scale for row in m["points"]]
+            xs = [float(row[0]) for row in m["points"]]
+            # 量測的正規化：中心軸那一點（沒有 x ＝ 0 就用內插）當 100%
+            center = float(np.interp(0.0, xs, values)) if min(xs) <= 0.0 <= max(xs) else max(values)
+            for row, v in zip(m["points"], values, strict=True):
+                c = base(
+                    quantity="profile",
+                    x=float(row[0]),
+                    measured=100.0 * v / center if center > 0 else v,
+                    u_measured=unc(row, 100.0 * scale / center if center > 0 else scale),
+                    setup=s,
+                    depth=d,
+                )  # noqa: E501
+                c.extra["fff"] = fff
+                if r is not None:
+                    c.extra["detector_r"] = r
+                notes = [x for x in (norm_note, "" if r is not None else "偵檢器不明：側向分佈沒有做體積平均") if x]
+                if notes:
+                    c.extra["note"] = "；".join(notes)
+                out.append(c)
         elif kind == "output_factor":
             depth = float(cond["depth_mm"])
             ref = _field({"field_mm": cond.get("reference_field_mm")}) or (100.0, 100.0)
@@ -290,18 +333,49 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
     return out
 
 
-def _within(quantity: str, measured: float, model: float) -> tuple[float, float, bool]:
-    """回 (差, 以容許為單位的差, 是否在容許內)。"""
+def tolerance(quantity: str, measured: float, grad: float = 0.0) -> float:
+    """容許（跟量同單位）；曲線點加上梯度 × `DTA_MM`（高梯度處用位置的容許）。"""
     kind, tol = TOLERANCE.get(quantity, ("relative", 0.01))
+    base = tol * abs(measured) if kind == "relative" else tol
+    if quantity in CURVE_QUANTITIES:
+        return math.hypot(base, abs(grad) * DTA_MM)
+    return base
+
+
+def _within(quantity: str, measured: float, model: float, grad: float = 0.0) -> tuple[float, float, bool]:
+    """回 (差, 以容許為單位的差, 是否在容許內)。"""
     diff = model - measured
-    scaled = diff / (tol * measured) if kind == "relative" and measured else diff / tol
+    scaled = diff / tolerance(quantity, measured, grad)
     return diff, scaled, abs(scaled) <= 1.0
+
+
+def _profile_percent(check: Check, curves: water.Curves) -> tuple[np.ndarray, np.ndarray]:
+    """模型的側向分佈（偵檢器平均後、中心軸 ＝ 100%）。"""
+    prof = water.average_detector(
+        curves.x_mm, curves.profiles[float(check.depth)], float(check.extra.get("detector_r") or 0.0)
+    )
+    return curves.x_mm, 100.0 * prof / prof[0]
+
+
+def gradient(check: Check, curves: water.Curves) -> float:
+    """曲線點在量測位置的斜率（每 mm 的百分點）；不是曲線點 → 0。"""
+    if check.quantity == "pdd":
+        dm = water.dmax_mm(curves.depth_mm, curves.cax)
+        y = 100.0 * curves.cax / water.dose_at(curves.depth_mm, curves.cax, dm)
+        return float(np.interp(float(check.depth), curves.depth_mm, np.gradient(y, curves.depth_mm)))
+    if check.quantity == "profile":
+        x, y = _profile_percent(check, curves)
+        return float(np.interp(abs(float(check.x)), x, np.gradient(y, x)))
+    return 0.0
 
 
 def _value(check: Check, curves: water.Curves, ref: water.Curves | None, hpm: float) -> float:
     q = check.quantity
     if q == "pdd":
         return water.pdd_at(curves.depth_mm, curves.cax, float(check.depth))
+    if q == "profile":
+        x, y = _profile_percent(check, curves)
+        return float(np.interp(abs(float(check.x)), x, y))
     if q == "dmax_mm":
         return water.dmax_mm(curves.depth_mm, curves.cax)
     if q == "tpr20_10":
@@ -412,7 +486,8 @@ def run_checks(
         if c.unsupported:
             row.update(status="unsupported", reason=c.unsupported)
         elif c.model_value is not None and math.isfinite(c.model_value):
-            diff, scaled, ok = _within(c.quantity, c.measured, c.model_value)
+            grad = gradient(c, sim_of(c.setup).mean) if c.quantity in CURVE_QUANTITIES else 0.0  # type: ignore[union-attr]
+            diff, scaled, ok = _within(c.quantity, c.measured, c.model_value, grad)
             u = math.hypot(c.u_measured or 0.0, c.u_model or 0.0)
             row.update(
                 diff=diff,

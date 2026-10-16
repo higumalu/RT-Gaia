@@ -251,6 +251,19 @@ class Problem:
         return sorted({c.measurement_id for c in self.checks})
 
 
+def _tol(c: commissioning.Check, cur: water.Curves) -> float:
+    """擬合用的容許：曲線點（PDD、側向分佈）用目前模型的梯度做 1%／1 mm 的合成；側向分佈的位置容許再加偵檢器項。"""
+    if c.quantity not in commissioning.CURVE_QUANTITIES:
+        return _tol_abs(c)
+    grad = commissioning.gradient(c, cur)
+    dta = commissioning.DTA_MM
+    r = float(c.extra.get("detector_r") or 0.0)
+    if c.quantity == "profile" and r > 0:
+        dta = math.hypot(dta, DETECTOR_UNCERTAINTY_PER_RADIUS * r)
+    _kind, tol = commissioning.TOLERANCE[c.quantity]
+    return math.hypot(tol, abs(grad) * dta)
+
+
 def residuals(problem: Problem, curves: dict[str, water.Curves], scale: dict[str, float] | None = None) -> np.ndarray:
     """每個比較點的（模型 − 量測）／容許。`scale`：條件 → 劑量乘數（監測游離腔反散射 1／s，只用在輸出因子）。"""
     out = []
@@ -264,7 +277,7 @@ def residuals(problem: Problem, curves: dict[str, water.Curves], scale: dict[str
             v = commissioning._value(c, cur, ref, 1.0) * f
         except (ValueError, IndexError, np.linalg.LinAlgError):
             v = float("nan")
-        out.append((v - c.measured) / _tol_abs(c) if math.isfinite(v) else 10.0)
+        out.append((v - c.measured) / _tol(c, cur) if math.isfinite(v) else 10.0)
     return np.asarray(out, dtype=float)
 
 
@@ -493,7 +506,7 @@ def fit_focal(st: State, basis: Basis, problem: Problem, fff: bool, prior_angula
     p = st.model["params"]
     scale = backscatter_scale(st.model, problem)  # 小射野的輸出因子也在這一段：用目前的反散射
     before = cost(residuals(problem, st.curves(basis, problem), scale))
-    off_axis = any(c.quantity in ("fwhm_mm", "unflatness", "slope_percent_per_mm") for c in problem.checks)
+    off_axis = any(c.quantity in ("fwhm_mm", "unflatness", "slope_percent_per_mm", "profile") for c in problem.checks)
     angular = (
         [round(float(prior_angular) * f, 4) for f in ANGULAR_FACTORS] if fff and prior_angular and off_axis else [None]
     )
@@ -676,7 +689,9 @@ def fit(
         return Problem.of(sel) if sel else None
 
     spec = pick(*SPECTRUM_QUANTITIES, beyond_dmax=True)
-    dmax = pick("dmax_mm")
+    # 電子污染：dmax ＋ 建成區（30 mm 以內）的 PDD 點（使用者的完整 PDD 才有；公開資料多半只有 dmax）
+    ec_checks = [c for c in checks if c.quantity == "dmax_mm" or (c.quantity == "pdd" and (c.depth or 0) < 30.0)]
+    dmax = Problem.of(ec_checks) if ec_checks else None
 
     # 焦點：側向分佈 ＋ 小射野（≤ 4 cm）的輸出因子 —— 小射野的輸出因子對焦點大小很敏感，只看半影的話跟輸出因子
     # 那一段互相拉（實測：第二輪焦點 1.3 → 0.8 mm、輸出因子的成本 2.8 → 6.1）
@@ -689,12 +704,14 @@ def fit(
     focal_checks = [
         c for c in checks
         if c.quantity in ("unflatness", "slope_percent_per_mm")
-        or (c.quantity in ("penumbra_80_20_mm", "fwhm_mm") and small(c, FOCAL_PROFILE_MAX_FIELD_MM))
+        or (c.quantity in ("penumbra_80_20_mm", "fwhm_mm", "profile") and small(c, FOCAL_PROFILE_MAX_FIELD_MM))
         or (c.quantity == "output_factor" and small(c, SMALL_FIELD_MM))
     ]  # fmt: skip
     prof = Problem.of(focal_checks) if focal_checks else None
     large_profiles = [
-        c for c in checks if c.quantity in ("penumbra_80_20_mm", "fwhm_mm") and not small(c, FOCAL_PROFILE_MAX_FIELD_MM)
+        c
+        for c in checks
+        if c.quantity in ("penumbra_80_20_mm", "fwhm_mm", "profile") and not small(c, FOCAL_PROFILE_MAX_FIELD_MM)
     ]
     of_checks = [c for c in checks if c.quantity == "output_factor"] + large_profiles
     of = Problem.of(of_checks) if of_checks else None
@@ -710,7 +727,7 @@ def fit(
     if (
         fff
         and model["params"].get("angular_sigma_deg")
-        and not any(c.quantity in ("fwhm_mm", "unflatness", "slope_percent_per_mm") for c in checks)
+        and not any(c.quantity in ("fwhm_mm", "unflatness", "slope_percent_per_mm", "profile") for c in checks)
     ):
         unconstrained.append("angular_spread")  # 沒有離軸的側向分佈：FFF 角分佈照先驗
     # 各段互相影響（電子污染的 dmax 跟機頭散射、能譜有關；輸出因子跟焦點有關）：整串跑兩輪，第二輪從第一輪的結果出發

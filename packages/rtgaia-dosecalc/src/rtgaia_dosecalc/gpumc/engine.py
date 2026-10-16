@@ -24,7 +24,7 @@ from ..engines import topas
 from ..package import CalcInput, CalcResult
 from . import tables, transport
 
-ENGINE_VERSION = "rtgaia-gpumc 2"
+ENGINE_VERSION = "rtgaia-gpumc 3"
 BATCHES = 10
 DEFAULT_HISTORIES = 200_000_000
 CALIBRATION_HISTORIES = 100_000_000

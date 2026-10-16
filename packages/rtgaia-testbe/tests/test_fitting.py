@@ -301,3 +301,73 @@ def test_large_detector_profiles_weigh_less_in_the_fit() -> None:
     assert fitting._tol_abs(diode) == pytest.approx(math.hypot(1.0, 0.2))
     of = cm.Check("o", "o", "output_factor", 30.0, 0.877, None, extra={"detector_r": 3.0})
     assert fitting._tol_abs(of) == pytest.approx(0.01 * 0.877)  # 偵檢器的項只用在側向分佈量
+
+
+PROFILE_AT_10CM = {"ssd_mm": 1000.0, "depth_mm": 100.0, "axis": "x", "detector": "EDGE"}
+
+
+def _user_curves(truth: dict) -> dict:  # type: ignore[type-arg]
+    """使用者自家量測的形式：完整的 PDD（含建成區）、兩個射野的完整側向分佈（兩側、量測自己的正規化）、輸出因子。
+    值來自「真」模型（假模擬器）。"""
+    from rtgaia_dosecalc import beam_data
+
+    raw = [
+        {"kind": "depth_dose", "quantity": "pdd", "measurement_id": "pdd100",
+         "conditions": {"field_mm": [100.0, 100.0], "ssd_mm": 1000.0, "normalization": "dmax", "detector": "PTW 31010"},
+         "points": [[d, 1.0] for d in (3.0, 7.0, 11.0, 15.0, 20.0, 50.0, 100.0, 150.0, 200.0, 250.0)]},
+        {"kind": "profile", "measurement_id": "prof100",
+         "conditions": {**PROFILE_AT_10CM, "field_mm": [100.0, 100.0]},
+         "points": [[x, 1.0] for x in range(-80, 81, 4)]},
+        {"kind": "profile", "measurement_id": "prof300",
+         "conditions": {**PROFILE_AT_10CM, "field_mm": [300.0, 300.0]},
+         "points": [[x, 1.0] for x in range(-200, 201, 8)]},
+        {"kind": "output_factor", "measurement_id": "of",
+         "conditions": {"ssd_mm": 900.0, "depth_mm": 100.0, "reference_field_mm": [100.0, 100.0]},
+         "points": [[f, 1.0] for f in (30.0, 60.0, 100.0, 200.0, 400.0)]},
+    ]  # fmt: skip
+    ms = [beam_data.check_measurement(m)[0] for m in raw]
+    assert all(ms), [beam_data.check_measurement(m)[1] for m in raw]
+    ds = {"dataset_id": "user", "measurements": ms}
+    st = fitting.State(truth, np.array([1.0]), [np.ones(len(truth["params"]["spectrum_weights"]), bool)])
+    basis = fitting.Basis(None, 1)
+    bs = truth["params"]["monitor_backscatter"]
+    checks = commissioning.plan_checks(truth, ds)
+    by_id = {m["measurement_id"]: m for m in ms}
+    for c in checks:
+        curves = {fitting._key(s): fitting.combine(st.parts(basis, s))[0] for s in (c.setup, c.reference) if s}
+        v = commissioning._value(
+            c, curves[fitting._key(c.setup)], curves.get(fitting._key(c.reference)) if c.reference else None, 1.0
+        )
+        if c.quantity == "output_factor":
+            v /= 1 + bs["per_mm_x"] * (100 - c.setup.field_x) + bs["per_mm_y"] * (100 - c.setup.field_y)
+        row = next(r for r in by_id[c.measurement_id]["points"] if r[0] == c.x)
+        row[1] = v
+    return ds
+
+
+def test_user_full_curves_drive_the_fit(fake) -> None:  # type: ignore[no-untyped-def]
+    """使用者的完整曲線：每一點都比得到（側向分佈以中心軸正規化），建成區的 PDD 進電子污染那段、小射野的側向分佈
+    進焦點那段、大射野的進機頭散射那段；擬合後焦點找回真值、每段成本下降。"""
+    prior = beam_models.demo_6x()
+    truth = _truth(prior)
+    ds = _user_curves(truth)
+    checks = commissioning.plan_checks(prior, ds)
+    prof = [c for c in checks if c.quantity == "profile"]
+    assert len(prof) == 41 + 51 and not any(c.unsupported for c in checks)
+    assert all(c.extra["detector_r"] == 0.4 for c in prof)
+    fitted, report = fitting.fit(prior, [ds], tb=None, histories=10)
+    last = {s["name"]: s for s in report["stages"] if s["round"] == 2}
+    assert "pdd100" in last["electron_contamination"]["measurements"]  # 建成區的點
+    assert "prof100" in last["focal_spot"]["measurements"] and "prof300" not in last["focal_spot"]["measurements"]
+    assert "prof300" in last["head_scatter"]["measurements"]
+    assert fitted["params"]["focal_spot_sigma_mm"] == 1.0
+    assert fitted["params"]["extra_focal"]["fraction"] == pytest.approx(0.1, rel=0.2)
+    for s in report["stages"]:
+        assert s["cost_after"] <= s["cost_before"] + 1e-9
+
+
+def test_curve_points_use_a_composite_tolerance() -> None:
+    # 1 個百分點 ⊕ 梯度 × 1 mm：平坦處 1 個百分點、陡的地方（例如 10 %/mm）約 10 個百分點
+    assert commissioning.tolerance("pdd", 66.0, 0.0) == pytest.approx(1.0)
+    assert commissioning.tolerance("profile", 50.0, 10.0) == pytest.approx(math.hypot(1.0, 10.0))
+    assert commissioning.tolerance("output_factor", 0.8, 5.0) == pytest.approx(0.008)  # 不是曲線點

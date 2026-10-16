@@ -27,6 +27,9 @@ v1 只有內建的**示範模型**（`demo-6x`）：參數是文獻與廠商公�
 * `monitor_backscatter`：`per_mm_x`、`per_mm_y` —— 監測游離腔訊號 s ＝ 1 ＋ b_x（X_ref − X）＋ b_y（Y_ref − Y）
   （jaw 開口，參考射野 ＝ MU 校正的射野）；每 MU 的粒子數 ∝ 1／s。沒有 jaw 的機型不用。
 * 準直器的 `density_factor`：有效密度比（葉間漏射、鎢合金）；GPU 乘在路徑長上、OpenTOPAS 用同組成的自訂材質。
+* `extra_focal`（機頭散射）在 **GPU** 上從高斯分佈的出發點**瞄準開口**發射（每個出發點往開口均勻打、哪些被擋由
+  準直器決定 → 小射野看得到的射源少）；fraction 約等於開口上機頭散射粒子的比例。OpenTOPAS 的 Beam 射源方向跟
+  出發位置無關，照舊多蓋 3σ 的錐角（兩個引擎的機頭散射不再逐粒子相同；DC-Q14：射源模型以 GPU 為準）。
 * `focal_spot_sigma_mm`、`extra_focal`、`angular_sigma_deg`、能譜本來就有，擬合會調。
 
 ## demo-6xfff、demo-6xfff-dual（無整平濾片）

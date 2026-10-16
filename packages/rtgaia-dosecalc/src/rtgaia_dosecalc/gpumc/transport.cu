@@ -596,6 +596,16 @@ extern "C" __global__ void run_beam(unsigned long long *edep, unsigned int *lost
     }
     float r2 = mx * mx + my * my, t = sqrtf(fmaxf(0.0f, 1.0f - r2));
     float bdx = 2.0f * mx * t, bdy = 2.0f * my * t, bdz = -(1.0f - 2.0f * r2);
+    if (src == 1) {
+      // 機頭散射：錐角裡的方向先當成從 (0, 0, zs) 打到等中心平面的一點 T，再從偏移的出發點 (gx, gy, zs) 瞄準 T
+      // —— 每個出發點都往開口發射（單位立體角均勻），哪些被擋由準直器決定（看得到多少射源 → 機頭散射隨射野變化）
+      float tt = zs / fmaxf(1e-6f, -bdz);
+      float vx = bdx * tt - gx, vy = bdy * tt - gy, vz = -zs;
+      float inv = rsqrtf(vx * vx + vy * vy + vz * vz);
+      bdx = vx * inv;
+      bdy = vy * inv;
+      bdz = vz * inv;
+    }
     // 能量（電子污染用自己的能譜）
     const float *se = ec ? ec_e : spec_e, *sc = ec ? ec_cdf : spec_cdf;
     int ns = ec ? nec : nspec;

@@ -353,7 +353,7 @@ def backscatter_factor(model: dict[str, Any], cp: ControlPoint) -> float:
     return 1.0 + float(bs.get("per_mm_x") or 0.0) * (ref - x) + float(bs.get("per_mm_y") or 0.0) * (ref - y)
 
 
-def source_plan(beam: Beam, model: dict[str, Any], histories: int) -> SourcePlan:
+def source_plan(beam: Beam, model: dict[str, Any], histories: int, *, engine: str = "gpu") -> SourcePlan:
     """原射源、機頭散射、電子污染各自的錐角只蓋到會透光的範圍（省歷史數）；每個射源的歷史數 ∝ 權重 × 錐角內的機率
     質量 ÷ 監測游離腔的反散射 s，M ＝ Σ 歷史數 × s ／ 質量比 —— 劑量 ÷ M 就跟錐角大小無關（MU 校正與計畫的錐角
     不同也能互換），反散射只改變每 MU 的粒子數。"""
@@ -368,7 +368,9 @@ def source_plan(beam: Beam, model: dict[str, Any], histories: int) -> SourcePlan
     sig = p.get("angular_sigma_deg")
     ref_p = _mass(*_ellipse(REFERENCE_FIELD_HALF_MM, REFERENCE_FIELD_HALF_MM, sad), sig)
     z_ef = sad - float(ef.get("distance_below_target_mm") or 0.0)
-    sig_ef_mm = 3 * float(ef.get("sigma_mm") or 0.0)
+    # 機頭散射的錐角：GPU 從偏移的出發點瞄準開口（錐角只蓋開口）；OpenTOPAS 的 Beam 射源方向跟出發位置無關，
+    # 要多蓋 3σ 才打得到開口（大部分被準直器吸收）
+    sig_ef_mm = 3 * float(ef.get("sigma_mm") or 0.0) if engine == "topas" else 0.0
     ref_e = (
         _mass(*_ellipse(REFERENCE_FIELD_HALF_MM + sig_ef_mm, REFERENCE_FIELD_HALF_MM + sig_ef_mm, z_ef), None)
         if ef_frac > 0
@@ -416,7 +418,7 @@ def beam_parameters(
 ) -> tuple[str, int, float]:
     """一個射束的參數檔（不含病人與通用的部分）；回 (文字, 實際歷史數, 換算到參考錐角的歷史數 M)，見 `source_plan`。"""
     p = model["params"]
-    plan = source_plan(beam, model, histories)
+    plan = source_plan(beam, model, histories, engine="topas")
     states, cones_p, cones_e, hist_pr, hist_ef, m_equiv = (
         plan.states, plan.cones_p, plan.cones_e, plan.hist_pr, plan.hist_ef, plan.m_equiv,
     )  # fmt: skip

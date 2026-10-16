@@ -920,6 +920,7 @@ EN: dict[str, str] = {
     "停在搜尋範圍邊上：{p0}": "At the edge of the search range: {p0}",
     "fraction 的先驗 {EC_PRIOR_FRACTION}（±{EC_PRIOR_LOG10_SIGMA} 個數量級）；格點的成本含先驗項": "Prior on the fraction {EC_PRIOR_FRACTION} (±{EC_PRIOR_LOG10_SIGMA} decades); the grid costs include the prior term",
     "FFF 角分佈": "FFF angular spread",
+    "側向分佈一律以中心軸正規化比較": "Profiles are always compared normalized at the central axis",
     # 劑量計算
     "GPU Monte Carlo：機頭只算鎢的衰減（不模擬準直器散射）；電子污染用射束模型的虛擬射源": "GPU Monte Carlo: the head is modelled by tungsten attenuation only (no collimator scatter); electron contamination comes from the beam model's virtual source",
     "OpenTOPAS 用實體機頭與空氣模擬，不加射束模型的虛擬電子污染（那是 GPU 引擎的擬合成分）": "OpenTOPAS simulates the physical head and air and does not add the beam model's virtual electron contamination (a fitted component of the GPU engine)",

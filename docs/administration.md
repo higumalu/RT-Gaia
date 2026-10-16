@@ -1106,6 +1106,11 @@ Models fitted to beam data can carry three more components (the demo models have
 - **Collimator density factor**: an effective density ratio per collimator (interleaf leakage, tungsten alloy),
   applied to the path length on the GPU and as a material of the same composition in OpenTOPAS.
 
+On the GPU engine, head-scatter photons start from the Gaussian extra-focal source and are aimed at the field
+opening; the collimators then decide which of them get through, so small fields see less of the extended source.
+OpenTOPAS keeps its beam source, whose directions do not depend on the starting point. The GPU engine is the
+reference for the source model; OpenTOPAS remains the reference for particle transport.
+
 ### Beam data
 
 **Admin → Beam data** holds the measured data that beam models are fitted to and validated against. Viewing is
@@ -1164,6 +1169,14 @@ depth_mm, value, uncertainty
 # depth_mm: 100
 0.0042
 ```
+
+Full curves from a water tank are compared point by point: every PDD point (normalized at dmax) and every
+profile point (normalized at the central axis, both sides compared with the simulated, mirrored profile after
+detector averaging). Curve points use a combined tolerance of 1 percentage point and 1 mm times the local
+gradient, so steep regions (build-up, penumbra) are judged by position. In a fit, PDD points shallower than 3 cm
+constrain electron contamination together with the depth of maximum dose, profiles of fields up to 10 × 10 cm
+constrain the focal spot (and the FFF angular spread), and profiles of larger fields constrain head scatter.
+Profiles along y (jaw Y, across the leaves) and diagonal profiles are listed as not supported yet.
 
 The columns default to `depth_mm, value[, uncertainty]` for depth doses, `position_mm, value[, uncertainty]` for
 profiles and `field_mm, value[, uncertainty]` (square fields) for output factors; rectangular fields use

@@ -192,9 +192,9 @@ def test_histories_scale_with_field_area() -> None:
     import copy
 
     heavy = copy.deepcopy(MODELS["demo-6xfff-dual"])
-    heavy["params"]["extra_focal"] = {**heavy["params"]["extra_focal"], "fraction": 0.27, "sigma_mm": 25.0}
+    heavy["params"]["extra_focal"] = {**heavy["params"]["extra_focal"], "fraction": 0.6, "sigma_mm": 25.0}
     small = water.Setup(20, 20, 900, "mlc")
-    assert commissioning.histories_for(small, 1000, heavy) > 2.5 * commissioning.histories_for(small, 1000)
+    assert 1.5 * 1000 < commissioning.histories_for(small, 1000, heavy) <= 3 * 1000
     assert commissioning.histories_for(small, 1000, MODELS["demo-6xfff-dual"]) < 1.2 * 1000
 
 
@@ -283,9 +283,12 @@ def test_electron_contamination_in_the_source_plan() -> None:
     # 電子污染的錐角只蓋開口（不像機頭散射加 3σ）
     assert plan.cones_c[0] == pytest.approx(topas._ellipse(60.0, 60.0, 500.0))  # 半寬 50 ＋ 邊界 10
     assert plan.z_ec == pytest.approx(500.0)
-    # OpenTOPAS 不發射電子污染：參數檔的歷史數 ＝ 原射源 ＋ 機頭散射
+    # OpenTOPAS 不發射電子污染：參數檔的歷史數 ＝ 原射源 ＋ 機頭散射（OpenTOPAS 自己的機頭散射錐角，多蓋 3σ）
     _text, n, _m = topas.beam_parameters(beam, ec, 1_000_000, iso=(0.0, 0.0, 0.0), world_hl_mm=2000.0)
-    assert n == plan.hist_pr[0] + plan.hist_ef[0]
+    tp = topas.source_plan(beam, ec, 1_000_000, engine="topas")
+    assert n == tp.hist_pr[0] + tp.hist_ef[0]
+    # GPU 的機頭散射從偏移的出發點瞄準開口：錐角只蓋開口（比 OpenTOPAS 的小）
+    assert plan.cones_e[0][0] < tp.cones_e[0][0]
 
 
 def test_electron_spectrum() -> None:
