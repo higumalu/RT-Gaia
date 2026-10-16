@@ -38,6 +38,8 @@ TOLERANCE = {
     "output_factor": ("relative", 0.01),
     "gy_per_mu": ("relative", 0.01),
     "mlc_transmission": ("absolute", 0.001),
+    "dlg_mm": ("mm", 0.2),
+    "leaf_end_offset_mm": ("mm", 0.2),
     "leaf_height_mm": ("mm", 1.0),
     "leaf_end_radius_mm": ("mm", 5.0),
 }
@@ -320,10 +322,22 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
                 else:
                     c.model_value = float(spec["thickness_mm"])
                 out.append(c)
+            elif q in ("dlg_mm", "leaf_end_offset_mm"):
+                # 模型的 DLG 就是「每對葉片的開口放大多少」（Varian 的定義）：直接跟量測比。掃描間隙的 y 截距
+                # （leaf end effect）是 −DLG。
+                devices = list(model.get("mlc_devices") or [])
+                layer = str(cond.get("layer") or "")
+                dev = LAYER_DEVICE.get(layer.lower(), layer) if len(devices) > 1 else (devices[0] if devices else "")
+                c = base(quantity=q, x=None, measured=val, u_measured=u)
+                if not dev or dev not in devices:
+                    c.unsupported = f"模型沒有 MLC 層 {layer or '?'}"
+                else:
+                    dlg = float(model["params"]["collimators"][dev].get("dlg_mm") or 0.0)
+                    c.model_value = dlg if q == "dlg_mm" else -dlg
+                    c.extra["layer"] = dev
+                out.append(c)
             else:
                 why = {
-                    "leaf_end_offset_mm": "葉端偏移要模擬掃描間隙（之後加）",
-                    "dlg_mm": "DLG 要模擬掃描間隙（之後加）",
                     "leaf_end_radius_mm": "模型的葉端還沒有圓弧（之後加）",
                     "jaw_transmission": "jaw 穿透之後加",
                 }.get(q, "這個量或條件還不支援")

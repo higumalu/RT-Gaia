@@ -2319,6 +2319,7 @@ export const EN: Readonly<Record<string, MessageEntry>> = {
   "存成草稿": "Save as draft",
   "建立／啟用": "Created / activated",
   "（所有沒有對到的 CT）": "(every CT that matches nothing else)",
+  "DLG（葉端）": "DLG (leaf ends)",
   "FFF 角分佈": "FFF angular spread",
   "停在搜尋範圍邊上：{names} —— 資料要的可能是模型沒有的東西": "Stopped at the edge of the search range: {names} — the data may ask for something the model does not have",
   "碰到邊界": "At bound",

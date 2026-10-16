@@ -55,10 +55,17 @@ DEMO_6X_ID = "demo-6x"
 COMMON_LIMITATIONS = (
     "示範模型：參數是文獻與公開資料的典型值，不代表任何一台實機",
     "沒有電子污染的模型（表面 1–2 cm 的劑量偏低）",
-    "葉片圓端與 tongue-and-groove 沒有模型",
+    "葉片圓端只用 DLG（每對葉片的開口放大）近似；tongue-and-groove 沒有模型",
     "監測游離腔的反散射沒有模型（MU 跟射野大小的關係只來自幾何）",
 )
 """每個示範模型都有的限制（管理頁「射束模型」列出來；不進模型雜湊）。"""
+DLG_6X_MM = 1.33
+DLG_6XFFF_MM = 1.16
+DLG_HALCYON_MM = 0.1
+"""DLG（dosimetric leaf gap）的假設典型值（等中心平面 mm）：TrueBeam Millennium 120 的 6X 1.33、6FFF 1.16（Glide-Hurst
+et al., Med Phys 2013;40:031719 摘要的多機構平均）；Halcyon 0.1（Lim et al., JACMP 2019 —— 量測的葉端效應 0.13–0.19 mm、
+TPS 的固定值 0.1 mm）。沒有 DLG 時高度調控的計畫（VMAT、SRS）劑量系統性偏低：PROTEAS 的 SRS 計畫高劑量區 −5%，
+加 1 mm 就到 +2.5%（2026-10-16）。"""
 LEAF_LENGTH_MM = 320.0
 """葉片長度（投影到等中心平面）：≥ 射野寬（280 mm）＋ 餘裕。"""
 
@@ -126,7 +133,8 @@ def demo_6x() -> dict[str, Any]:
         "reference": (
             "Spectrum: Mohan, Chui, Lidofsky, Med Phys 1985;12:592 (6 MV), values as tabulated in EGSnrc "
             "mohan6.spectrum. Source, head-scatter and collimator geometry: typical published values, not a "
-            "specific machine."
+            "specific machine. DLG: Glide-Hurst et al., Med Phys 2013;40:031719 (multi-institutional TrueBeam "
+            "average, 6 MV)."
         ),
         "params": {
             "spectrum_mev": energies,
@@ -141,6 +149,7 @@ def demo_6x() -> dict[str, Any]:
                     "thickness_mm": 67.0,
                     "leaf_length_mm": LEAF_LENGTH_MM,
                     "material": "G4_W",
+                    "dlg_mm": DLG_6X_MM,
                 },
             },
             "field_margin_mm": 10.0,
@@ -167,11 +176,15 @@ def demo_6xfff() -> dict[str, Any]:
         reference=(
             "Spectrum: Mohan 6 MV (Med Phys 1985;12:592) with the attenuation of an assumed 1.5 cm copper flattening "
             "filter removed (NIST XCOM mu/rho of copper). Off-axis fall-off, head scatter and collimator geometry: "
-            "assumed typical values, not a specific machine."
+            "assumed typical values, not a specific machine. DLG: Glide-Hurst et al., Med Phys 2013;40:031719 "
+            "(multi-institutional TrueBeam average, 6 MV FFF)."
         ),
     )
+    col = {k: dict(v) for k, v in m["params"]["collimators"].items()}
+    col["MLCX"]["dlg_mm"] = DLG_6XFFF_MM
     m["params"] = {
         **m["params"],
+        "collimators": col,
         "spectrum_mev": energies,
         "spectrum_weights": weights,
         "angular_sigma_deg": FFF_ANGULAR_SIGMA_DEG,
@@ -184,6 +197,10 @@ def demo_6xfff() -> dict[str, Any]:
 def demo_6xfff_dual() -> dict[str, Any]:
     m = demo_6xfff()
     m.update(model_id=DEMO_6XFFF_DUAL_ID, name="Demo 6X FFF (dual-layer MLC)", mlc_devices=["MLCX1", "MLCX2"])
+    m["reference"] = str(m["reference"]).replace(
+        "DLG: Glide-Hurst et al., Med Phys 2013;40:031719 (multi-institutional TrueBeam average, 6 MV FFF).",
+        "DLG: Lim et al., JACMP 2019;20(4):106 (Halcyon leaf-end effect 0.13-0.19 mm; TPS value 0.1 mm).",
+    )
     m["params"] = {
         **m["params"],
         "collimators": {
@@ -205,12 +222,14 @@ def demo_6xfff_dual() -> dict[str, Any]:
                 "thickness_mm": 77.0,
                 "leaf_length_mm": LEAF_LENGTH_MM,
                 "material": "G4_W",
+                "dlg_mm": DLG_HALCYON_MM,
             },
             "MLCX2": {
                 "source_to_upstream_mm": 410.0,
                 "thickness_mm": 77.0,
                 "leaf_length_mm": LEAF_LENGTH_MM,
                 "material": "G4_W",
+                "dlg_mm": DLG_HALCYON_MM,
             },
         },
         # MU 校正的參考射野用 MLC 開：下層 28 對 10 mm（−140…140）、上層 29 對錯開半片（−145…145）

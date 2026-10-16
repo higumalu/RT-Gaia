@@ -221,7 +221,7 @@ def test_fit_recovers_the_truth(fake) -> None:  # type: ignore[no-untyped-def]
     names = [(s["round"], s["name"]) for s in report["stages"]]
     seq = ["spectrum", "electron_contamination", "focal_spot", "head_scatter", "collimator_density"]
     assert names == [(r, n) for r in (1, 2) for n in seq]
-    assert report["unconstrained"] == []
+    assert report["unconstrained"] == ["dlg"]  # 合成資料沒有 DLG 量測
     last = {s["name"]: s for s in report["stages"] if s["round"] == 2}
     # 資料約束得到的：找回真值
     assert p["focal_spot_sigma_mm"] == 1.0
@@ -262,7 +262,7 @@ def test_unconstrained_parameters_keep_the_prior(fake) -> None:  # type: ignore[
     ds["measurements"] = [m for m in ds["measurements"] if m["kind"] == "output_factor"]
     fitted, report = fitting.fit(prior, [ds], tb=None, histories=10)
     # 3 cm 的輸出因子約束得到焦點（小射野）；能譜、電子污染、準直器密度沒有資料
-    assert set(report["unconstrained"]) == {"spectrum", "electron_contamination", "collimator_density"}
+    assert set(report["unconstrained"]) == {"spectrum", "electron_contamination", "collimator_density", "dlg"}
     assert "electron_contamination" not in fitted["params"]
     assert fitted["params"]["spectrum_weights"] == pytest.approx(prior["params"]["spectrum_weights"])
     final = fitting.finalize(fitted, prior, report, demo=False)
@@ -383,3 +383,17 @@ def test_weak_contamination_reports_its_clinical_impact(fake) -> None:  # type: 
     fake_report = {**report, "stages": [{**ec, "parameters": {**ec["parameters"], "deep_dose_spread": 0.02}}]}
     lim = fitting.finalize(fitted, prior, fake_report, demo=True)["limitations"]
     assert any("10 cm 深的劑量" in x and "2.0%" in x for x in lim)
+
+
+def test_dlg_is_taken_from_measurements() -> None:
+    """DLG 直接取量測（葉端效應取負號），不用模擬；有量測就不再列未約束。"""
+    from rtgaia_dosecalc import beam_data
+
+    prior = beam_models.demo_6xfff_dual()
+    ends = {d["dataset_id"]: d for d in beam_data.builtin_datasets()}["pub-lim2019-halcyon-mlc"]
+    checks = [c for c in commissioning.plan_checks(prior, ends) if c.quantity == "leaf_end_offset_mm"]
+    st = fitting.State(beam_models.demo_6xfff_dual(), np.array([1.0]), [])
+    stage = fitting.fit_dlg(st, fitting.Problem(checks, {}))
+    assert stage.parameters["dlg_mm"] == {"MLCX1": pytest.approx((0.19 + 0.13) / 2)}
+    assert st.model["params"]["collimators"]["MLCX1"]["dlg_mm"] == pytest.approx(0.16)
+    assert stage.cost_after <= stage.cost_before

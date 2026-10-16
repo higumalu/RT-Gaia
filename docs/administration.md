@@ -1105,6 +1105,14 @@ Models fitted to beam data can carry three more components (the demo models have
   applies to both engines; models without jaws do not use it.
 - **Collimator density factor**: an effective density ratio per collimator (interleaf leakage, tungsten alloy),
   applied to the path length on the GPU and as a material of the same composition in OpenTOPAS.
+- **Dosimetric leaf gap (DLG)** per MLC: every leaf pair opening is widened by the DLG (half on each side), the
+  usual approximation of transmission through rounded leaf ends; both engines apply it. It matters most for
+  VMAT and SRS, where most of the dose is delivered through narrow moving gaps: on a public SRS plan, the dose in
+  the high-dose region changed by about 7 % between no DLG and 1 mm. The demo models carry assumed typical values
+  (TrueBeam Millennium 120: 1.33 mm at 6 MV, 1.16 mm at 6 MV FFF, multi-institutional averages from Glide-Hurst
+  et al. 2013; Halcyon: 0.1 mm, Lim et al. 2019). A fit takes the DLG from DLG or leaf-end-effect measurements in
+  the beam data (the leaf-end effect is the negative sweeping-gap intercept); without them the DLG stays at the
+  prior and is listed as unconstrained. It is never adjusted to agree with a TPS dose.
 
 On the GPU engine, head-scatter photons start from the Gaussian extra-focal source and are aimed at the field
 opening; the collimators then decide which of them get through, so small fields see less of the extended source.
@@ -1204,8 +1212,8 @@ after averaging the profile over the detector named in the measurement (CC13, PT
 the inflection point is 50 %. `report.json` lists every point with the measured value, the model value, both
 uncertainties, the difference and whether it is within tolerance (1 % for dose ratios and output factors, 1 mm
 for positions, 1 percentage point for PDD, 0.1 percentage point for transmission). Measurements the check cannot
-simulate yet (TPR and TMR curves, leaf-end offset, dosimetric leaf gap, jaw transmission) are listed with the
-reason. With the default statistics a dataset takes a few minutes on an RTX 5090; dual-layer MLC models are about
+simulate yet (TPR and TMR curves, jaw transmission, diagonal profiles) are listed with the reason; the dosimetric
+leaf gap and the leaf-end effect are compared directly with the model's DLG. With the default statistics a dataset takes a few minutes on an RTX 5090; dual-layer MLC models are about
 three times slower.
 
 **Fitting from the administrator page.** **Admin → Beam models → + Fit a new model** runs the same fit as a

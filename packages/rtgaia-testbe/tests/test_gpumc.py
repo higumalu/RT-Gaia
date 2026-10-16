@@ -337,3 +337,25 @@ def test_x_and_y_profiles(tb) -> None:  # type: ignore[no-untyped-def]
     fx = water.profile_metrics(c.x_mm, c.profiles[100.0], fff=False)["fwhm_mm"]
     fy = water.profile_metrics(c.y_mm, c.profiles_y[100.0], fff=False)["fwhm_mm"]
     assert fx == pytest.approx(110.0, abs=1.5) and fy == pytest.approx(66.0, abs=1.5)
+
+
+def test_dlg_opens_narrow_gaps(tb) -> None:  # type: ignore[no-untyped-def]
+    """DLG：每對葉片的開口兩側各放大 DLG／2。5 mm 的 MLC 窄縫在 DLG 1.33 mm 時，橫向積分的劑量（掃描間隙、VMAT
+    的窄開口累積的就是這個）跟開口寬度成比例（6.33／5 ＝ 1.27）；中心軸只多一點散射；10 cm 的開口幾乎不變。"""
+    import copy
+
+    from rtgaia_dosecalc import water
+
+    base = beam_models.demo_6x()
+    no_dlg = copy.deepcopy(base)
+    no_dlg["params"]["collimators"]["MLCX"]["dlg_mm"] = 0.0
+
+    def integral(model: dict, field: float) -> float:  # type: ignore[type-arg]
+        s = water.Setup(field, 100.0, 1000.0, "mlc", profile_depths=(100.0,))
+        c = water.simulate(model, s, tb, 500_000_000, seed=3).mean
+        prof = c.profiles[100.0]
+        return float(2 * prof.sum() - prof[0])
+
+    narrow = integral(base, 5.0) / integral(no_dlg, 5.0)
+    wide = integral(base, 100.0) / integral(no_dlg, 100.0)
+    assert narrow == pytest.approx(6.33 / 5.0, abs=0.06) and wide == pytest.approx(1.0133, abs=0.01)

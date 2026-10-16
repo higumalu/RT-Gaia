@@ -177,7 +177,10 @@ def test_plan_checks_for_public_datasets() -> None:
     )
     height = next(c for c in lim if c.quantity == "leaf_height_mm")
     assert height.model_value == 77.0 and height.measured == 77.0
-    assert {c.quantity for c in lim if c.unsupported} == {"leaf_end_offset_mm", "leaf_end_radius_mm"}
+    assert {c.quantity for c in lim if c.unsupported} == {"leaf_end_radius_mm"}
+    # 葉端效應（掃描間隙的 y 截距）＝ −DLG：跟模型的 DLG 直接比（示範 Halcyon 0.1 mm）
+    ends = [c for c in lim if c.quantity == "leaf_end_offset_mm"]
+    assert {c.model_value for c in ends} == {-0.1} and {c.extra["layer"] for c in ends} == {"MLCX1"}
     gao = commissioning.plan_checks(MODELS["demo-6xfff-dual"], DATASETS["pub-gao2019-halcyon"])
     rect = [c for c in gao if c.quantity == "output_factor" and c.x is None]
     assert [(c.setup.field_x, c.setup.field_y) for c in rect] == [(40.0, 200.0), (200.0, 40.0)]
@@ -228,7 +231,9 @@ def test_run_checks_residuals_with_a_fake_simulator(monkeypatch) -> None:  # typ
     )
     t = next(r for r in lim["checks"] if r["measurement_id"] == "lim2019-t3-transmission-distal-d10")
     assert t["model"] == pytest.approx(0.004) and t["status"] == "pass"
-    assert {r["status"] for r in lim["checks"] if r["quantity"] == "leaf_end_offset_mm"} == {"unsupported"}
+    assert {r["status"] for r in lim["checks"] if r["quantity"] == "leaf_end_offset_mm"} == {
+        "pass"
+    }  # −0.1 對 −0.13／−0.19
 
 
 # ── 射源模型的擬合用成分：電子污染、監測游離腔反散射、準直器有效密度 ─────────

@@ -105,6 +105,9 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   combined 1 % / 1 mm tolerance (profiles normalized at the central axis, after detector averaging); build-up
   points constrain electron contamination, small-field profiles the focal spot, large-field profiles head scatter.
   Profiles can be crossline (x) or inline (y).
+- Dosimetric leaf gap (DLG) per MLC in beam models and both engines, with assumed typical values in the demo
+  models and fits that take it from DLG or leaf-end-effect measurements. Without it, VMAT and SRS doses were
+  systematically low.
 - On the GPU engine, head-scatter photons are aimed at the field opening from their starting point on the
   extended source, so the collimators decide how much of the source each field sees.
 - Beam models can carry fitted components: a virtual electron contamination source (GPU engine), monitor chamber

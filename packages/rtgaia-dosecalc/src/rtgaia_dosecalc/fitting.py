@@ -57,6 +57,7 @@ STAGE_NAME_ZH = {
     "head_scatter": "機頭散射與反散射",
     "collimator_density": "準直器有效密度",
     "angular_spread": "FFF 角分佈",
+    "dlg": "DLG（葉端）",
 }
 PASSES = 2
 SMALL_FIELD_MM = 40.0
@@ -635,6 +636,25 @@ def fit_head_scatter(st: State, basis: Basis, problem: Problem, has_jaws: bool) 
     )
 
 
+def fit_dlg(st: State, problem: Problem) -> Stage:
+    """DLG：每一層 MLC 取量測的平均（`dlg_mm` 直接用、`leaf_end_offset_mm` 取負號）。模型的 DLG 就是開口放大的量，
+    不用模擬。"""
+    p = st.model["params"]
+    layers: dict[str, list[float]] = {}
+    for c in problem.checks:
+        layers.setdefault(str(c.extra.get("layer")), []).append(c.measured if c.quantity == "dlg_mm" else -c.measured)
+    out = {}
+    before = after = 0.0
+    for layer, vals in layers.items():
+        old = float(p["collimators"][layer].get("dlg_mm") or 0.0)
+        new = round(float(np.mean(vals)), 4)
+        p["collimators"][layer]["dlg_mm"] = new
+        out[layer] = new
+        before += sum(((old - v) / 0.2) ** 2 for v in vals)
+        after += sum(((new - v) / 0.2) ** 2 for v in vals)
+    return Stage("dlg", {"dlg_mm": out}, problem.ids(), before, after, note="量測的平均（葉端效應取負號）")
+
+
 def fit_density(st: State, basis: Basis, problem: Problem) -> Stage:
     """每一層 MLC：密度比 1.0 與 0.8 各模擬一次穿透（只用原射源：穿透是衰減），ln T 對密度線性 → 解到量測值
     （多個量測取平均，限 0.6–1.1）。"""
@@ -690,7 +710,10 @@ def fit(
     prior = np.asarray([prior_lines[m].sum() for m in st.masks])
     st.group_weights = prior / prior.sum()
     checks = [
-        c for ds in datasets for c in commissioning.plan_checks(model, ds) if not c.unsupported and c.setup is not None
+        c
+        for ds in datasets
+        for c in commissioning.plan_checks(model, ds)
+        if not c.unsupported and (c.setup is not None or c.quantity in ("dlg_mm", "leaf_end_offset_mm"))
     ]
     basis = Basis(tb, histories, progress)
     fff = model.get("fluence_mode") == "FFF"
@@ -733,11 +756,13 @@ def fit(
     of_checks = [c for c in checks if c.quantity == "output_factor"] + large_profiles
     of = Problem.of(of_checks) if of_checks else None
     trans = pick("mlc_transmission")
+    dlg_checks = [c for c in checks if c.quantity in ("dlg_mm", "leaf_end_offset_mm") and c.extra.get("layer")]
+    dlg = Problem(dlg_checks, {}) if dlg_checks else None
     unconstrained = [
         name
         for name, prob in (
             ("spectrum", spec), ("electron_contamination", dmax), ("focal_spot", prof), ("head_scatter", of),
-            ("collimator_density", trans),
+            ("collimator_density", trans), ("dlg", dlg),
         )
         if prob is None
     ]  # fmt: skip
@@ -760,6 +785,8 @@ def fit(
             done.append(fit_head_scatter(st, basis, of, has_jaws))
         if trans:
             done.append(fit_density(st, basis, trans))
+        if dlg and round_no == 1:
+            done.append(fit_dlg(st, dlg))
         for stage in done:
             stage.round = round_no
         stages += done

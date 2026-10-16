@@ -766,7 +766,6 @@ EN: dict[str, str] = {
     "g4tables 少了材質 {missing}": "g4tables is missing materials {missing}",
     "示範模型：參數是文獻與公開資料的典型值，不代表任何一台實機": "Demo model: parameters are typical published values and represent no real machine",
     "沒有電子污染的模型（表面 1–2 cm 的劑量偏低）": "No electron contamination model (the dose in the first 1–2 cm is low)",
-    "葉片圓端與 tongue-and-groove 沒有模型": "Rounded leaf ends and tongue-and-groove are not modelled",
     "監測游離腔的反散射沒有模型（MU 跟射野大小的關係只來自幾何）": "Backscatter into the monitor chamber is not modelled (the MU dependence on field size comes from geometry only)",
     "能譜沒有離軸軟化（中心軸的能譜用在整個射野）": "No off-axis softening of the spectrum (the central-axis spectrum is used across the field)",
     "整平濾片的厚度（1.5 cm 銅）與離軸的角分佈（σ 7.6°）是假設": "The flattening filter thickness (1.5 cm copper) and the off-axis angular distribution (σ 7.6°) are assumptions",
@@ -922,6 +921,9 @@ EN: dict[str, str] = {
     "側向分佈一律以中心軸正規化比較": "Profiles are always compared normalized at the central axis",
     "電子污染一樣好的候選值，讓 10 cm 深的劑量（以 dmax 做 MU 校正）差 {pct}%：要建成區的 PDD 才定得下來": "Equally good electron contamination values change the dose at 10 cm depth (MU calibrated at dmax) by {pct}%: build-up PDD points are needed to pin it down",
     "對角線的側向分佈還不支援": "Diagonal profiles are not supported yet",
+    "葉片圓端只用 DLG（每對葉片的開口放大）近似；tongue-and-groove 沒有模型": "Rounded leaf ends are approximated by the DLG (each leaf pair opening widened); tongue-and-groove is not modelled",
+    "DLG（葉端）": "DLG (leaf ends)",
+    "量測的平均（葉端效應取負號）": "Mean of the measurements (leaf-end effect with its sign reversed)",
     # 劑量計算
     "GPU Monte Carlo：機頭只算鎢的衰減（不模擬準直器散射）；電子污染用射束模型的虛擬射源": "GPU Monte Carlo: the head is modelled by tungsten attenuation only (no collimator scatter); electron contamination comes from the beam model's virtual source",
     "OpenTOPAS 用實體機頭與空氣模擬，不加射束模型的虛擬電子污染（那是 GPU 引擎的擬合成分）": "OpenTOPAS simulates the physical head and air and does not add the beam model's virtual electron contamination (a fitted component of the GPU engine)",

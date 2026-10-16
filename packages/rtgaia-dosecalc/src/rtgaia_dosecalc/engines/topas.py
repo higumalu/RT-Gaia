@@ -606,8 +606,14 @@ def beam_parameters(
             f"d:Ge/{name}/TransZ = {sad - susd - thick / 2} mm",
             f"dv:Ge/{name}/LeafWidths = {n_leaves} " + " ".join(f"{w:g}" for w in widths) + " mm",
         ]
-        neg_rows = [[min(a, b) for a, b in zip(ra, rb, strict=True)] for ra, rb in zip(rows_a, rows_b, strict=True)]
-        pos_rows = [[max(a, b) for a, b in zip(ra, rb, strict=True)] for ra, rb in zip(rows_a, rows_b, strict=True)]
+        # DLG：圓弧葉端的透光 → 每對葉片的開口兩側各放大 DLG／2（跟 GPU 引擎一樣）
+        hd = float(spec.get("dlg_mm") or 0.0) / 2
+        neg_rows = [
+            [min(a, b) - hd for a, b in zip(ra, rb, strict=True)] for ra, rb in zip(rows_a, rows_b, strict=True)
+        ]
+        pos_rows = [
+            [max(a, b) + hd for a, b in zip(ra, rb, strict=True)] for ra, rb in zip(rows_a, rows_b, strict=True)
+        ]
         if n_steps == 1:
             out += [
                 f"dv:Ge/{name}/NegativeFieldSetting = {n_leaves} " + " ".join(f"{v:.4g}" for v in neg_rows[0]) + " mm",

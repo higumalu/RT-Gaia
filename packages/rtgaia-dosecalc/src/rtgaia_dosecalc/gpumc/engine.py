@@ -86,8 +86,14 @@ def beam_source(beam: Beam, model: dict[str, Any], histories: int) -> tuple[tran
             continue
         rows_a = [getattr(cp, a_attr) for cp, _ in states]
         rows_b = [getattr(cp, b_attr) for cp, _ in states]
-        neg = [[min(a, b) for a, b in zip(ra, rb, strict=True)] for ra, rb in zip(rows_a, rows_b, strict=True)]
-        pos = [[max(a, b) for a, b in zip(ra, rb, strict=True)] for ra, rb in zip(rows_a, rows_b, strict=True)]
+        # DLG（dosimetric leaf gap，等中心平面 mm）：圓弧葉端的透光 → 每對葉片的開口兩側各放大 DLG／2
+        half_dlg = float(col[name].get("dlg_mm") or 0.0) / 2
+        neg = [
+            [min(a, b) - half_dlg for a, b in zip(ra, rb, strict=True)] for ra, rb in zip(rows_a, rows_b, strict=True)
+        ]
+        pos = [
+            [max(a, b) + half_dlg for a, b in zip(ra, rb, strict=True)] for ra, rb in zip(rows_a, rows_b, strict=True)
+        ]
         devs.append(_device(0, col[name], list(bounds), neg, pos))
     dev_i, dev_f, bnd, posv = [], [], [], []
     for d in devs:
