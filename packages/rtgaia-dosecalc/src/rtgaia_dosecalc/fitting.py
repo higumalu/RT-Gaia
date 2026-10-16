@@ -454,6 +454,15 @@ def fit_contamination(st: State, basis: Basis, problem: Problem) -> Stage:
     before = cost(residuals(problem, {k: combine(v)[0] for k, v in base.items()}))
     grid: list[dict[str, Any]] = []
     best: dict[str, Any] | None = None
+    # 臨床影響：MU 校正在 dmax，dmax 處的電子污染越多、深處的劑量越少 → 每個候選值算 10 cm 深對 dmax 的比
+    ref_key = min(
+        problem.setups, key=lambda k: abs(problem.setups[k].field_x - 100.0) + abs(problem.setups[k].field_y - 100.0)
+    )
+
+    def deep_ratio(curves: water.Curves) -> float:
+        dm = water.dmax_mm(curves.depth_mm, curves.cax)
+        return water.dose_at(curves.depth_mm, curves.cax, 100.0) / water.dose_at(curves.depth_mm, curves.cax, dm)
+
     for mean in EC_MEAN_GRID:
         for sig in EC_SIGMA_GRID:
             ec = {k: st.ec(basis, s, mean, sig) for k, s in problem.setups.items()}
@@ -477,6 +486,9 @@ def fit_contamination(st: State, basis: Basis, problem: Problem) -> Stage:
                 "fraction_sd": sd,
                 "cost": c,
                 "data_cost": data_cost,
+                "deep_dose_ratio": deep_ratio(
+                    combine([(w * (1 - f), x) for w, x in base[ref_key]] + [(f, ec[ref_key])])[0]
+                ),
             }
             grid.append(row)
             if best is None or row["cost"] < best["cost"]:
@@ -487,13 +499,16 @@ def fit_contamination(st: State, basis: Basis, problem: Problem) -> Stage:
         "distance_below_target_mm": EC_DISTANCE_MM,
     }  # fmt: skip
     st.model["params"]["electron_contamination"] = ec_params
+    near = [g["deep_dose_ratio"] for g in grid if g["cost"] - best["cost"] <= 1.0]
+    spread = max(near) / min(near) - 1.0 if near and min(near) > 0 else 0.0
     bounds = (
         _edge("fraction", math.log(best["fraction"]), math.log(1e-5), math.log(2e-2), 0.01)
         + _edge("mean_energy_mev", best["mean_energy_mev"], EC_MEAN_GRID[0], EC_MEAN_GRID[-1])
         + _edge("sigma_mm", best["sigma_mm"], EC_SIGMA_GRID[0], EC_SIGMA_GRID[-1])
     )
     return Stage(
-        "electron_contamination", dict(ec_params), problem.ids(), before, best["data_cost"], grid,
+        "electron_contamination", {**ec_params, "deep_dose_spread": round(spread, 4)}, problem.ids(), before,
+        best["data_cost"], grid,
         uncertainty={"fraction": best["fraction_sd"]}, at_bounds=bounds,
         note=f"fraction 的先驗 {EC_PRIOR_FRACTION:g}（±{EC_PRIOR_LOG10_SIGMA:g} 個數量級）；格點的成本含先驗項",
     )  # fmt: skip
@@ -807,5 +822,11 @@ def finalize(
             lim.append(f"弱約束（格點裡有一樣好的其他值）：{STAGE_NAME_ZH.get(x['name'], x['name'])}")
         if x.get("at_bounds"):
             lim.append(f"停在搜尋範圍邊上：{', '.join(x['at_bounds'])}")
+        spread = (x.get("parameters") or {}).get("deep_dose_spread")
+        if spread and spread > 0.005:
+            pct = f"{100 * spread:.1f}"
+            lim.append(
+                f"電子污染一樣好的候選值，讓 10 cm 深的劑量（以 dmax 做 MU 校正）差 {pct}%：要建成區的 PDD 才定得下來"
+            )
     m["limitations"] = lim
     return m

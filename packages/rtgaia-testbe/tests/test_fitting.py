@@ -371,3 +371,15 @@ def test_curve_points_use_a_composite_tolerance() -> None:
     assert commissioning.tolerance("pdd", 66.0, 0.0) == pytest.approx(1.0)
     assert commissioning.tolerance("profile", 50.0, 10.0) == pytest.approx(math.hypot(1.0, 10.0))
     assert commissioning.tolerance("output_factor", 0.8, 5.0) == pytest.approx(0.008)  # 不是曲線點
+
+
+def test_weak_contamination_reports_its_clinical_impact(fake) -> None:  # type: ignore[no-untyped-def]
+    """電子污染只有 dmax 約束時，一樣好的候選值對深處劑量（dmax 校正）的影響要算出來、寫進模型的限制。"""
+    prior = beam_models.demo_6x()
+    fitted, report = fitting.fit(prior, [_dataset(_truth(prior))], tb=None, histories=10)
+    ec = next(s for s in report["stages"] if s["name"] == "electron_contamination" and s["round"] == 2)
+    assert "deep_dose_spread" in ec["parameters"] and ec["parameters"]["deep_dose_spread"] >= 0.0
+    assert all("deep_dose_ratio" in g for g in ec["grid"])
+    fake_report = {**report, "stages": [{**ec, "parameters": {**ec["parameters"], "deep_dose_spread": 0.02}}]}
+    lim = fitting.finalize(fitted, prior, fake_report, demo=True)["limitations"]
+    assert any("10 cm 深的劑量" in x and "2.0%" in x for x in lim)
