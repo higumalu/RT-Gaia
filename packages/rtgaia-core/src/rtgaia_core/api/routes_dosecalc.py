@@ -2,7 +2,8 @@
 
 * `GET    /dosecalc/engines`                         ：這台機器上能用的引擎、射束模型
 * `GET    /dosecalc/beam-models`                     ：內建射束模型的完整參數與 MU 校正（管理頁）
-* `POST   /studies/{study_id}/dosecalc`              ：`{plan_sop_uid, engine?, histories?, grid?, calc_spacing_mm?}`
+* `POST   /studies/{study_id}/dosecalc`              ：`{plan_sop_uid, engine?, histories?, grid?, calc_spacing_mm?,
+  beam_model_id?, model_sensitivity?}`（`model_sensitivity`：用擬合裡一樣好的其他參數重算，GPU 才有）
   → `dosecalc` job
 * `GET    /studies/{study_id}/dosecalc`              ：這個病例的劑量計算工作（狀態、摘要、載回了沒）
 * `POST   /studies/{study_id}/dosecalc/{job_id}/load`：完成的結果 → 暫存劑量（只有發起的人看得到）
@@ -168,6 +169,11 @@ async def submit_dosecalc(study_id: str, body: dict[str, Any], request: Request,
     ):
         raise _reject("BAD_CALC_SPACING", ["calc_spacing_mm 要是 1–10 的數字，或 null（跟輸出網格相同）"])
     options["calc_spacing_mm"] = float(spacing) if spacing is not None else None
+    sensitivity = body.get("model_sensitivity", False)
+    if not isinstance(sensitivity, bool):
+        raise _reject("BAD_MODEL_SENSITIVITY", ["model_sensitivity 要是 true 或 false"])
+    if sensitivity:
+        options["model_sensitivity"] = True
     model_id = body.get("beam_model_id")
     if model_id is not None:
         if not isinstance(model_id, str) or not 1 <= len(model_id) <= 64:

@@ -12,7 +12,7 @@ import { gammaSummaryText, gammaVerdict, type GammaStats } from '../doseops/gamm
 import type { DoseOpResult } from '../doseops/model';
 import { DVH_MODE } from '../dvh/mode';
 import { DVH_MODULE_ID, type DvhModuleState } from '../dvh/model';
-import { CALC_SPACINGS, engineLabel, historyPresets, HISTORY_PRESETS, isActive, jobsForPlan, jobStatusText, summaryNotes, tpsDvhDoseIds, tpsGammaBody, uncertaintyNotes, type DosecalcEngine, type DosecalcJob } from './dosecalcModel';
+import { CALC_SPACINGS, engineLabel, historyPresets, HISTORY_PRESETS, isActive, jobsForPlan, jobStatusText, sensitivityNotes, summaryNotes, tpsDvhDoseIds, tpsGammaBody, uncertaintyNotes, type DosecalcEngine, type DosecalcJob } from './dosecalcModel';
 
 const POLL_MS = 2000;
 
@@ -24,6 +24,7 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
   const [grid, setGrid] = useState<'tps' | 'ct'>('tps');
   const [histories, setHistories] = useState<number>(HISTORY_PRESETS[1]!.value);
   const [spacing, setSpacing] = useState<number | null>(CALC_SPACINGS[0]!.value);
+  const [sensitivity, setSensitivity] = useState(false);
   const [jobs, setJobs] = useState<DosecalcJob[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -67,7 +68,13 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
     setBusy('submit');
     setProblem(null);
     try {
-      await http.postJson(base, { plan_sop_uid: planSop, engine, grid, ...(chosen?.test_only ? {} : { histories, calc_spacing_mm: spacing }) });
+      await http.postJson(base, {
+        plan_sop_uid: planSop,
+        engine,
+        grid,
+        ...(chosen?.test_only ? {} : { histories, calc_spacing_mm: spacing }),
+        ...(engine === 'gpu' && sensitivity ? { model_sensitivity: true } : {}),
+      });
       await reload();
     } catch (e) {
       setProblem(e instanceof Error ? e.message : String(e));
@@ -161,6 +168,11 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
               ))}
             </select>
           )}
+          {engine === 'gpu' && (
+            <label className="small" title={t('擬合出來的射束模型裡，跟量測一樣吻合的其他參數各重算一次，看這份計畫的劑量會差多少（每組多算一次）')}>
+              <input type="checkbox" checked={sensitivity} onChange={(e) => setSensitivity(e.target.checked)} data-field="dosecalc-sensitivity" /> {t('模型敏感度')}
+            </label>
+          )}
           <button type="button" className="primary" disabled={busy !== null || !chosen?.ready} onClick={() => void submit()} data-action="dosecalc-submit" title={chosen && !chosen.ready ? chosen.reason : undefined}>
             {busy === 'submit' ? t('準備中…') : t('重算劑量')}
           </button>
@@ -185,6 +197,11 @@ export function DoseCalcSection({ api, plan }: ViewerPanelProps & { plan: PlanIn
               {uncertaintyNotes(j).map((n) => (
                 <p key={n.text} className={n.noisy ? 'warning small dosecalc-noise' : 'small dosecalc-uncertainty'}>
                   {n.text}
+                </p>
+              ))}
+              {sensitivityNotes(j).map((n) => (
+                <p key={n} className="small dosecalc-sensitivity">
+                  {n}
                 </p>
               ))}
               <div className="buttons small">

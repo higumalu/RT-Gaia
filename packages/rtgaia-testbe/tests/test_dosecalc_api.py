@@ -136,6 +136,8 @@ def test_refusals_and_cancel(case, env, tmp_path: Path) -> None:  # type: ignore
             ({"plan_sop_uid": plan, "engine": "pipeline-test", "grid": "x"}, "422"),
             ({"plan_sop_uid": plan, "engine": "pipeline-test", "calc_spacing_mm": 20}, "422"),
             ({"plan_sop_uid": plan, "engine": "pipeline-test", "calc_spacing_mm": "4"}, "422"),
+            ({"plan_sop_uid": plan, "engine": "pipeline-test", "model_sensitivity": "yes"}, "422"),
+            ({"plan_sop_uid": plan, "engine": "pipeline-test", "model_sensitivity": True}, "SENSITIVITY_GPU_ONLY"),
             ({}, "422"),
         ):
             with pytest.raises(RuntimeError, match=code):

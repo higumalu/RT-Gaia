@@ -105,6 +105,8 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   combined 1 % / 1 mm tolerance (profiles normalized at the central axis, after detector averaging); build-up
   points constrain electron contamination, small-field profiles the focal spot, large-field profiles head scatter.
   Profiles can be crossline (x) or inline (y).
+- Model sensitivity for GPU dose calculations: the plan is recalculated with each set of fitted beam-model
+  parameters that fits the beam data equally well, and the job reports how much the high-dose region changes.
 - TPR and TMR curves in beam data are compared and fitted, simulated in isocentric setups at every measured depth.
 - Beam models can carry a radial fluence profile of the primary source (GPU engine), fitted from the in-field
   part of measured profiles, for off-axis shapes that a single angular distribution cannot describe.

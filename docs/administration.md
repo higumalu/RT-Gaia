@@ -1240,6 +1240,14 @@ datasets, so a model always names fixed data. Fitting, activating, retiring and 
 administrator role and are recorded in the audit log; the models are stored in the `app_setting` table under the
 key `beam_models`.
 
+**Model sensitivity.** A fitted model keeps, for every weakly constrained stage of the last round, up to two of
+the equally good grid points (`fit.alternatives`: the stage, its cost and the parameter values, as overrides of
+the fitted model). A dose calculation with `model_sensitivity: true` (GPU engine) recalculates the plan with each
+of them and reports the high-dose ratio to the main result (`model_sensitivity` in the job result) and a note
+with the largest change. The other stages keep their fitted values, so an alternative is an approximation of a
+full refit with that value. Models fitted before this was added take the alternatives from their stored fit
+report.
+
 **Choosing the model for a beam.** For each beam the calculation looks for an active fitted model with the
 beam's energy, fluence mode and MLC type, preferring one whose machine names include the beam's machine; models
 without machine names apply to every machine. Without one, it uses the built-in demo model.

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { historyPresets, isActive, jobsForPlan, jobStatusText, summaryNotes, tpsDvhDoseIds, tpsGammaBody, uncertaintyNotes, type DosecalcJob, type DosecalcSummary } from '../src/react/modules/plan/dosecalcModel';
+import { historyPresets, isActive, jobsForPlan, jobStatusText, sensitivityNotes, summaryNotes, tpsDvhDoseIds, tpsGammaBody, uncertaintyNotes, type DosecalcJob, type DosecalcSummary } from '../src/react/modules/plan/dosecalcModel';
 
 const summary: DosecalcSummary = {
   plan_sop_uid: 'P',
@@ -50,6 +50,20 @@ describe('重算劑量', () => {
     expect(noisy[1]!.noisy).toBe(true);
     expect(uncertaintyNotes(job({ status: 'running' }))).toEqual([]);
     expect(uncertaintyNotes(job({ dosecalc: { engine: 'pipeline-test', seconds: 1, histories: 1, uncertainty: null } }))).toEqual([]);
+  });
+  it('模型敏感度：每一組替代參數一行（階段、參數、高劑量區的差與 5–95%）；送出時的條件也說', () => {
+    const rows = [
+      { stage: 'head_scatter', overrides: { 'extra_focal.sigma_mm': 100, 'extra_focal.fraction': 0.3682 }, median_ratio: 1.0098, p5_ratio: 1.004, p95_ratio: 1.0151 },
+      { stage: 'focal_spot', overrides: { focal_spot_sigma_mm: 0.8 }, median_ratio: 0.995, p5_ratio: 0.99, p95_ratio: 1.0 },
+      { stage: 'focal_spot', overrides: { focal_spot_sigma_mm: 1.3 }, median_ratio: null, p5_ratio: null, p95_ratio: null },
+    ];
+    const notes = sensitivityNotes(job({ dosecalc: { engine: 'gpu', seconds: 1, histories: 1, model_sensitivity: rows } }));
+    expect(notes[0]).toBe('機頭散射與反散射（extra_focal.sigma_mm 100 · extra_focal.fraction 0.3682）：高劑量區 +1.0%（5–95%：+0.4 … +1.5%）');
+    expect(notes[1]).toContain('-0.5%');
+    expect(notes[2]).toContain('沒有高劑量區可比');
+    expect(sensitivityNotes(job({ status: 'running' }))).toEqual([]);
+    expect(summaryNotes({ ...summary, model_sensitivity: true, model_alternatives: 3 }).some((n) => n.includes('3 組'))).toBe(true);
+    expect(summaryNotes({ ...summary, model_sensitivity: true, model_alternatives: 0 }).some((n) => n.includes('沒有弱約束'))).toBe(true);
   });
   it('跟 TPS 比對：參考是 TPS、被評估是載入的總劑量、TG-218 條件；沒有 TPS 或還沒載入就沒有', () => {
     const withTps = { ...summary, tps_dose_series_id: 'TPS' };

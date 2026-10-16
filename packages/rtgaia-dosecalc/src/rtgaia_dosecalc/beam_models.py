@@ -50,6 +50,7 @@ v1 只有內建的**示範模型**（`demo-6x`）：參數是文獻與廠商公�
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from typing import Any
@@ -257,6 +258,19 @@ def model_hash(model: dict[str, Any]) -> str:
     """模型內容的雜湊（MU 校正的快取鍵：參數一改就要重新校正）。"""
     doc = {k: model.get(k) for k in ("model_id", "energy_mv", "fluence_mode", "params", "calibration", "mlc_devices")}
     return hashlib.sha256(json.dumps(doc, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
+def with_overrides(model: dict[str, Any], overrides: dict[str, float], suffix: str) -> dict[str, Any]:
+    """模型的變體：`overrides` 是 `params` 底下的路徑（`extra_focal.sigma_mm`）→ 值；id 加 `suffix`（MU 校正另算）。"""
+    m = copy.deepcopy(model)
+    for path, v in overrides.items():
+        node = m["params"]
+        *parents, leaf = path.split(".")
+        for k in parents:
+            node = node.setdefault(k, {})
+        node[leaf] = v
+    m["model_id"] = f"{model['model_id']}{suffix}"
+    return m
 
 
 def builtin_models() -> list[dict[str, Any]]:

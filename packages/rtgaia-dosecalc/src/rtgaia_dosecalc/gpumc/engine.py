@@ -211,46 +211,28 @@ def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
     _codes, rho, mat, pinfo = topas.patient_on_grid(inp)
     corner = tuple(float(o - s / 2) for o, s in zip(grid.origin, grid.spacing, strict=True))
     hpm = calibration(model, data_dir / "calibration", tb, progress=progress)
-    beams = inp.delivery.beams
-    total_mu = sum(b.mu for b in beams)
-    per_beam: dict[int, np.ndarray] = {}
-    var_total = np.zeros(mat.shape)
-    done = 0.0
-    absorbed = []
-    seconds_mc = 0.0
-    total_hist = 0
-    for beam in beams:
-        n_beam = max(topas.MIN_HISTORIES_PER_BEAM, int(round(histories * beam.mu / total_mu)))
-        nb = max(1, n_beam // BATCHES)
-        src, m_equiv = beam_source(beam, model, nb)
-        share = beam.mu / total_mu
+    alternatives = (
+        list((model.get("fit") or {}).get("alternatives") or []) if inp.options.get("model_sensitivity") else []
+    )
+    # 敏感度要多算幾次：進度條把主計算放在前面、每個變體各一段
+    span = 95.0 / (1 + len(alternatives))
 
-        def prog(f: float, base: float = done, w: float = share, name: str = beam.name) -> None:
-            progress("calculating", 5.0 + 95.0 * (base + w * f), name)
+    def run_plan(
+        m: dict[str, Any], h: float, base: float, label: str
+    ) -> tuple[dict[int, np.ndarray], np.ndarray, dict[str, Any]]:
+        return _simulate_plan(inp, m, h, tb, mat, rho, grid, corner, histories, seed, base, span, label, progress)
 
-        mean, sd, info = transport.simulate_beam(
-            tb,
-            mat,
-            rho,
-            tuple(grid.spacing),
-            corner,
-            src,
-            batches=BATCHES,
-            seed=seed * 1000 + beam.number,
-            progress=prog,
-        )
-        seconds_mc += info["seconds"]
-        total_hist += info["histories"]
-        absorbed.append(info["absorbed_fraction"])
-        scale = beam.mu * hpm / m_equiv * inp.delivery.fractions
-        dose = transport.dose_gy_per_history(mean, rho, tuple(grid.spacing))
-        sigma = transport.dose_gy_per_history(sd, rho, tuple(grid.spacing))
-        per_beam[beam.number] = (dose * scale).astype(np.float32)
-        var_total += (sigma * scale) ** 2
-        done += share
+    per_beam, var_total, stats = run_plan(model, hpm, 5.0, "")
     air = (rho < topas.AIR_DENSITY_LIMIT) | (mat == 0)
     numbers = list(per_beam)
     dose = np.where(air, np.nan, np.sum(list(per_beam.values()), axis=0))
+    sensitivity = []
+    for i, alt in enumerate(alternatives):
+        variant = beam_models.with_overrides(model, alt["overrides"], f"~alt{i + 1}")
+        h = calibration(variant, data_dir / "calibration", tb)
+        alt_beams, _v, _s = run_plan(variant, h, 5.0 + span * (i + 1), f"{alt['stage']} {i + 1}")
+        alt_dose = np.where(air, np.nan, np.sum(list(alt_beams.values()), axis=0))
+        sensitivity.append({**alt, **dose_ratio(dose, alt_dose)})
     sigma = np.where(air, np.nan, np.sqrt(var_total))
     per_list = [np.where(air, np.nan, per_beam[n]) for n in numbers]
     if grid is not out_grid:
@@ -270,18 +252,101 @@ def run(inp: CalcInput, workdir: Any, progress: Any) -> CalcResult:
             "engine": "gpu",
             "engine_version": ENGINE_VERSION,
             "seconds": round(time.time() - t0, 1),
-            "seconds_transport": round(seconds_mc, 1),
-            "histories": total_hist,
+            "seconds_transport": round(stats["seconds"], 1),
+            "histories": stats["histories"],
             "histories_per_mu": hpm,
             "dose_quantity": "to medium",
             "calibration": pinfo,
             "physics": "rtgaia-gpumc: Geant4 opt4 tables, class II condensed history, mixed elastic scattering",
-            "collimator_absorbed_fraction": float(np.mean(absorbed)) if absorbed else 0.0,
+            "collimator_absorbed_fraction": float(np.mean(stats["absorbed"])) if stats["absorbed"] else 0.0,
             "air_voxels": int(air.sum()),
             "calc_grid": {"size": list(grid.size), "spacing_mm": list(grid.spacing)},
-            "notes": [topas.AIR_NOTE, GPU_NOTE if "electron_contamination" not in model["params"] else GPU_NOTE_EC],
+            "notes": [topas.AIR_NOTE, GPU_NOTE if "electron_contamination" not in model["params"] else GPU_NOTE_EC]
+            + sensitivity_notes(inp.options.get("model_sensitivity"), sensitivity),
+            **({"model_sensitivity": sensitivity} if inp.options.get("model_sensitivity") else {}),
         },
     )
+
+
+def _simulate_plan(
+    inp: CalcInput,
+    model: dict[str, Any],
+    hpm: float,
+    tb: tables.Tables,
+    mat: np.ndarray,
+    rho: np.ndarray,
+    grid: Any,
+    corner: tuple[float, ...],
+    histories: int,
+    seed: int,
+    base: float,
+    span: float,
+    label: str,
+    progress: Any,
+) -> tuple[dict[int, np.ndarray], np.ndarray, dict[str, Any]]:
+    """一個模型算整份計畫（計算網格上，每個射束的 Gy 與合成的變異數）。種子只跟射束編號有關 → 同一份計畫換模型
+    （敏感度的變體）時雜訊高度相關，比值的雜訊小。"""
+    beams = inp.delivery.beams
+    total_mu = sum(b.mu for b in beams)
+    per_beam: dict[int, np.ndarray] = {}
+    var_total = np.zeros(mat.shape)
+    stats: dict[str, Any] = {"seconds": 0.0, "histories": 0, "absorbed": []}
+    done = 0.0
+    for beam in beams:
+        n_beam = max(topas.MIN_HISTORIES_PER_BEAM, int(round(histories * beam.mu / total_mu)))
+        nb = max(1, n_beam // BATCHES)
+        src, m_equiv = beam_source(beam, model, nb)
+        share = beam.mu / total_mu
+        name = f"{label} · {beam.name}" if label else beam.name
+
+        def prog(f: float, done: float = done, w: float = share, name: str = name) -> None:
+            progress("calculating", base + span * (done + w * f), name)
+
+        mean, sd, info = transport.simulate_beam(
+            tb, mat, rho, tuple(grid.spacing), corner, src, batches=BATCHES, seed=seed * 1000 + beam.number,
+            progress=prog,
+        )  # fmt: skip
+        stats["seconds"] += info["seconds"]
+        stats["histories"] += info["histories"]
+        stats["absorbed"].append(info["absorbed_fraction"])
+        scale = beam.mu * hpm / m_equiv * inp.delivery.fractions
+        dose = transport.dose_gy_per_history(mean, rho, tuple(grid.spacing))
+        sigma = transport.dose_gy_per_history(sd, rho, tuple(grid.spacing))
+        per_beam[beam.number] = (dose * scale).astype(np.float32)
+        var_total += (sigma * scale) ** 2
+        done += share
+    return per_beam, var_total, stats
+
+
+SENSITIVITY_HIGH_DOSE = 0.5
+"""敏感度比的是劑量 ≥ 參考最大值（第 99.5 百分位）50% 的體素 —— 跟不確定度摘要、γ 的高劑量區一致。"""
+
+
+def dose_ratio(dose: np.ndarray, other: np.ndarray) -> dict[str, float | None]:
+    """變體 ÷ 主計算在高劑量區的比值：中位數與 5／95 百分位（同一組種子，雜訊大部分相消）。"""
+    ok = np.isfinite(dose) & np.isfinite(other) & (dose > 0)
+    if not ok.any():
+        return {"median_ratio": None, "p5_ratio": None, "p95_ratio": None}
+    hi = ok & (dose >= SENSITIVITY_HIGH_DOSE * float(np.percentile(dose[ok], 99.5)))
+    r = other[hi] / dose[hi]
+    return {
+        "median_ratio": float(np.median(r)),
+        "p5_ratio": float(np.percentile(r, 5)),
+        "p95_ratio": float(np.percentile(r, 95)),
+    }
+
+
+def sensitivity_notes(requested: Any, sensitivity: list[dict[str, Any]]) -> list[str]:
+    if not requested:
+        return []
+    if not sensitivity:
+        return [SENSITIVITY_NONE]
+    worst = max(abs(float(x["median_ratio"]) - 1.0) for x in sensitivity if x.get("median_ratio") is not None)
+    pct = f"{100 * worst:.1f}"
+    return [f"射束模型擬合裡一樣好的其他參數，讓高劑量區的劑量最多差 {pct}%（中位數；見模型敏感度）"]
+
+
+SENSITIVITY_NONE = "射束模型沒有弱約束的參數（或不是擬合出來的模型）：沒有算模型敏感度"
 
 
 GPU_NOTE = "GPU Monte Carlo：機頭只算鎢的衰減，沒有準直器散射與電子污染（跟 OpenTOPAS 的機頭模擬比，絕對劑量約高 1.5%）"

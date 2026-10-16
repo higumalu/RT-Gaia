@@ -14,6 +14,7 @@ TOPAS 是對照）；缺一樣就整檔略過（CI 也是）。驗的是：
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import numpy as np
@@ -383,3 +384,42 @@ def test_radial_fluence_shapes_the_profile(tb) -> None:  # type: ignore[no-untyp
     r0, r1, r2 = rel150(base), rel150(flat), rel150(horns)
     assert r1 == pytest.approx(r0, abs=0.01)
     assert r2 / r0 == pytest.approx(1.05, abs=0.02)  # 150 mm 在 100（1.0）與 200 mm（1.1）兩節點的正中間
+
+
+def test_model_sensitivity_recalculates_with_equally_good_alternatives(tmp_path: Path) -> None:
+    """模型敏感度：擬合裡一樣好的其他參數各重算一次（同一組種子）。跟模型一模一樣的「替代」→ 比值剛好 1；機頭散射
+    加倍 → 高劑量區的劑量變了，寫進結果與備註。"""
+    from rtgaia_dosecalc.delivery import Beam, ControlPoint
+    from rtgaia_dosecalc.gpumc import engine
+    from rtgaia_geom import Grid
+
+    water = {"calibration_id": "water", "name": "water", "demo": False,
+             "density": {"type": "points", "points": [[-1000, 0.0012], [0, 1.0], [3000, 2.8]]},
+             "materials": {"type": "schneider2000"}}  # fmt: skip
+    cps = [ControlPoint(m, 0.0, 0.0, 0.0, (-30.0, 30.0), (-30.0, 30.0)) for m in (0.0, 100.0)]
+    beam = Beam(1, "B", 6.0, "STANDARD", 1000.0, (0.0, -100.0, 0.0), "HFS", 100.0, cps)
+    hu, g = phantoms.water_box((200.0, 200.0, 200.0), 5.0, air_margin_mm=20.0)
+    grid = Grid(size=(40, 40, 40), spacing=(5.0,) * 3, origin=(-97.5,) * 3, direction=(1, 0, 0, 0, 1, 0, 0, 0, 1),
+                frame_of_reference_uid=g.frame_of_reference_uid)  # fmt: skip
+    model = beam_models.demo_6x()
+    ef = model["params"]["extra_focal"]
+    focal = model["params"]["focal_spot_sigma_mm"]
+    model["fit"] = {"alternatives": [
+        {"stage": "focal_spot", "cost": 1.0, "overrides": {"focal_spot_sigma_mm": focal}},
+        {"stage": "head_scatter", "cost": 1.2, "overrides": {"extra_focal.fraction": 3 * ef["fraction"]}},
+    ]}  # fmt: skip
+    inp = CalcInput(
+        engine="gpu", delivery=Delivery([beam], fractions=1), ct_hu=hu, ct_grid=g, dose_grid=grid,
+        calibration=water, beam_model=model, options={"histories": 30_000_000, "model_sensitivity": True},
+    )  # fmt: skip
+    res = engine.run(inp, tmp_path / "job" / "out", lambda *_a: None)
+    same, more_ef = res.info["model_sensitivity"]
+    assert same["median_ratio"] == 1.0 and same["p5_ratio"] == 1.0 and same["p95_ratio"] == 1.0
+    assert more_ef["stage"] == "head_scatter" and abs(more_ef["median_ratio"] - 1.0) > 0.005
+    assert more_ef["p5_ratio"] <= more_ef["median_ratio"] <= more_ef["p95_ratio"]
+    assert any("一樣好的其他參數" in n for n in res.info["notes"])
+    plain = engine.run(
+        dataclasses.replace(inp, options={"histories": 30_000_000}), tmp_path / "job2" / "out", lambda *_a: None
+    )
+    assert "model_sensitivity" not in plain.info
+    assert np.allclose(np.nan_to_num(plain.dose_gy), np.nan_to_num(res.dose_gy))  # 主計算不受影響

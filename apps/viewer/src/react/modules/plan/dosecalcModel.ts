@@ -25,6 +25,9 @@ export interface DosecalcSummary {
   readonly dose_grid: 'tps' | 'ct';
   readonly dose_grid_voxels: number;
   readonly calc_spacing_mm?: number | null;
+  /** 要算模型敏感度（擬合裡一樣好的其他參數各重算一次）；`model_alternatives` 是幾組。 */
+  readonly model_sensitivity?: boolean;
+  readonly model_alternatives?: number;
   /** 參照這份計畫的 TPS 劑量（病例裡有的話）：重算結果跟它比。 */
   readonly tps_dose_series_id?: string | null;
   readonly engine: string;
@@ -46,7 +49,43 @@ export interface DosecalcJob {
     readonly seconds: number;
     readonly histories: number;
     readonly uncertainty?: { readonly median_rel_50: number | null; readonly max_rel_50: number | null } | null;
+    readonly model_sensitivity?: readonly ModelAlternative[] | null;
   };
+}
+
+/** 模型敏感度的一列：擬合裡一樣好的另一組參數，重算後高劑量區的劑量 ÷ 主計算。 */
+export interface ModelAlternative {
+  readonly stage: string;
+  readonly overrides: Readonly<Record<string, number>>;
+  readonly median_ratio: number | null;
+  readonly p5_ratio: number | null;
+  readonly p95_ratio: number | null;
+}
+
+const SENSITIVITY_STAGE: Record<string, string> = {
+  electron_contamination: msg('電子污染'),
+  focal_spot: msg('焦點'),
+  head_scatter: msg('機頭散射與反散射'),
+};
+
+function shortNumber(v: number): string {
+  if (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e5)) return v.toExponential(2);
+  return String(Math.round(v * 10000) / 10000);
+}
+
+/** 完成的工作的模型敏感度：每一組一行「機頭散射與反散射（extra_focal.sigma_mm 100 · …）：高劑量區 +1.0%（5–95%：+0.6 … +1.4%）」。 */
+export function sensitivityNotes(j: Pick<DosecalcJob, 'status' | 'dosecalc'>): string[] {
+  const rows = j.status === 'done' ? j.dosecalc?.model_sensitivity : null;
+  if (!rows) return [];
+  const pct = (r: number): string => `${r >= 1 ? '+' : ''}${((r - 1) * 100).toFixed(1)}`;
+  return rows.map((r) => {
+    const stage = SENSITIVITY_STAGE[r.stage] ? t(SENSITIVITY_STAGE[r.stage]!) : r.stage;
+    const params = Object.entries(r.overrides).map(([k, v]) => `${k} ${shortNumber(v)}`).join(' · ');
+    if (r.median_ratio === null) return t('{stage}（{params}）：沒有高劑量區可比', { stage, params });
+    return t('{stage}（{params}）：高劑量區 {med}%（5–95%：{lo} … {hi}%）', {
+      stage, params, med: pct(r.median_ratio), lo: pct(r.p5_ratio ?? r.median_ratio), hi: pct(r.p95_ratio ?? r.median_ratio),
+    });
+  });
 }
 
 export const ENGINE_LABEL: Record<string, string> = {
@@ -108,6 +147,7 @@ export function summaryNotes(s: DosecalcSummary): string[] {
   out.push(t('CT 校正曲線：{name}', { name: s.calibration.name }) + (s.calibration_fallback ? ` — ${s.calibration_reason}` : ''));
   out.push(s.dose_grid === 'tps' ? t('劑量網格：跟 TPS 劑量相同（{n} 個體素）', { n: s.dose_grid_voxels.toLocaleString() }) : t('劑量網格：CT 範圍（{n} 個體素）', { n: s.dose_grid_voxels.toLocaleString() }));
   if (s.calc_spacing_mm) out.push(t('Monte Carlo 算在 {mm} mm 的網格上，再內插回劑量網格', { mm: s.calc_spacing_mm }));
+  if (s.model_sensitivity) out.push(s.model_alternatives ? t('模型敏感度：擬合裡一樣好的其他 {n} 組參數各重算一次', { n: s.model_alternatives }) : t('模型敏感度：這個射束模型沒有弱約束的參數'));
   out.push(t('{beams} 個射束、共 {mu} MU、{fx} 次（結果是全部分次的劑量）', { beams: s.beams.length, mu: Math.round(s.total_mu), fx: s.fractions }));
   return out;
 }

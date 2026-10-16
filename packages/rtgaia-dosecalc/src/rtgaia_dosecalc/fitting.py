@@ -967,6 +967,42 @@ def fit(
     return fitted, report
 
 
+ALTERNATIVE_PARAMS = {
+    "electron_contamination": {
+        "fraction": "electron_contamination.fraction",
+        "mean_energy_mev": "electron_contamination.mean_energy_mev",
+        "sigma_mm": "electron_contamination.sigma_mm",
+    },
+    "focal_spot": {"focal_spot_sigma_mm": "focal_spot_sigma_mm", "angular_sigma_deg": "angular_sigma_deg"},
+    "head_scatter": {
+        "sigma_mm": "extra_focal.sigma_mm",
+        "fraction": "extra_focal.fraction",
+        "per_mm_x": "monitor_backscatter.per_mm_x",
+        "per_mm_y": "monitor_backscatter.per_mm_y",
+    },
+}
+"""弱約束的段：格點那一列的欄位 → 模型參數的路徑（`beam_models.with_overrides`）。"""
+MAX_ALTERNATIVES_PER_STAGE = 2
+
+
+def alternatives_of(report: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """擬合報告最後一輪裡「一樣好」的其他格點（每段最多 `MAX_ALTERNATIVES_PER_STAGE` 個，成本低的先）→
+    `[{stage, cost, overrides: {參數路徑: 值}}]`：劑量計算用它們重算計畫，看弱約束的參數讓劑量差多少。
+    其他段的參數照擬合的值（那些段是在最好的值上擬的 —— 這是近似）。"""
+    stages = (report or {}).get("stages") or []
+    last = max((s.get("round", 0) for s in stages), default=0)
+    out = []
+    for s in stages:
+        keys = ALTERNATIVE_PARAMS.get(s.get("name", ""))
+        if s.get("round") != last or not keys:
+            continue
+        for alt in sorted(s.get("alternatives") or [], key=lambda g: g.get("cost", 0.0))[:MAX_ALTERNATIVES_PER_STAGE]:
+            ov = {path: float(alt[k]) for k, path in keys.items() if isinstance(alt.get(k), int | float)}
+            if ov:
+                out.append({"stage": s["name"], "cost": float(alt.get("cost", 0.0)), "overrides": ov})
+    return out
+
+
 def finalize(
     fitted: dict[str, Any],
     prior: dict[str, Any],
@@ -986,6 +1022,7 @@ def finalize(
         "prior_model_hash": report["prior_model_hash"],
         "datasets": report["datasets"],
         "unconstrained": report["unconstrained"],
+        "alternatives": alternatives_of(report),
     }
     m["reference"] = (
         f"Fitted to beam datasets {', '.join(str(d) for d in report['datasets'])} starting from {prior['model_id']}. "

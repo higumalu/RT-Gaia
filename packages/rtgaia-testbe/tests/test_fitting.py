@@ -455,3 +455,39 @@ def test_tmr_points_go_to_the_spectrum_and_contamination_stages(fake) -> None:  
     _, report = fitting.fit(prior, [{"dataset_id": "t", "measurements": [tmr]}], tb=None, histories=10)
     stages = {s["name"]: s for s in report["stages"] if s["round"] == 1}
     assert stages["spectrum"]["measurements"] == ["tmr"] and stages["electron_contamination"]["measurements"] == ["tmr"]
+
+
+def test_equally_good_alternatives_become_model_overrides() -> None:
+    """擬合報告最後一輪的「一樣好」格點 → 模型參數的覆寫（劑量計算的模型敏感度用）；每段最多兩個、成本低的先；
+    沒有對應參數的段（DLG、徑向通量）不列。擬合工作存的模型從報告補（不改模型雜湊）。"""
+    from rtgaia_core import dosecalc_jobs
+
+    report = {"stages": [
+        {"name": "head_scatter", "round": 1, "alternatives": [{"sigma_mm": 25.0, "fraction": 0.1, "cost": 3.0}]},
+        {"name": "head_scatter", "round": 2, "alternatives": [
+            {"sigma_mm": 100.0, "fraction": 0.37, "per_mm_x": 2e-4, "per_mm_y": 2e-4, "cost": 10.9},
+            {"sigma_mm": 50.0, "fraction": 0.07, "cost": 11.5},
+            {"sigma_mm": 25.0, "fraction": 0.02, "cost": 11.2},
+        ]},
+        {"name": "electron_contamination", "round": 2,
+         "alternatives": [{"mean_energy_mev": 2.0, "sigma_mm": 20.0, "fraction": 0.0034, "cost": 6.0}]},
+        {"name": "radial_fluence", "round": 2, "alternatives": [{"weight": [1.0], "cost": 1.0}]},
+    ]}  # fmt: skip
+    alts = fitting.alternatives_of(report)
+    assert [(a["stage"], a["cost"]) for a in alts] == [
+        ("head_scatter", 10.9), ("head_scatter", 11.2), ("electron_contamination", 6.0)
+    ]  # fmt: skip
+    assert alts[0]["overrides"] == {
+        "extra_focal.sigma_mm": 100.0, "extra_focal.fraction": 0.37,
+        "monitor_backscatter.per_mm_x": 2e-4, "monitor_backscatter.per_mm_y": 2e-4,
+    }  # fmt: skip
+    prior = beam_models.demo_6x()
+    v = beam_models.with_overrides(prior, alts[0]["overrides"], "~alt1")
+    assert v["model_id"] == "demo-6x~alt1" and v["params"]["extra_focal"]["sigma_mm"] == 100.0
+    assert v["params"]["monitor_backscatter"] == {"per_mm_x": 2e-4, "per_mm_y": 2e-4}
+    assert prior["params"]["extra_focal"]["sigma_mm"] == 15.0 and "monitor_backscatter" not in prior["params"]
+    assert beam_models.model_hash(v) != beam_models.model_hash(prior)
+    stored = {**prior, "model_id": "m1", "fit": {"datasets": ["d"]}}
+    filled = dosecalc_jobs.with_alternatives(stored, [{"model": stored, "status": "active", "fit": report}])
+    assert filled["fit"]["alternatives"] == alts and beam_models.model_hash(filled) == beam_models.model_hash(stored)
+    assert dosecalc_jobs.with_alternatives(prior, []) is prior

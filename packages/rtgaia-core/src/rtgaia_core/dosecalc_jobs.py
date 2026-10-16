@@ -112,6 +112,10 @@ def prepare(
     if len({m["model_id"] for m in models}) > 1:
         raise PrepareError("MIXED_BEAMS", ["計畫裡的射束要用不同的射束模型：v1 一次只算一個模型"])
     model = models[0]
+    if options.get("model_sensitivity"):
+        if engine != engines.GPU:
+            raise PrepareError("SENSITIVITY_GPU_ONLY", ["模型敏感度只有 GPU 引擎能算"])
+        model = with_alternatives(model, user_models)
     tps = next(
         (
             s
@@ -139,7 +143,7 @@ def prepare(
         options={
             k: v
             for k, v in options.items()
-            if k in ("histories", "seed", "workers", "target_uncertainty", "calc_spacing_mm")
+            if k in ("histories", "seed", "workers", "target_uncertainty", "calc_spacing_mm", "model_sensitivity")
         },
         meta={"plan_sop_uid": plan_sop_uid, "ct_series_id": ct.series_id},
     )
@@ -162,6 +166,10 @@ def prepare(
             "model_hash": beam_models.model_hash(model),
             "fitted_to": list((model.get("fit") or {}).get("datasets") or []),
         },
+        "model_sensitivity": bool(options.get("model_sensitivity")),
+        "model_alternatives": len((model.get("fit") or {}).get("alternatives") or [])
+        if options.get("model_sensitivity")
+        else 0,
         "dose_grid": "tps" if tps is not None and options.get("grid", "tps") == "tps" else "ct",
         "dose_grid_voxels": dose_grid.voxel_count,
         "calc_spacing_mm": options.get("calc_spacing_mm"),
@@ -169,6 +177,18 @@ def prepare(
         "engine": engine,
     }
     return inp, summary
+
+
+def with_alternatives(model: dict[str, Any], user_models: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """模型敏感度要的「一樣好的其他參數」：模型自己帶了就用；擬合工作存的模型從它的擬合報告取（不影響模型的雜湊）。"""
+    from rtgaia_dosecalc import fitting
+
+    if (model.get("fit") or {}).get("alternatives") is not None:
+        return model
+    rec = next((u for u in user_models or [] if u["model"]["model_id"] == model["model_id"]), None)
+    if rec is None or not rec.get("fit"):
+        return model
+    return {**model, "fit": {**(model.get("fit") or {}), "alternatives": fitting.alternatives_of(rec["fit"])}}
 
 
 def ct_extent_grid(ct: Grid, spacing: float = DEFAULT_SPACING_MM) -> Grid:
@@ -252,7 +272,10 @@ async def run_dosecalc(app: Any, job: Any) -> None:
     job.result = {
         **job.result,
         "dosecalc": {
-            **{k: result.get(k) for k in ("engine", "engine_version", "seconds", "histories", "beams", "notes")},
+            **{
+                k: result.get(k)
+                for k in ("engine", "engine_version", "seconds", "histories", "beams", "notes", "model_sensitivity")
+            },
             "uncertainty": unc,
             "calc_grid": result.get("calc_grid"),
         },
