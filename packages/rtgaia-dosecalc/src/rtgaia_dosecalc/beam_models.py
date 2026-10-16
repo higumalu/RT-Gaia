@@ -46,6 +46,13 @@ v1 只有內建的**示範模型**（`demo-6x`）：參數是文獻與廠商公�
 * `demo-6xfff-dual`：**雙層 MLC**（Halcyon 類：下層 MLCX1、上層 MLCX2 錯開半片）、**沒有 jaw**（DICOM 裡的 X／Y 是
   固定的虛擬值）；上面一組**固定的主準直器**（`fixed_y`、`fixed_x`，開口 ± 140 mm 不動）擋住 MLC 總寬度以外 ——
   發射錐角是包住開口的橢圓，會超出 MLC 的範圍，沒有它那裡的粒子直接打進病人。高度與厚度都是假設的典型值。
+
+## demo-6x-hd120、demo-6xfff-hd120（HD120 MLC）
+
+同 demo-6x／demo-6xfff，MLC 換成 HD120：葉片邊界外側各 14 對 5 mm、中間 32 對 2.5 mm（±110 mm）、厚度 6.9 cm、DLG
+6X 0.36／6FFF 0.29 mm（Isono 2020 的量測平均）。模型帶 `mlc_family`（`millennium120`／`hd120`）：計畫的葉片邊界
+（`mlc_family()`）認得出種類時，只挑同種類的模型 —— 葉寬與 DLG 不同，Millennium 的模型算 HD120 的小射野會差
+很多（Akino 2020 的 5 mm 輸出因子高 10%：做不出 5 mm 的 y、DLG 又大）。
 """
 
 from __future__ import annotations
@@ -63,13 +70,26 @@ COMMON_LIMITATIONS = (
     "監測游離腔的反散射沒有模型（MU 跟射野大小的關係只來自幾何）",
 )
 """每個示範模型都有的限制（管理頁「射束模型」列出來；不進模型雜湊）。"""
-DLG_6X_MM = 1.33
-DLG_6XFFF_MM = 1.16
+DLG_6X_MM = 1.16
+DLG_6XFFF_MM = 0.99
+DLG_HD120_6X_MM = 0.36
+DLG_HD120_6XFFF_MM = 0.29
 DLG_HALCYON_MM = 0.1
-"""DLG（dosimetric leaf gap）的假設典型值（等中心平面 mm）：TrueBeam Millennium 120 的 6X 1.33、6FFF 1.16（Glide-Hurst
-et al., Med Phys 2013;40:031719 摘要的多機構平均）；Halcyon 0.1（Lim et al., JACMP 2019 —— 量測的葉端效應 0.13–0.19 mm、
+"""DLG（dosimetric leaf gap）的典型值（等中心平面 mm）：TrueBeam 的 Millennium 120 6X 1.16、6FFF 0.99，HD120 6X 0.36、
+6FFF 0.29 —— Isono et al., J Radiat Res 2020;61:307（58 個機構 sweeping gap 的**量測值**平均；TPS 裡調過的值大得多，
+例如 Millennium 6X 的中位數 1.78，不用）；Halcyon 0.1（Lim et al., JACMP 2019 —— 量測的葉端效應 0.13–0.19 mm、
 TPS 的固定值 0.1 mm）。沒有 DLG 時高度調控的計畫（VMAT、SRS）劑量系統性偏低：PROTEAS 的 SRS 計畫高劑量區 −5%，
-加 1 mm 就到 +2.5%（2026-10-16）。"""
+加 1 mm 就到 +2.5%。"""
+MILLENNIUM_120 = "millennium120"
+HD120 = "hd120"
+HD120_BOUNDARIES_MM = [
+    *[float(v) for v in range(-110, -40, 5)],
+    *[-40.0 + 2.5 * i for i in range(32)],
+    *[float(v) for v in range(40, 111, 5)],
+]
+"""HD120 的葉片邊界（等中心平面 mm）：外側各 14 對 5 mm、中間 32 對 2.5 mm（Isono 2020 Table 1 的葉數與寬度）。"""
+HD120_THICKNESS_MM = 69.0
+"""HD120 的葉片厚度 6.9 cm（Millennium 120 是 6.7 cm；Isono 2020 Table 1）。"""
 LEAF_LENGTH_MM = 320.0
 """葉片長度（投影到等中心平面）：≥ 射野寬（280 mm）＋ 餘裕。"""
 
@@ -137,8 +157,8 @@ def demo_6x() -> dict[str, Any]:
         "reference": (
             "Spectrum: Mohan, Chui, Lidofsky, Med Phys 1985;12:592 (6 MV), values as tabulated in EGSnrc "
             "mohan6.spectrum. Source, head-scatter and collimator geometry: typical published values, not a "
-            "specific machine. DLG: Glide-Hurst et al., Med Phys 2013;40:031719 (multi-institutional TrueBeam "
-            "average, 6 MV)."
+            "specific machine. DLG: Isono et al., J Radiat Res 2020;61:307 (measured sweeping-gap DLG, mean of "
+            "18 TrueBeam Millennium 120 units, 6 MV)."
         ),
         "params": {
             "spectrum_mev": energies,
@@ -162,6 +182,7 @@ def demo_6x() -> dict[str, Any]:
         },
         "calibration": {"field_mm": 100.0, "ssd_mm": 1000.0, "depth": "dmax", "gy_per_mu": 0.01},
         "mlc_devices": ["MLCX"],
+        "mlc_family": MILLENNIUM_120,
         "limitations": [*COMMON_LIMITATIONS, "能譜沒有離軸軟化（中心軸的能譜用在整個射野）"],
     }
 
@@ -180,8 +201,8 @@ def demo_6xfff() -> dict[str, Any]:
         reference=(
             "Spectrum: Mohan 6 MV (Med Phys 1985;12:592) with the attenuation of an assumed 1.5 cm copper flattening "
             "filter removed (NIST XCOM mu/rho of copper). Off-axis fall-off, head scatter and collimator geometry: "
-            "assumed typical values, not a specific machine. DLG: Glide-Hurst et al., Med Phys 2013;40:031719 "
-            "(multi-institutional TrueBeam average, 6 MV FFF)."
+            "assumed typical values, not a specific machine. DLG: Isono et al., J Radiat Res 2020;61:307 "
+            "(measured sweeping-gap DLG, mean of 18 TrueBeam Millennium 120 units, 6 MV FFF)."
         ),
     )
     col = {k: dict(v) for k, v in m["params"]["collimators"].items()}
@@ -246,12 +267,67 @@ def demo_6xfff_dual() -> dict[str, Any]:
     return m
 
 
-def _describe(energy_mv: float, fluence_mode: str, mlc_devices: list[str]) -> str:
-    """「6 MV FFF (MLCX1/MLCX2)」：錯誤訊息裡說模型或射束是哪一種。"""
-    return f"{energy_mv:g} MV {fluence_mode} ({'/'.join(mlc_devices) or 'no MLC'})"
+def hd120(model: dict[str, Any], model_id: str, name: str, dlg_mm: float, dlg_note: str) -> dict[str, Any]:
+    """同一個射束、HD120 MLC：葉片邊界、厚度與 DLG 換掉（其他照 Millennium 120 的示範模型）。"""
+    m = copy.deepcopy(model)
+    col = m["params"]["collimators"]["MLCX"]
+    col.update(leaf_boundaries_mm=list(HD120_BOUNDARIES_MM), thickness_mm=HD120_THICKNESS_MM, dlg_mm=dlg_mm)
+    m.update(model_id=model_id, name=name, mlc_family=HD120)
+    m["reference"] = (
+        m["reference"].split(" DLG: ")[0]
+        + " HD120 MLC: leaf widths and thickness from Isono et al., J Radiat Res 2020;61:307 (Table 1)."
+        + f" DLG: {dlg_note}."
+    )
+    return m
 
 
-BUILTIN = {DEMO_6X_ID: demo_6x, DEMO_6XFFF_ID: demo_6xfff, DEMO_6XFFF_DUAL_ID: demo_6xfff_dual}
+def demo_6x_hd120() -> dict[str, Any]:
+    return hd120(
+        demo_6x(), DEMO_6X_HD120_ID, "Demo 6X (HD120)", DLG_HD120_6X_MM,
+        "Isono et al. 2020 (measured, mean of 7 TrueBeam HD120 units, 6 MV)",
+    )  # fmt: skip
+
+
+def demo_6xfff_hd120() -> dict[str, Any]:
+    return hd120(
+        demo_6xfff(), DEMO_6XFFF_HD120_ID, "Demo 6X FFF (HD120)", DLG_HD120_6XFFF_MM,
+        "Isono et al. 2020 (measured, mean of 7 TrueBeam HD120 units, 6 MV FFF)",
+    )  # fmt: skip
+
+
+DEMO_6X_HD120_ID = "demo-6x-hd120"
+DEMO_6XFFF_HD120_ID = "demo-6xfff-hd120"
+
+
+def mlc_family(boundaries: list[float] | None) -> str | None:
+    """計畫的葉片邊界 → MLC 種類（`millennium120`／`hd120`）；認不出來（或沒有 MLC）→ None。"""
+    from .water import MILLENNIUM_120 as m120_bounds
+
+    if not boundaries:
+        return None
+    b = [float(v) for v in boundaries]
+    for family, ref in ((MILLENNIUM_120, m120_bounds), (HD120, HD120_BOUNDARIES_MM)):
+        if len(b) == len(ref) and max(abs(x - y) for x, y in zip(b, ref, strict=True)) < 0.6:
+            return family
+    return None
+
+
+MLC_FAMILY_NAME = {MILLENNIUM_120: "Millennium 120", HD120: "HD120"}
+
+
+def _describe(energy_mv: float, fluence_mode: str, mlc_devices: list[str], family: str | None = None) -> str:
+    """「6 MV FFF (MLCX1/MLCX2)」「6 MV STANDARD (MLCX, HD120)」：錯誤訊息裡說模型或射束是哪一種。"""
+    kind = f", {MLC_FAMILY_NAME.get(family, family)}" if family else ""
+    return f"{energy_mv:g} MV {fluence_mode} ({'/'.join(mlc_devices) or 'no MLC'}{kind})"
+
+
+BUILTIN = {
+    DEMO_6X_ID: demo_6x,
+    DEMO_6XFFF_ID: demo_6xfff,
+    DEMO_6X_HD120_ID: demo_6x_hd120,
+    DEMO_6XFFF_HD120_ID: demo_6xfff_hd120,
+    DEMO_6XFFF_DUAL_ID: demo_6xfff_dual,
+}
 
 
 def model_hash(model: dict[str, Any]) -> str:
@@ -277,9 +353,14 @@ def builtin_models() -> list[dict[str, Any]]:
     return [f() for f in BUILTIN.values()]
 
 
-def _fits(m: dict[str, Any], energy: float, mode: str, mlc: list[str]) -> bool:
+def _fits(m: dict[str, Any], energy: float, mode: str, mlc: list[str], family: str | None = None) -> bool:
+    """能量、模式、MLC 裝置都要一樣；計畫的 MLC 種類認得出來、模型也寫了種類時，種類也要一樣。"""
+    same_family = not family or not m.get("mlc_family") or m["mlc_family"] == family
     return (
-        abs(m["energy_mv"] - energy) < 0.01 and m["fluence_mode"] == mode and (not mlc or mlc == m.get("mlc_devices"))
+        abs(m["energy_mv"] - energy) < 0.01
+        and m["fluence_mode"] == mode
+        and (not mlc or mlc == m.get("mlc_devices"))
+        and same_family
     )
 
 
@@ -291,14 +372,17 @@ def model_for(
     *,
     user_models: list[dict[str, Any]] | None = None,
     machine: str = "",
+    leaf_boundaries_mm: list[float] | None = None,
 ) -> tuple[dict[str, Any] | None, str | None]:
     """這個射束用哪個模型（能量、模式、MLC 種類都要對得上）；對不上 → 拒絕並說明。
 
     `user_models`：使用者的模型（擬合出來的），每個是 `{"model": …, "status": …, "machines": [...]}`。
     沒指定 `model_id` 時：**啟用中**的使用者模型優先（有寫機器名稱的，要跟射束的 TreatmentMachineName 一樣才算；
     寫了的比沒寫的優先），都沒有才用內建的示範模型。指定 `model_id` 時：內建、啟用中或草稿都可以（草稿是給管理者
-    啟用前試算用；停用的不行）。"""
+    啟用前試算用；停用的不行）。`leaf_boundaries_mm`：計畫的葉片邊界 → MLC 種類（Millennium 120／HD120），寫了種類的
+    模型要一樣（葉寬、DLG 不同）。"""
     mlc = list(mlc_devices or [])
+    family = mlc_family(leaf_boundaries_mm)
     users = list(user_models or [])
     builtin = builtin_models()
     if model_id is not None:
@@ -313,16 +397,22 @@ def model_for(
     else:
         name = (machine or "").strip().lower()
         active = [
-            u for u in users if u.get("status") == "active" and _fits(u["model"], beam_energy_mv, fluence_mode, mlc)
+            u
+            for u in users
+            if u.get("status") == "active" and _fits(u["model"], beam_energy_mv, fluence_mode, mlc, family)
         ]
         named = [u for u in active if name and name in [str(x).strip().lower() for x in u.get("machines") or []]]
         anyone = [u for u in active if not u.get("machines")]
         pick = (named or anyone or [None])[0]
-        m = pick["model"] if pick else next((x for x in builtin if _fits(x, beam_energy_mv, fluence_mode, mlc)), None)
+        m = (
+            pick["model"]
+            if pick
+            else next((x for x in builtin if _fits(x, beam_energy_mv, fluence_mode, mlc, family)), None)
+        )
         if m is None:
-            return None, f"沒有 {_describe(beam_energy_mv, fluence_mode, mlc)} 的射束模型"
-    if not _fits(m, beam_energy_mv, fluence_mode, mlc):
-        have = _describe(m["energy_mv"], m["fluence_mode"], list(m.get("mlc_devices") or []))
-        want = _describe(beam_energy_mv, fluence_mode, mlc)
+            return None, f"沒有 {_describe(beam_energy_mv, fluence_mode, mlc, family)} 的射束模型"
+    if not _fits(m, beam_energy_mv, fluence_mode, mlc, family):
+        have = _describe(m["energy_mv"], m["fluence_mode"], list(m.get("mlc_devices") or []), m.get("mlc_family"))
+        want = _describe(beam_energy_mv, fluence_mode, mlc, family)
         return None, f"射束模型 {m['name']} 是 {have}，射束是 {want}"
     return m, None

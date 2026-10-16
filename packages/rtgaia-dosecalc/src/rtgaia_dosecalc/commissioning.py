@@ -386,7 +386,7 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
             elif q in ("leaf_height_mm",):
                 devices = list(model.get("mlc_devices") or [])
                 spec = model["params"]["collimators"].get(devices[0]) if devices else None
-                c = base(quantity=q, x=None, measured=val, u_measured=u)
+                c = base(quantity=q, x=None, measured=val, u_measured=u, note="")  # 規格，不是量測：沒有 SSD
                 if spec is None:
                     c.unsupported = "模型沒有 MLC"
                 else:

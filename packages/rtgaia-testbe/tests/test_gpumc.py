@@ -348,6 +348,7 @@ def test_dlg_opens_narrow_gaps(tb) -> None:  # type: ignore[no-untyped-def]
     from rtgaia_dosecalc import water
 
     base = beam_models.demo_6x()
+    base["params"]["collimators"]["MLCX"]["dlg_mm"] = 1.33
     no_dlg = copy.deepcopy(base)
     no_dlg["params"]["collimators"]["MLCX"]["dlg_mm"] = 0.0
 

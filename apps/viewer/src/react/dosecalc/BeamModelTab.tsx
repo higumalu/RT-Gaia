@@ -15,6 +15,7 @@ import {
   checkText,
   collimatorText,
   COLLIMATOR_KIND_LABEL,
+  mlcText,
   parameterText,
   pddAt,
   pddPoints,
@@ -95,7 +96,7 @@ export function BeamModelTab(): React.JSX.Element {
               <td>
                 {x.energy_mv} MV {x.fluence_mode}
               </td>
-              <td>{x.mlc_devices.join(' / ') || '—'}</td>
+              <td>{mlcText(x)}</td>
               <td className={x.calibrated ? undefined : 'muted'}>{x.calibrated ? t('已校正（{n} 個歷史）', { n: x.calibrated.histories.toLocaleString() }) : t('還沒校正（第一次計算時自動做）')}</td>
             </tr>
           ))}

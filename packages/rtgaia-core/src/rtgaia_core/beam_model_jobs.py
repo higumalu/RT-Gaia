@@ -61,6 +61,7 @@ def summary(rec: dict[str, Any]) -> dict[str, Any]:
         "energy_mv": m["energy_mv"],
         "fluence_mode": m["fluence_mode"],
         "mlc_devices": list(m.get("mlc_devices") or []),
+        "mlc_family": m.get("mlc_family"),
         "status": rec["status"],
         "machines": list(rec.get("machines") or []),
         "fit": m.get("fit"),
@@ -81,12 +82,13 @@ def _match_key(rec: dict[str, Any]) -> tuple[Any, ...]:
         float(m["energy_mv"]),
         m["fluence_mode"],
         tuple(m.get("mlc_devices") or []),
+        m.get("mlc_family") or "",
         tuple(sorted(str(x).strip().lower() for x in rec.get("machines") or [])),
     )
 
 
 def activate(rows: list[dict[str, Any]], model_id: str, *, user: str) -> list[str]:
-    """啟用一個草稿；能量、模式、MLC 與機器名稱都一樣的其他啟用中模型改成停用（回傳被停用的 id）。"""
+    """啟用一個草稿；能量、模式、MLC（裝置與種類）與機器名稱都一樣的其他啟用中模型改成停用（回傳被停用的 id）。"""
     target = find(rows, model_id)
     assert target is not None
     now = _now()

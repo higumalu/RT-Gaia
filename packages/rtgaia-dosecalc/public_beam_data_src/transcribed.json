@@ -4195,6 +4195,179 @@
     }
    ],
    "notes": "Author lists taken from the article XML; last page numbers of the 2019/2020 articles are from the task brief (XML gives first page only). Transcribed from the JATS full-text XML that PMC/Europe PMC serve for this article (Europe PMC REST fullTextXML; the pmc.ncbi.nlm.nih.gov HTML page was behind a reCAPTCHA wall for scripted access). Text rendering conventions: subscripts as _{...}, superscripts as ^{...}; inline reference citations appear as plain digits (e.g. \"system17, 18\" = superscript refs 17,18). Minus/dash characters (−, –, ‐) are kept exactly as encoded in the source and are not normalized. \"rows\" are the printed body rows; where a cell is merged vertically across rows (rowspan) its text is repeated on every covered row, and horizontal continuation cells of a colspan are \"\". Spans are listed in header_spans/body_spans. Fig. 1 caption gives mean dmax 13 and 22 mm (6/10 MV FFF) whereas Methods give 13 mm and 23 mm - both as printed. Supplementary Table S1 (detector details) not available in the XML."
+  },
+  {
+   "key": "isono2020",
+   "citation": "Isono M, Akino Y, Mizuno H, Tanaka Y, Masai N, Yamamoto T. Inter-unit variability of multi-leaf collimator parameters for IMRT and VMAT treatment planning: a multi-institutional survey. J Radiat Res. 2020;61(2):307-313.",
+   "doi": "10.1093/jrr/rrz082",
+   "pmcid": "PMC7246067",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7246067/",
+   "licence_text": "https://creativecommons.org/licenses/by/4.0/This is an Open Access article distributed under the terms of the Creative Commons Attribution License (http://creativecommons.org/licenses/by/4.0/), which permits unrestricted reuse, distribution, and reproduction in any medium, provided the original work is properly cited.",
+   "licence_url": "http://creativecommons.org/licenses/by/4.0/",
+   "copyright": "© The Author(s) 2020. Published by Oxford University Press on behalf of The Japanese Radiation Research Society and Japanese Society for Radiation Oncology.",
+   "conditions_quotes": [
+    "Farmer-type ionization chambers with a sensitive volume of 0.6 cm^{3} were used at 79% of institutions. Water phantom was used at 83% institutions. The most used geometry was SSD = 90 cm with 10 cm depth. Fifty-three institutions (91%) used a vendor-provided plan of sweeping gap irradiation for measurements of DLG, whereas five institutions (9%) used treatment plans that were generated in-house.",
+    "Table 4 summarizes the measured LTF values, and Fig. 1 shows the Box-Whisker plot of the LTF values.",
+    "Table 5 summarizes the measured DLG values.",
+    "The difference in MLC transmission is caused by the difference in thickness between the Millennium120 MLC (6.7 cm) and the HD120 MLC (6.9 cm). The HD120 MLC showed significantly smaller DLG values, probably because the radius of the curvature of the HD120 MLC leaf end is 16 cm, which is larger than that of the Millennium 120 MLC (8 cm) [15].",
+    "Although both LTF and DLG are obtained by measurements, these values are often customized during the commissioning of the IMRT and/or VMAT, in order to match the calculated dose to measurements [15]."
+   ],
+   "notes": "Transcribed 2026-10-16 from the JATS full-text XML (Europe PMC REST fullTextXML), same conventions as the other papers. Tables 4 and 5 report the MEASURED values (Table 7 has the values customized in the TPS, not used here). Table 4/5 columns: Millennium 120 TrueBeam, Millennium 120 C-Series, HD120 TrueBeam, HD120 C-Series (two-row header as printed). Unit counts per MLC and platform are in Table 2 (TrueBeam: 18 Millennium 120, 7 HD120); the per-energy counts are not reported. Table 1 rows with a group label (Inner/Outer leaves) have one more cell than the others, as printed.",
+   "tables": [
+    {
+     "label": "Table 1",
+     "caption": "Characteristics of MLCs",
+     "header_rows_as_printed": [
+      [
+       "Indices",
+       "Millennium 120 MLC",
+       "HD120 MLC"
+      ]
+     ],
+     "rows": [
+      [
+       "Leaf thickness (cm)",
+       "6.7",
+       "6.9"
+      ],
+      [
+       "Tip radius of curvature (cm)",
+       "8",
+       "16"
+      ],
+      [
+       "Inner leaves",
+       "Number",
+       "40",
+       "32"
+      ],
+      [
+       "Width (cm)",
+       "0.5",
+       "0.25"
+      ],
+      [
+       "Outer leaves",
+       "Number",
+       "20",
+       "28"
+      ],
+      [
+       "Width (cm)",
+       "1",
+       "0.5"
+      ]
+     ]
+    },
+    {
+     "label": "Table 4",
+     "caption": "Mean ± SD (%) of MLC leaf transmission factors",
+     "header_rows_as_printed": [
+      [
+       "Energy",
+       "Millennium 120",
+       "HD120"
+      ],
+      [
+       "TrueBeam",
+       "C-Series",
+       "TrueBeam",
+       "C-Series"
+      ]
+     ],
+     "rows": [
+      [
+       "4 MV",
+       "1.17 ± 0.04",
+       "1.15 ± 0.04",
+       "0.94 ± 0.06",
+       ""
+      ],
+      [
+       "6 MV",
+       "1.50 ± 0.05",
+       "1.47 ± 0.08",
+       "1.20 ± 0.08",
+       "1.23 ± 0.11"
+      ],
+      [
+       "10 MV",
+       "1.72 ± 0.06",
+       "1.71 ± 0.07",
+       "1.41 ± 0.10",
+       "1.41 ± 0.13"
+      ],
+      [
+       "6 MV FFF",
+       "1.27 ± 0.05",
+       "",
+       "1.02 ± 0.06",
+       ""
+      ],
+      [
+       "10 MV FFF",
+       "1.54 ± 0.06",
+       "",
+       "1.23 ± 0.07",
+       ""
+      ]
+     ]
+    },
+    {
+     "label": "Table 5",
+     "caption": "Mean ± SD (mm) of dosimetric leaf gap values",
+     "header_rows_as_printed": [
+      [
+       "Energy",
+       "Millennium 120",
+       "HD120"
+      ],
+      [
+       "TrueBeam",
+       "C-Series",
+       "TrueBeam",
+       "C-Series"
+      ]
+     ],
+     "rows": [
+      [
+       "4 MV",
+       "0.97 ± 0.21",
+       "1.33 ± 0.07",
+       "0.27 ± 0.05",
+       ""
+      ],
+      [
+       "6 MV",
+       "1.16 ± 0.22",
+       "1.66 ± 0.21",
+       "0.36 ± 0.05",
+       "0.93 ± 0.15"
+      ],
+      [
+       "10 MV",
+       "1.32 ± 0.21",
+       "1.72 ± 0.12",
+       "0.45 ± 0.04",
+       "0.97 ± 0.08"
+      ],
+      [
+       "6 MV FFF",
+       "0.99 ± 0.16",
+       "",
+       "0.29 ± 0.06",
+       ""
+      ],
+      [
+       "10 MV FFF",
+       "1.21 ± 0.16",
+       "",
+       "0.41 ± 0.06",
+       ""
+      ]
+     ]
+    }
+   ]
   }
  ]
 }

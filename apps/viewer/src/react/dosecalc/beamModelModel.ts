@@ -23,6 +23,8 @@ export interface BeamModel {
   readonly energy_mv: number;
   readonly fluence_mode: string;
   readonly mlc_devices: readonly string[];
+  /** MLC 種類（計畫的葉片邊界分得出來時只給同種類的射束）；沒寫 ＝ 只看裝置。 */
+  readonly mlc_family?: string | null;
   readonly model_hash: string;
   readonly reference: string;
   readonly limitations: readonly string[];
@@ -108,6 +110,14 @@ export interface UserBeamModelDetail extends Omit<UserBeamModel, keyof BeamModel
 }
 
 export const USER_STATUS_LABEL: Record<UserModelStatus, string> = { draft: msg('草稿'), active: msg('啟用中'), retired: msg('已停用') };
+
+const MLC_FAMILY_LABEL: Record<string, string> = { millennium120: 'Millennium 120', hd120: 'HD120' };
+
+/** 「MLCX (HD120)」「MLCX1 / MLCX2」「—」。 */
+export function mlcText(m: { readonly mlc_devices: readonly string[]; readonly mlc_family?: string | null }): string {
+  const devices = m.mlc_devices.join(' / ') || '—';
+  return m.mlc_family ? `${devices} (${MLC_FAMILY_LABEL[m.mlc_family] ?? m.mlc_family})` : devices;
+}
 
 export const STAGE_LABEL: Record<string, string> = {
   spectrum: msg('能譜'),

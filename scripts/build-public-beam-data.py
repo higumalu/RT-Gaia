@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """公開文獻的射束資料 → 內建資料集（`rtgaia_dosecalc/public_beam_data/*.json`）。
 
-來源是 `packages/rtgaia-dosecalc/public_beam_data_src/transcribed.json`：五篇 CC BY 的 JACMP 論文的表格，
+來源是 `packages/rtgaia-dosecalc/public_beam_data_src/transcribed.json`：六篇 CC BY 論文（五篇 JACMP、一篇 J Radiat Res）的表格，
 從 Europe PMC 的 JATS XML 逐格取出（原樣，含原文的減號、印刷錯誤；見每張表的 notes）。這個腳本只做
 **選欄與換單位**（cm → mm、% → 分率），每一筆量測的 `reference` 寫出表號、列、欄；少數計算（Beyer 表 4 三台
 的平均與標準差、Akino 95% 信賴區間換成標準不確定度）在 `reference` 裡寫明算法。
@@ -560,12 +560,95 @@ for demonstration only.
 """
 
 
+# ── Isono 2020（58 個機構的 MLC 穿透與 DLG：量測值）────────────────────────────
+
+
+ISONO_UNITS = {"Millennium 120": 18, "HD120": 7}
+"""Isono 2020 Table 2：TrueBeam 的台數（每個能量的台數沒有寫）。"""
+
+
+def isono(doc: dict[str, Any]) -> list[dict[str, Any]]:
+    p = paper(doc, "isono2020")
+    t1, t4, t5 = table(p, "Table 1"), table(p, "Table 4"), table(p, "Table 5")
+    # Table 4／5 的欄：能量、Millennium 120 TrueBeam、Millennium 120 C-Series、HD120 TrueBeam、HD120 C-Series
+    col = {"Millennium 120": 1, "HD120": 3}
+    spec = {(r[0], r[1]) if len(r) == 4 else (r[0], ""): r[-2:] for r in rows(t1)}
+    thickness = {"Millennium 120": spec[("Leaf thickness (cm)", "")][0], "HD120": spec[("Leaf thickness (cm)", "")][1]}
+    radius = {
+        "Millennium 120": spec[("Tip radius of curvature (cm)", "")][0],
+        "HD120": spec[("Tip radius of curvature (cm)", "")][1],
+    }
+    cond = {"ssd_mm": 900, "depth_mm": 100.0, "detector": "mostly 0.6 cm3 Farmer chambers (79% of institutions)"}
+    out = []
+    for mlc, slug in (("Millennium 120", "m120"), ("HD120", "hd120")):
+        for energy, mode, label in ((6.0, "STANDARD", "6 MV"), (6.0, "FFF", "6 MV FFF")):
+            tr = next(r for r in rows(t4) if r[0] == label)[col[mlc]]
+            dl = next(r for r in rows(t5) if r[0] == label)[col[mlc]]
+            (tr_m, tr_sd), (dl_m, dl_sd) = (tuple(num(x) for x in c.split("±")) for c in (tr, dl))
+            n = ISONO_UNITS[mlc]
+            tag = f"{slug}-{'6fff' if mode == 'FFF' else '6x'}"
+            ms = [
+                {
+                    "measurement_id": f"isono2020-t5-dlg-{tag}",
+                    "kind": "scalar",
+                    "quantity": "dlg_mm",
+                    "conditions": {**cond, "note": "sweeping gap (vendor-provided plan at 91% of institutions)"},
+                    "columns": ["value", "uncertainty"],
+                    "points": [[r6(dl_m), r6(dl_sd)]],
+                    "statistic": "mean",
+                    "n": n,
+                    "reference": f"Isono 2020 Table 5, {label}, {mlc} TrueBeam column (mean ± SD across units; measured, not the TPS-customized values of Table 7); n = TrueBeam {mlc} units in Table 2",
+                },
+                {
+                    "measurement_id": f"isono2020-t4-transmission-{tag}",
+                    "kind": "scalar",
+                    "quantity": "mlc_transmission",
+                    "conditions": cond,
+                    "columns": ["value", "uncertainty"],
+                    "points": [[r6(tr_m / 100), r6(tr_sd / 100)]],
+                    "statistic": "mean",
+                    "n": n,
+                    "reference": f"Isono 2020 Table 4, {label}, {mlc} TrueBeam column (% → fraction; mean ± SD across units); SSD 90 cm / 10 cm was the most common geometry (Table 3)",
+                },
+                {
+                    "measurement_id": f"isono2020-t1-leaf-height-{tag}",
+                    "kind": "scalar",
+                    "quantity": "leaf_height_mm",
+                    "conditions": {},
+                    "points": [[r6(num(thickness[mlc]) * 10)]],
+                    "statistic": "single",
+                    "reference": f"Isono 2020 Table 1, Leaf thickness, {mlc} (cm → mm); a specification, not a measurement",
+                },
+                {
+                    "measurement_id": f"isono2020-t1-leaf-end-radius-{tag}",
+                    "kind": "scalar",
+                    "quantity": "leaf_end_radius_mm",
+                    "conditions": {},
+                    "points": [[r6(num(radius[mlc]) * 10)]],
+                    "statistic": "single",
+                    "reference": f"Isono 2020 Table 1, Tip radius of curvature, {mlc} (cm → mm); a specification, not a measurement",
+                },
+            ]
+            out.append(
+                dataset(
+                    f"pub-isono2020-{tag}",
+                    f"TrueBeam {mlc} {label} MLC (Isono 2020)",
+                    f"TrueBeam ({mlc})",
+                    energy,
+                    mode,
+                    source(p, f"Survey of 58 institutions; TrueBeam {mlc}: {n} units. Measured sweeping-gap DLG and leaf transmission."),
+                    ms,
+                )
+            )
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     ap.add_argument("--check", action="store_true", help="只比對，不寫")
     args = ap.parse_args()
     doc = json.loads(SRC.read_text(encoding="utf-8"))
-    datasets = [*beyer(doc), *akino(doc), *gao(doc), *lim(doc), *tanaka(doc)]
+    datasets = [*beyer(doc), *akino(doc), *gao(doc), *lim(doc), *tanaka(doc), *isono(doc)]
     files = {f"{d['dataset_id']}.json": json.dumps(d, ensure_ascii=False, indent=1) + "\n" for d in datasets}
     cites = sorted({f"- {p['citation']} https://doi.org/{p['doi']} ({source(p)['licence']})" for p in doc["papers"]})
     files["NOTICE"] = NOTICE.format(citations="\n".join(cites))

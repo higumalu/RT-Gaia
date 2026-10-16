@@ -101,7 +101,7 @@ def prepare(
     for b in delivery.beams:
         m, why = beam_models.model_for(
             b.energy_mv, b.fluence_mode, options.get("beam_model_id"), b.mlc_devices,
-            user_models=user_models, machine=b.machine,
+            user_models=user_models, machine=b.machine, leaf_boundaries_mm=b.leaf_boundaries_mm,
         )  # fmt: skip
         if m is None:
             problems.append(f"{b.name}：{why}")

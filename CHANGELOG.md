@@ -105,6 +105,9 @@ First public release candidate. RT-Gaia is research software; it is not a medica
   combined 1 % / 1 mm tolerance (profiles normalized at the central axis, after detector averaging); build-up
   points constrain electron contamination, small-field profiles the focal spot, large-field profiles head scatter.
   Profiles can be crossline (x) or inline (y).
+- HD120 demo beam models, and model selection by MLC family from the plan's leaf boundaries (Millennium 120 or
+  HD120). The demo DLG values are now measured sweeping-gap means (Isono et al. 2020), added as public beam data
+  with the leaf transmission.
 - Model sensitivity for GPU dose calculations: the plan is recalculated with each set of fitted beam-model
   parameters that fits the beam data equally well, and the job reports how much the high-dose region changes.
 - TPR and TMR curves in beam data are compared and fitted, simulated in isocentric setups at every measured depth.

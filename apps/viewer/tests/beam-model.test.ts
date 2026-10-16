@@ -2,9 +2,14 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { calibrationText, collimatorText, pddAt, pddPoints, scientific, spectrumBars } from '../src/react/dosecalc/beamModelModel';
+import { calibrationText, collimatorText, mlcText, pddAt, pddPoints, scientific, spectrumBars } from '../src/react/dosecalc/beamModelModel';
 
 describe('射束模型', () => {
+  it('MLC：裝置 ＋ 種類（寫了才有）', () => {
+    expect(mlcText({ mlc_devices: ['MLCX'], mlc_family: 'hd120' })).toBe('MLCX (HD120)');
+    expect(mlcText({ mlc_devices: ['MLCX1', 'MLCX2'] })).toBe('MLCX1 / MLCX2');
+    expect(mlcText({ mlc_devices: [], mlc_family: null })).toBe('—');
+  });
   it('能譜柱：每段從上一段的上界到自己的上界、高度正規化到 1', () => {
     expect(spectrumBars([0.5, 1, 2], [2, 4, 1])).toEqual([
       { lo: 0, hi: 0.5, height: 0.5 },

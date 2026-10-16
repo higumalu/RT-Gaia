@@ -1113,9 +1113,10 @@ Models fitted to beam data can carry more components (the demo models have none 
 - **Dosimetric leaf gap (DLG)** per MLC: every leaf pair opening is widened by the DLG (half on each side), the
   usual approximation of transmission through rounded leaf ends; both engines apply it. It matters most for
   VMAT and SRS, where most of the dose is delivered through narrow moving gaps: on a public SRS plan, the dose in
-  the high-dose region changed by about 7 % between no DLG and 1 mm. The demo models carry assumed typical values
-  (TrueBeam Millennium 120: 1.33 mm at 6 MV, 1.16 mm at 6 MV FFF, multi-institutional averages from Glide-Hurst
-  et al. 2013; Halcyon: 0.1 mm, Lim et al. 2019). A fit takes the DLG from DLG or leaf-end-effect measurements in
+  the high-dose region changed by about 7 % between no DLG and 1 mm. The demo models carry typical measured values
+  (TrueBeam Millennium 120: 1.16 mm at 6 MV, 0.99 mm at 6 MV FFF; HD120: 0.36 and 0.29 mm — means of sweeping-gap
+  measurements on 18 and 7 TrueBeam units in Isono et al. 2020, not the larger values that are often configured in
+  a TPS; Halcyon: 0.1 mm, Lim et al. 2019). A fit takes the DLG from DLG or leaf-end-effect measurements in
   the beam data (the leaf-end effect is the negative sweeping-gap intercept); without them the DLG stays at the
   prior and is listed as unconstrained. It is never adjusted to agree with a TPS dose.
 
@@ -1140,10 +1141,12 @@ recorded in the audit log. Beam models are fitted only to these data, never to T
   gap, leaf-end radius and leaf height) and the absolute calibration in Gy/MU. Each carries its conditions
   (field size, SSD or SAD, depth, axis, normalization, collimation, MLC layer, detector), the statistic (single,
   mean or median, with the number of values) and optionally an uncertainty per point.
-- **Built-in datasets** reproduce tables from five open-access articles (CC BY): Beyer 2013 (three TrueBeams,
-  6 MV, 15 MV and 10 MV FFF), Akino 2020 (TrueBeam small-field output factors, four beams), Tanaka 2020 (TrueBeam
-  FFF profile parameters), Gao 2019 (Halcyon output factors, depth of maximum dose and calibration) and Lim 2019
-  (Halcyon MLC transmission, leaf-end effect and geometry). Each measurement names the table, row and column it
+- **Built-in datasets** reproduce tables from six open-access articles (CC BY): Beyer 2013 (three TrueBeams,
+  6 MV, 15 MV and 10 MV FFF), Akino 2020 (TrueBeam small-field output factors, four beams; mostly HD120 MLCs),
+  Tanaka 2020 (TrueBeam FFF profile parameters), Gao 2019 (Halcyon output factors, depth of maximum dose and
+  calibration), Lim 2019 (Halcyon MLC transmission, leaf-end effect and geometry) and Isono 2020 (measured DLG and
+  leaf transmission of TrueBeam Millennium 120 and HD120 MLCs at 6 MV and 6 MV FFF, with the leaf thickness and
+  tip radius). Each measurement names the table, row and column it
   comes from. They are summary values, not full curves, represent no particular machine and are read-only;
   **Copy to new draft** starts an editable copy.
 - **Lifecycle.** A draft can be edited or deleted. **Lock** freezes it: a locked dataset cannot be edited or
@@ -1250,7 +1253,11 @@ report.
 
 **Choosing the model for a beam.** For each beam the calculation looks for an active fitted model with the
 beam's energy, fluence mode and MLC type, preferring one whose machine names include the beam's machine; models
-without machine names apply to every machine. Without one, it uses the built-in demo model.
+without machine names apply to every machine. Without one, it uses the built-in demo model. The MLC type includes
+the leaf geometry: the plan's leaf boundaries identify a Millennium 120 or an HD120 MLC, and a model that names
+its MLC family (`mlc_family`, inherited by models fitted from it) is used only for beams of that family, because
+leaf widths and DLG differ. The demo models exist for both (`demo-6x`, `demo-6xfff` with Millennium 120;
+`demo-6x-hd120`, `demo-6xfff-hd120` with HD120); fit an HD120 machine starting from an HD120 model.
 
 **Fitting a beam model to beam data.** `rtgaia-dosecalc fit-model` starts from a beam model (its geometry and its
 parameters as the prior), fits it to one or more datasets and checks the result against those datasets and,

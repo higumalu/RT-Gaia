@@ -48,6 +48,31 @@ def test_model_for_prefers_active_user_models() -> None:
     assert beam_models.model_for(6.0, "FFF", mlc_devices=["MLCX"], user_models=users)[0]["model_id"] == "demo-6xfff"
 
 
+def test_mlc_family_from_the_plan_leaf_boundaries() -> None:
+    """計畫的葉片邊界分得出 Millennium 120 與 HD120；寫了種類的模型只給同種類的射束（葉寬、DLG 不同）。認不出來的
+    邊界或沒寫種類的模型照舊（只看裝置）。"""
+    from rtgaia_dosecalc import water
+
+    hd = beam_models.HD120_BOUNDARIES_MM
+    assert len(hd) == 61 and hd[0] == -110.0 and hd[-1] == 110.0 and hd[14:16] == [-40.0, -37.5]
+    assert beam_models.mlc_family(water.MILLENNIUM_120) == "millennium120"
+    assert beam_models.mlc_family(hd) == "hd120" and beam_models.mlc_family([0.0, 10.0]) is None
+    pick = lambda mode, b, **kw: beam_models.model_for(6.0, mode, mlc_devices=["MLCX"], leaf_boundaries_mm=b, **kw)  # noqa: E731
+    assert pick("STANDARD", hd)[0]["model_id"] == "demo-6x-hd120"
+    assert pick("FFF", hd)[0]["model_id"] == "demo-6xfff-hd120"
+    assert pick("FFF", water.MILLENNIUM_120)[0]["model_id"] == "demo-6xfff"
+    assert pick("FFF", None)[0]["model_id"] == "demo-6xfff"
+    m, why = pick("STANDARD", hd, model_id="demo-6x")
+    assert m is None and "HD120" in why and "Millennium 120" in why
+    # 擬合的模型繼承先驗的種類：Millennium 的擬合不會用在 HD120 的計畫
+    users = [_rec("fit_m", "active")]
+    assert pick("STANDARD", hd, user_models=users)[0]["model_id"] == "demo-6x-hd120"
+    assert pick("STANDARD", water.MILLENNIUM_120, user_models=users)[0]["model_id"] == "fit_m"
+    h = beam_models.demo_6xfff_hd120()["params"]["collimators"]["MLCX"]
+    assert h["dlg_mm"] == 0.29 and h["thickness_mm"] == 69.0 and h["leaf_boundaries_mm"] == hd
+    assert beam_models.demo_6xfff()["params"]["collimators"]["MLCX"]["dlg_mm"] == 0.99
+
+
 def test_activate_retires_the_same_rule() -> None:
     rows = [
         _rec("old", "active"),

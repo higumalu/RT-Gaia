@@ -1,0 +1,96 @@
+{
+ "dataset_id": "pub-isono2020-hd120-6x",
+ "name": "TrueBeam HD120 6 MV MLC (Isono 2020)",
+ "machine": {
+  "manufacturer": "Varian",
+  "model": "TrueBeam (HD120)",
+  "name": ""
+ },
+ "beam": {
+  "energy_mv": 6.0,
+  "fluence_mode": "STANDARD"
+ },
+ "source": {
+  "kind": "literature",
+  "citation": "Isono M, Akino Y, Mizuno H, Tanaka Y, Masai N, Yamamoto T. Inter-unit variability of multi-leaf collimator parameters for IMRT and VMAT treatment planning: a multi-institutional survey. J Radiat Res. 2020;61(2):307-313. doi:10.1093/jrr/rrz082",
+  "licence": "CC BY 4.0",
+  "url": "https://doi.org/10.1093/jrr/rrz082",
+  "note": "Survey of 58 institutions; TrueBeam HD120: 7 units. Measured sweeping-gap DLG and leaf transmission."
+ },
+ "measurements": [
+  {
+   "measurement_id": "isono2020-t5-dlg-hd120-6x",
+   "kind": "scalar",
+   "quantity": "dlg_mm",
+   "conditions": {
+    "ssd_mm": 900,
+    "depth_mm": 100.0,
+    "detector": "mostly 0.6 cm3 Farmer chambers (79% of institutions)",
+    "note": "sweeping gap (vendor-provided plan at 91% of institutions)"
+   },
+   "columns": [
+    "value",
+    "uncertainty"
+   ],
+   "points": [
+    [
+     0.36,
+     0.05
+    ]
+   ],
+   "statistic": "mean",
+   "n": 7,
+   "reference": "Isono 2020 Table 5, 6 MV, HD120 TrueBeam column (mean ± SD across units; measured, not the TPS-customized values of Table 7); n = TrueBeam HD120 units in Table 2"
+  },
+  {
+   "measurement_id": "isono2020-t4-transmission-hd120-6x",
+   "kind": "scalar",
+   "quantity": "mlc_transmission",
+   "conditions": {
+    "ssd_mm": 900,
+    "depth_mm": 100.0,
+    "detector": "mostly 0.6 cm3 Farmer chambers (79% of institutions)"
+   },
+   "columns": [
+    "value",
+    "uncertainty"
+   ],
+   "points": [
+    [
+     0.012,
+     0.0008
+    ]
+   ],
+   "statistic": "mean",
+   "n": 7,
+   "reference": "Isono 2020 Table 4, 6 MV, HD120 TrueBeam column (% → fraction; mean ± SD across units); SSD 90 cm / 10 cm was the most common geometry (Table 3)"
+  },
+  {
+   "measurement_id": "isono2020-t1-leaf-height-hd120-6x",
+   "kind": "scalar",
+   "quantity": "leaf_height_mm",
+   "conditions": {},
+   "points": [
+    [
+     69.0
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Isono 2020 Table 1, Leaf thickness, HD120 (cm → mm); a specification, not a measurement"
+  },
+  {
+   "measurement_id": "isono2020-t1-leaf-end-radius-hd120-6x",
+   "kind": "scalar",
+   "quantity": "leaf_end_radius_mm",
+   "conditions": {},
+   "points": [
+    [
+     160.0
+    ]
+   ],
+   "statistic": "single",
+   "reference": "Isono 2020 Table 1, Tip radius of curvature, HD120 (cm → mm); a specification, not a measurement"
+  }
+ ],
+ "note": ""
+}

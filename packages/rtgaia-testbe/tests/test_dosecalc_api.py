@@ -201,7 +201,8 @@ def test_beam_models_list_parameters_and_calibration(case, env) -> None:  # type
 
     with Session(library_root=str(case.root.parent), user="dr") as s:
         rows = {m["model_id"]: m for m in s._get("/api/v1/dosecalc/beam-models")["models"]}
-        assert set(rows) == {"demo-6x", "demo-6xfff", "demo-6xfff-dual"}
+        assert set(rows) == {"demo-6x", "demo-6xfff", "demo-6x-hd120", "demo-6xfff-hd120", "demo-6xfff-dual"}
+        assert rows["demo-6x-hd120"]["mlc_family"] == "hd120" and rows["demo-6x"]["mlc_family"] == "millennium120"
         six, dual = rows["demo-6x"], rows["demo-6xfff-dual"]
         assert 1.8 < six["spectrum"]["mean_mev"] < 2.0 and rows["demo-6xfff"]["spectrum"]["mean_mev"] < 1.7
         assert {c["device"]: c["kind"] for c in six["collimators"]} == {"jaw_y": "jaw", "jaw_x": "jaw", "MLCX": "mlc"}
