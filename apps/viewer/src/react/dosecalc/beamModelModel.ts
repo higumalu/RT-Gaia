@@ -117,6 +117,7 @@ export const STAGE_LABEL: Record<string, string> = {
   collimator_density: msg('準直器有效密度'),
   angular_spread: msg('FFF 角分佈'),
   dlg: msg('DLG（葉端）'),
+  radial_fluence: msg('徑向通量（離軸）'),
 };
 
 function num(v: unknown): string {

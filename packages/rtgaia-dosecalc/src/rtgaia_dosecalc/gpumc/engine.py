@@ -141,6 +141,9 @@ def beam_source(beam: Beam, model: dict[str, Any], histories: int) -> tuple[tran
         ec_energies_mev=ec_e,
         ec_weights=ec_w,
     )
+    radial = topas.radial_profile(model)
+    if radial is not None:
+        src.radial_r_mm, src.radial_w = radial
     return src, plan.m_equiv
 
 

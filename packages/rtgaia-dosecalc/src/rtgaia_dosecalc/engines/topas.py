@@ -301,6 +301,40 @@ def _mass(a: float, b: float, sigma_deg: float | None) -> float:
     return float(a * b / (2 * math.pi * s * s) * f.mean() * 2 * math.pi)
 
 
+def radial_profile(model: dict[str, Any]) -> tuple[np.ndarray, np.ndarray] | None:
+    """原射源的徑向通量（GPU 引擎）：`params.radial_fluence = {"r_mm": [...], "weight": [...]}` → (節點, 正規化到最大 1
+    的權重)；沒有 → None。乘在角分佈上（FFF 的高斯、平坦射束的均勻），節點之間線性、最後一個節點以外照最後的值。"""
+    rf = model["params"].get("radial_fluence")
+    if not rf:
+        return None
+    r = np.asarray(rf["r_mm"], dtype=np.float64)
+    w = np.clip(np.asarray(rf["weight"], dtype=np.float64), 0.0, None)
+    if len(r) < 2 or w.max() <= 0:
+        return None
+    return r, w / w.max()
+
+
+def _mass_radial(
+    a: float, b: float, sigma_deg: float | None, radial: tuple[np.ndarray, np.ndarray], z_mm: float
+) -> float:
+    """`_mass` 再乘徑向通量：Marsaglia 橢圓上的數值積分（極座標 96 × 256），點的半徑換成距射源 `z_mm` 的平面上的半徑。
+    均勻角分佈時跟 `_mass` 一樣以 a·b 為單位（∫∫F dA／π）。"""
+    nu, nphi = 96, 256
+    u = (np.arange(nu) + 0.5) / nu
+    phi = (np.arange(nphi) + 0.5) / nphi * 2 * math.pi
+    U, P = np.meshgrid(u, phi, indexing="ij")
+    mx, my = a * U * np.cos(P), b * U * np.sin(P)
+    q2 = mx * mx + my * my
+    tan = 2 * np.sqrt(q2 * np.clip(1 - q2, 0, None)) / np.clip(1 - 2 * q2, 1e-6, None)
+    f = np.interp(z_mm * tan, radial[0], radial[1])
+    area = a * b * U * (1.0 / nu) * (2 * math.pi / nphi)
+    if not sigma_deg:
+        return float((f * area).sum() / math.pi)
+    s = math.sin(math.radians(sigma_deg) / 2)
+    g = np.exp(-q2 / (2 * s * s)) / (2 * math.pi * s * s)
+    return float((g * f * area).sum())
+
+
 def _extent(cp: ControlPoint, beam: Beam) -> tuple[float, float]:
     """這一小段會透光的範圍（等中心平面 mm，對稱的半寬）：jaw ∩ 每一層 MLC 打開的葉片。"""
     x = max(abs(cp.jaw_x[0]), abs(cp.jaw_x[1]))
@@ -366,7 +400,13 @@ def source_plan(beam: Beam, model: dict[str, Any], histories: int, *, engine: st
     sad = beam.sad_mm
     margin = float(p.get("field_margin_mm", 10.0))
     sig = p.get("angular_sigma_deg")
-    ref_p = _mass(*_ellipse(REFERENCE_FIELD_HALF_MM, REFERENCE_FIELD_HALF_MM, sad), sig)
+    radial = radial_profile(model) if engine == "gpu" else None  # OpenTOPAS 的射源沒有徑向通量
+
+    def mass_p(a: float, b: float) -> float:
+        return _mass(a, b, sig) if radial is None else _mass_radial(a, b, sig, radial, sad)
+
+    # 參考錐角的質量；徑向通量只在參考錐角外面有值時（擬合的外圍基底）是 0 → 換成 1（每個發射粒子），擬合自己換回來
+    ref_p = mass_p(*_ellipse(REFERENCE_FIELD_HALF_MM, REFERENCE_FIELD_HALF_MM, sad)) or 1.0
     z_ef = sad - float(ef.get("distance_below_target_mm") or 0.0)
     # 機頭散射的錐角：GPU 從偏移的出發點瞄準開口（錐角只蓋開口）；OpenTOPAS 的 Beam 射源方向跟出發位置無關，
     # 要多蓋 3σ 才打得到開口（大部分被準直器吸收）
@@ -387,7 +427,7 @@ def source_plan(beam: Beam, model: dict[str, Any], histories: int, *, engine: st
         ex, ey = ex + margin, ey + margin
         a_p, b_p = _ellipse(ex, ey, sad)
         cones_p.append((a_p, b_p))
-        shares_p.append((1 - ef_frac - ec_frac) * _mass(a_p, b_p, sig) / ref_p)
+        shares_p.append((1 - ef_frac - ec_frac) * mass_p(a_p, b_p) / ref_p)
         if ef_frac > 0:
             a_e, b_e = _ellipse(ex + sig_ef_mm, ey + sig_ef_mm, z_ef)
             cones_e.append((a_e, b_e))

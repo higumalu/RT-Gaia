@@ -546,7 +546,7 @@ extern "C" __global__ void run_beam(unsigned long long *edep, unsigned int *lost
                                     const int *st_nef, const int *st_nec, const float *st_rot, const float *st_cone,
                                     float iso_x, float iso_y, float iso_z, float sad, float z_ef, float sig_f,
                                     float sig_ef, float m_spread, float z_ec, float sig_ec, const float *ec_e,
-                                    const float *ec_cdf, int nec,
+                                    const float *ec_cdf, int nec, const float *rad_r, const float *rad_w, int nrad,
                                     int ndev, const int *dev_i, const float *dev_f, const float *bounds, const float *pos,
                                     const float *spec_e, const float *spec_cdf, int nspec, unsigned long long seed,
                                     unsigned long long h0, unsigned long long nhist, float escale, float pcut, float ecut,
@@ -592,7 +592,22 @@ extern "C" __global__ void run_beam(unsigned long long *edep, unsigned int *lost
         mx = (2.0f * rnd(r) - 1.0f) * ca;
         my = (2.0f * rnd(r) - 1.0f) * cb;
       }
-      if ((mx * mx) / (ca * ca) + (my * my) / (cb * cb) <= 1.0f) break;
+      if ((mx * mx) / (ca * ca) + (my * my) / (cb * cb) > 1.0f) continue;
+      if (src == 0 && nrad > 0) {
+        // 徑向通量（等中心平面的半徑 r ＝ SAD·tanθ；節點之間線性、已正規化到最大 1）：拒絕抽樣
+        float q2 = mx * mx + my * my;
+        float tn = 2.0f * sqrtf(q2 * fmaxf(0.0f, 1.0f - q2)) / fmaxf(1e-6f, 1.0f - 2.0f * q2);
+        float rr = sad * tn, w = rad_w[nrad - 1];
+        for (int k = 1; k < nrad; k++) {
+          if (rr <= rad_r[k]) {
+            float f = (rr - rad_r[k - 1]) / fmaxf(1e-6f, rad_r[k] - rad_r[k - 1]);
+            w = rad_w[k - 1] + fmaxf(0.0f, f) * (rad_w[k] - rad_w[k - 1]);
+            break;
+          }
+        }
+        if (rnd(r) > w) continue;
+      }
+      break;
     }
     float r2 = mx * mx + my * my, t = sqrtf(fmaxf(0.0f, 1.0f - r2));
     float bdx = 2.0f * mx * t, bdy = 2.0f * my * t, bdz = -(1.0f - 2.0f * r2);

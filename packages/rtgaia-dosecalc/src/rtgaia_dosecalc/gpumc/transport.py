@@ -198,6 +198,10 @@ class BeamSource:
     sigma_ec: float = 0.0
     ec_energies_mev: np.ndarray | None = None
     ec_weights: np.ndarray | None = None
+    radial_r_mm: np.ndarray | None = None
+    """原射源的徑向通量節點（等中心平面半徑 mm）；None ＝ 沒有（只有角分佈）。"""
+    radial_w: np.ndarray | None = None
+    """各節點的相對通量（已正規化到最大 1）。"""
 
     @property
     def histories(self) -> int:
@@ -239,6 +243,8 @@ def simulate_beam(
         "nef": cp.asarray(src.nef.astype(np.int32)),
         "nec": cp.asarray((src.nec if src.nec is not None else np.zeros_like(src.nef)).astype(np.int32)),
         "ec_e": cp.asarray((src.ec_energies_mev if src.ec_energies_mev is not None else np.ones(1)).astype(np.float32)),
+        "rad_r": cp.asarray((src.radial_r_mm if src.radial_r_mm is not None else np.zeros(1)).astype(np.float32)),
+        "rad_w": cp.asarray((src.radial_w if src.radial_w is not None else np.ones(1)).astype(np.float32)),
         "ec_cdf": cp.asarray(
             (np.cumsum(src.ec_weights) / np.sum(src.ec_weights) if src.ec_weights is not None else np.ones(1)).astype(
                 np.float32
@@ -271,7 +277,9 @@ def simulate_beam(
              np.int32(tb.values.shape[2]), f32(tb.lne0), f32(tb.dlne), np.int32(len(src.nef)), d["cum"], d["nef"],
              d["nec"], d["rot"], d["cone"], *(f32(v) for v in src.iso), f32(src.sad), f32(src.z_ef),
              f32(src.sigma_focal), f32(src.sigma_ef), f32(src.m_spread), f32(src.z_ec), f32(src.sigma_ec), d["ec_e"],
-             d["ec_cdf"], np.int32(len(d["ec_e"])), np.int32(len(src.dev_i)), d["dev_i"], d["dev_f"], d["bounds"],
+             d["ec_cdf"], np.int32(len(d["ec_e"])), d["rad_r"], d["rad_w"],
+             np.int32(len(src.radial_r_mm) if src.radial_r_mm is not None else 0), np.int32(len(src.dev_i)),
+             d["dev_i"], d["dev_f"], d["bounds"],
              d["pos"], d["spec_e"], d["spec_cdf"], np.int32(len(src.energies_mev)), np.uint64(seed),
              np.uint64(b * n), np.uint64(n), f32(ESCALE), f32(PHOTON_CUT_MEV), f32(ELECTRON_CUT_MEV), f32(tcut),
              f32(kcut), f32(float(min(spacing)) * STEP_VOXEL_FRACTION), f32(FRAC_E), absorbed),

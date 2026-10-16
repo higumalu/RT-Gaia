@@ -923,6 +923,9 @@ EN: dict[str, str] = {
     "對角線的側向分佈還不支援": "Diagonal profiles are not supported yet",
     "葉片圓端只用 DLG（每對葉片的開口放大）近似；tongue-and-groove 沒有模型": "Rounded leaf ends are approximated by the DLG (each leaf pair opening widened); tongue-and-groove is not modelled",
     "DLG（葉端）": "DLG (leaf ends)",
+    "徑向通量（離軸）": "Radial fluence (off-axis)",
+    "原射源的徑向通量是擬合出來的（只有 GPU 引擎用；OpenTOPAS 照角分佈，大射野的離軸劑量會不同）": "The primary source's radial fluence is fitted (used by the GPU engine only; OpenTOPAS keeps the angular distribution, so large-field off-axis doses differ)",
+    "擬合到半徑 {reach} mm（射野內最遠的量測點）；外面照最後一個節點；先驗 ±{RADIAL_PRIOR_REL}": "Fitted up to a radius of {reach} mm (the farthest in-field measurement point); constant beyond the last fitted node; prior ±{RADIAL_PRIOR_REL}",
     "量測的平均（葉端效應取負號）": "Mean of the measurements (leaf-end effect with its sign reversed)",
     # 劑量計算
     "GPU Monte Carlo：機頭只算鎢的衰減（不模擬準直器散射）；電子污染用射束模型的虛擬射源": "GPU Monte Carlo: the head is modelled by tungsten attenuation only (no collimator scatter); electron contamination comes from the beam model's virtual source",

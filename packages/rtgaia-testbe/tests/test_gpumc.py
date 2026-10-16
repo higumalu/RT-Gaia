@@ -359,3 +359,27 @@ def test_dlg_opens_narrow_gaps(tb) -> None:  # type: ignore[no-untyped-def]
     narrow = integral(base, 5.0) / integral(no_dlg, 5.0)
     wide = integral(base, 100.0) / integral(no_dlg, 100.0)
     assert narrow == pytest.approx(6.33 / 5.0, abs=0.06) and wide == pytest.approx(1.0133, abs=0.01)
+
+
+def test_radial_fluence_shapes_the_profile(tb) -> None:  # type: ignore[no-untyped-def]
+    """徑向通量：權重全是 1 跟沒有一樣（統計內）；外圍加 10%（平坦射束的「角」）→ 40 × 40 的側向分佈在 150 mm 處
+    相對中心軸高約 5%（節點之間線性）。"""
+    import copy
+
+    from rtgaia_dosecalc import water
+
+    base = beam_models.demo_6x()
+    flat = copy.deepcopy(base)
+    flat["params"]["radial_fluence"] = {"r_mm": [0.0, 300.0], "weight": [1.0, 1.0]}
+    horns = copy.deepcopy(base)
+    horns["params"]["radial_fluence"] = {"r_mm": [0.0, 100.0, 200.0, 300.0], "weight": [1.0, 1.0, 1.1, 1.1]}
+    s = water.Setup(400, 400, 1000, profile_depths=(15.0,))
+
+    def rel150(m: dict) -> float:  # type: ignore[type-arg]
+        c = water.simulate(m, s, tb, 2_000_000_000, seed=9).mean
+        p, x = c.profiles[15.0], c.x_mm
+        return float(p[(x >= 130) & (x <= 170)].mean() / p[x <= 20].mean())
+
+    r0, r1, r2 = rel150(base), rel150(flat), rel150(horns)
+    assert r1 == pytest.approx(r0, abs=0.01)
+    assert r2 / r0 == pytest.approx(1.05, abs=0.02)  # 150 mm 在 100（1.0）與 200 mm（1.1）兩節點的正中間

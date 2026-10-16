@@ -1094,7 +1094,7 @@ entered by users will be added later. Selecting a model shows:
 A model is identified by a hash of its parameters: changing a parameter, or the engine version, triggers a new MU
 calibration on the next calculation.
 
-Models fitted to beam data can carry three more components (the demo models have none of them):
+Models fitted to beam data can carry more components (the demo models have none of them except the DLG):
 
 - **Electron contamination**: a virtual electron source with a fraction of the emitted particles, an exponential
   energy spectrum (mean energy, cut at the nominal energy) and a Gaussian source size that spreads the electrons
@@ -1105,6 +1105,11 @@ Models fitted to beam data can carry three more components (the demo models have
   applies to both engines; models without jaws do not use it.
 - **Collimator density factor**: an effective density ratio per collimator (interleaf leakage, tungsten alloy),
   applied to the path length on the GPU and as a material of the same composition in OpenTOPAS.
+- **Radial fluence** of the primary source: a weight per radius at the isocentre plane (linear between nodes,
+  constant beyond the last one) that multiplies the angular distribution. It describes off-axis shapes that a
+  single Gaussian (FFF) or a uniform cone (flattened beams, whose profiles have "horns") cannot. Only the GPU
+  engine samples it; OpenTOPAS keeps the angular distribution, so large-field off-axis doses differ between the
+  engines and the model's limitations say so.
 - **Dosimetric leaf gap (DLG)** per MLC: every leaf pair opening is widened by the DLG (half on each side), the
   usual approximation of transmission through rounded leaf ends; both engines apply it. It matters most for
   VMAT and SRS, where most of the dose is delivered through narrow moving gaps: on a public SRS plan, the dose in
@@ -1248,7 +1253,10 @@ scatter, electron contamination) is simulated once per measurement condition and
 parameters are searched on small grids. The fit runs in stages, each using only the measurements that constrain it
 physically: the spectrum from PDDs beyond 3 cm, TPR20,10 and %dd(10)x (pulled towards the prior); electron
 contamination from the depth of maximum dose; the focal spot (and the angular spread of FFF beams) from penumbra,
-field width, unflatness and slope; head scatter and monitor backscatter from output factors (with square fields
+field width, unflatness and slope; the radial fluence from the in-field part of full profiles (within 80 % of the
+half-width; penumbra and out-of-field points belong to the focal spot and head scatter, which would otherwise be
+traded for the outer nodes) and FFF unflatness and slope, pulled towards the prior's shape, smoothed, and only
+up to the largest radius the data reach; head scatter and monitor backscatter from output factors (with square fields
 only the sum b_x + b_y is constrained, and the report says so); the collimator density factor from MLC
 transmission. The sequence runs twice because the stages interact. Residuals are expressed in tolerance units,
 so a stage that ends with residuals at or below 1 reproduces its measurements within tolerance.

@@ -58,6 +58,7 @@ STAGE_NAME_ZH = {
     "collimator_density": "準直器有效密度",
     "angular_spread": "FFF 角分佈",
     "dlg": "DLG（葉端）",
+    "radial_fluence": "徑向通量（離軸）",
 }
 PASSES = 2
 SMALL_FIELD_MM = 40.0
@@ -636,6 +637,154 @@ def fit_head_scatter(st: State, basis: Basis, problem: Problem, has_jaws: bool) 
     )
 
 
+RADIAL_NODES_MM = (0.0, 30.0, 60.0, 100.0, 150.0, 200.0, 280.0)
+"""徑向通量的節點（等中心平面半徑 mm）。"""
+RADIAL_PRIOR_REL = 0.15
+RADIAL_SMOOTH = 0.05
+"""徑向通量的先驗（每個節點 ±15%，往目前的形狀拉）與平滑（二階差分 ±0.05）。"""
+
+
+def radial_component(model: dict[str, Any], k: int) -> dict[str, Any]:
+    """只有原射源、徑向通量是第 k 個節點的三角形（其他節點 0）。"""
+    hat = [1.0 if i == k else 0.0 for i in range(len(RADIAL_NODES_MM))]
+    return primary_component(model, radial_fluence={"r_mm": list(RADIAL_NODES_MM), "weight": hat})
+
+
+def _radial_ref_mass(model: dict[str, Any], k: int) -> float:
+    """第 k 個節點的三角形在參考錐角裡的質量（`topas.source_plan` 的 `ref_p`，沒有保護成 1 之前；水箱的 SAD 1000）。"""
+    from .engines import topas
+
+    hat = np.zeros(len(RADIAL_NODES_MM))
+    hat[k] = 1.0
+    a, b = topas._ellipse(topas.REFERENCE_FIELD_HALF_MM, topas.REFERENCE_FIELD_HALF_MM, 1000.0)
+    return topas._mass_radial(
+        a, b, model["params"].get("angular_sigma_deg"), (np.asarray(RADIAL_NODES_MM), hat), 1000.0
+    )
+
+
+def _emits(model: dict[str, Any], setup: water.Setup) -> bool:
+    """這個成分在這個條件的錐角裡有沒有粒子（徑向通量的外圍節點在小射野裡是 0）。"""
+    from .engines import topas
+
+    beam = water.setup_beam(model, setup)
+    rad = topas.radial_profile(model)
+    if rad is None:
+        return True
+    margin = float(model["params"].get("field_margin_mm", 10.0))
+    ex, ey = topas._extent(beam.control_points[0], beam)
+    a, b = topas._ellipse(ex + margin, ey + margin, beam.sad_mm)
+    return topas._mass_radial(a, b, model["params"].get("angular_sigma_deg"), rad, beam.sad_mm) > 0
+
+
+RADIAL_IN_FIELD = 0.8
+"""徑向通量只看射野內（半寬的 80%）的側向分佈點：半影與射野外是焦點、機頭散射的事（不然外圍節點去補機頭散射）。"""
+
+
+def _profile_r_iso(c: commissioning.Check) -> float:
+    """側向分佈點（量測深度的平面）換到等中心平面的半徑。"""
+    assert c.setup is not None and c.x is not None
+    return abs(c.x) * 1000.0 / (c.setup.ssd + float(c.depth or 0.0))
+
+
+def _half_width(c: commissioning.Check) -> float:
+    assert c.setup is not None
+    return (c.setup.field_y if c.extra.get("axis") == "y" else c.setup.field_x) / 2
+
+
+def radial_checks(checks: list[commissioning.Check]) -> list[commissioning.Check]:
+    """徑向通量那段的量測：FFF 的 unflatness、slope ＋ 射野內的側向分佈點。"""
+    return [
+        c for c in checks
+        if c.quantity in ("unflatness", "slope_percent_per_mm")
+        or (c.quantity == "profile" and _profile_r_iso(c) <= RADIAL_IN_FIELD * _half_width(c))
+    ]  # fmt: skip
+
+
+def _radial_reach(c: commissioning.Check) -> float:
+    """這個量測約束得到的最大半徑（等中心平面）。"""
+    return _profile_r_iso(c) if c.quantity == "profile" else RADIAL_IN_FIELD * _half_width(c)
+
+
+def fit_radial(st: State, basis: Basis, problem: Problem, has_jaws: bool, prior_model: dict[str, Any]) -> Stage:
+    """原射源的徑向通量（節點的權重）：原射源 ＝ Σ aₖ·rawₖ ／ Σ aₖ·refₖ（rawₖ ＝ 第 k 個三角形成分的劑量 × 它的參考
+    質量），線性的兩個式子相除 —— 每個節點每個條件模擬一次。中心節點固定 1（整體大小由 MU 校正決定）；只擬得到的
+    範圍內（資料最大的射野半對角線）的節點，外面的照最後一個擬到的值。先驗是**先驗模型**的形狀（沒有 ＝ 平的），
+    不是上一輪的結果（不然每一輪都往外飄）。"""
+    from .engines import topas
+
+    n = len(RADIAL_NODES_MM)
+
+    def nodes_of(model: dict[str, Any]) -> np.ndarray:
+        cur = topas.radial_profile(model)
+        w = np.interp(RADIAL_NODES_MM, cur[0], cur[1]) if cur is not None else np.ones(n)
+        return w / w[0]
+
+    prior = nodes_of(prior_model)
+    reach = max(_radial_reach(c) for c in problem.checks)
+    free = [k for k in range(1, n) if RADIAL_NODES_MM[k - 1] < reach]
+    refs = np.array([_radial_ref_mass(st.model, k) for k in range(n)])
+    used = np.where(refs > 0, refs, 1.0)
+    f_ef, f_ec = st.fractions()
+    comps: dict[str, list[water.Simulated | None]] = {}
+    for key, setup in problem.setups.items():
+        row: list[water.Simulated | None] = []
+        for k in range(n):
+            comp = radial_component(st.model, k)
+            row.append(basis.get(comp, setup) if _emits(comp, setup) else None)
+        comps[key] = row
+    rest = {
+        k: ([(f_ef, st.ef(basis, s))] if f_ef > 0 else []) + ([(f_ec, st.ec(basis, s))] if f_ec > 0 else [])
+        for k, s in problem.setups.items()
+    }
+    scale = backscatter_scale(st.model, problem) if has_jaws else None
+
+    def weights(x: np.ndarray) -> np.ndarray:
+        w = prior.copy()
+        for i, k in enumerate(free):
+            w[k] = x[i]
+        last = free[-1] if free else 0
+        w[last + 1 :] = w[last]
+        return w
+
+    def curves(w: np.ndarray) -> dict[str, water.Curves]:
+        denom = float((w * refs).sum())
+        out = {}
+        for key in problem.setups:
+            parts = [
+                ((1 - f_ef - f_ec) * w[k] * used[k] / denom, sim) for k, sim in enumerate(comps[key]) if sim is not None
+            ]
+            out[key] = combine(parts + rest[key])[0]
+        return out
+
+    def fun(x: np.ndarray) -> np.ndarray:
+        w = weights(x)
+        smooth = np.diff(w, 2) / RADIAL_SMOOTH
+        pri = (w[free] / prior[free] - 1.0) / RADIAL_PRIOR_REL
+        return np.concatenate([residuals(problem, curves(w), scale), smooth, pri])
+
+    x0 = nodes_of(st.model)[free]
+    before = cost(residuals(problem, curves(weights(x0)), scale))
+    if free:
+        x, sd = _lsq(fun, x0, np.full(len(x0), 0.3), np.full(len(x0), 3.0))
+    else:
+        x, sd = x0, np.zeros(0)
+    w = weights(x)
+    after = cost(residuals(problem, curves(w), scale))
+    if after > before:  # 平滑與先驗把它拉回來、資料沒有變好 → 照先驗
+        w, after = weights(x0), before
+    st.model["params"]["radial_fluence"] = {"r_mm": list(RADIAL_NODES_MM), "weight": [round(float(v), 5) for v in w]}
+    return Stage(
+        "radial_fluence",
+        {"r_mm": list(RADIAL_NODES_MM), "weight": [round(float(v), 4) for v in w]},
+        problem.ids(),
+        before,
+        after,
+        uncertainty={f"weight@{RADIAL_NODES_MM[k]:g}mm": round(float(sd[i]), 4) for i, k in enumerate(free)},
+        note=f"擬合到半徑 {reach:.0f} mm（射野內最遠的量測點）；外面照最後一個節點；先驗 ±{RADIAL_PRIOR_REL:.0%}",
+        at_bounds=[f"weight[{RADIAL_NODES_MM[k]:g}]" for i, k in enumerate(free) if x[i] <= 0.301 or x[i] >= 2.99],
+    )
+
+
 def fit_dlg(st: State, problem: Problem) -> Stage:
     """DLG：每一層 MLC 取量測的平均（`dlg_mm` 直接用、`leaf_end_offset_mm` 取負號）。模型的 DLG 就是開口放大的量，
     不用模擬。"""
@@ -757,12 +906,16 @@ def fit(
     of = Problem.of(of_checks) if of_checks else None
     trans = pick("mlc_transmission")
     dlg_checks = [c for c in checks if c.quantity in ("dlg_mm", "leaf_end_offset_mm") and c.extra.get("layer")]
+    # 徑向通量：射野內的形狀（FFF 的 unflatness、slope、完整側向分佈的射野內的點）。不放輸出因子、半影、射野外 ——
+    # 那些主要是機頭散射：放進來的話外圍節點去補機頭散射（合成資料實測：真的是平的，擬出 200 mm 高 9%）
+    in_field = radial_checks(checks)
+    radial = Problem.of(in_field) if in_field else None
     dlg = Problem(dlg_checks, {}) if dlg_checks else None
     unconstrained = [
         name
         for name, prob in (
             ("spectrum", spec), ("electron_contamination", dmax), ("focal_spot", prof), ("head_scatter", of),
-            ("collimator_density", trans), ("dlg", dlg),
+            ("collimator_density", trans), ("dlg", dlg), ("radial_fluence", radial),
         )
         if prob is None
     ]  # fmt: skip
@@ -781,6 +934,8 @@ def fit(
             done.append(fit_contamination(st, basis, dmax))
         if prof:
             done.append(fit_focal(st, basis, prof, fff, model["params"].get("angular_sigma_deg")))
+        if radial:
+            done.append(fit_radial(st, basis, radial, has_jaws, model))
         if of:
             done.append(fit_head_scatter(st, basis, of, has_jaws))
         if trans:
@@ -842,6 +997,8 @@ def finalize(
         lim.insert(0, "示範模型：擬合自不是實測的射束資料（例如公開文獻的摘要表格），不代表任何一台實機")
     if "electron_contamination" in fitted_stages:
         lim.append("電子污染是擬合出來的虛擬射源（只有 GPU 引擎發射）")
+    if "radial_fluence" in fitted_stages:
+        lim.append("原射源的徑向通量是擬合出來的（只有 GPU 引擎用；OpenTOPAS 照角分佈，大射野的離軸劑量會不同）")
     for name in report["unconstrained"]:
         lim.append(f"未約束（擬合資料裡沒有對應的量測，照先驗）：{STAGE_NAME_ZH.get(name, name)}")
     for x in report["stages"]:

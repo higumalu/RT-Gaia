@@ -10,6 +10,7 @@ import math
 import numpy as np
 import pytest
 from rtgaia_dosecalc import beam_models, commissioning, fitting, water
+from rtgaia_dosecalc.engines import topas
 from scipy.special import erf
 
 DEPTH = np.arange(1.0, 300.0, 2.0)
@@ -45,12 +46,23 @@ def _fake_curves(model: dict, setup: water.Setup) -> water.Curves:  # type: igno
         s = float(q["sigma_mm"])
         cax = 40.0 * np.exp(-DEPTH / (2.5 * float(q["mean_energy_mev"]))) * field**2 / (field**2 + s**2)
         sigma = 10.0
+    fluence, on_axis = np.ones_like(x), cax
+    rad = topas.radial_profile(model) if kind == "primary" else None
+    if rad is not None:
+        # 徑向通量：側向分佈乘上 F(r)、中心軸乘上射野內的平均（大射野的輸出跟外圍通量有關）；跟引擎一樣除以參考
+        # 錐角裡的質量（以平的為 1）—— 對 F 是線性的兩個式子相除，跟擬合的分解一致
+        a, b = topas._ellipse(topas.REFERENCE_FIELD_HALF_MM, topas.REFERENCE_FIELD_HALF_MM, 1000.0)
+        sig = p.get("angular_sigma_deg")
+        norm = topas._mass_radial(a, b, sig, rad, 1000.0) / topas._mass(a, b, sig)
+        rr = np.linspace(0.0, setup.field_x / 2, 41)
+        fluence = np.interp(x * 1000 / (setup.ssd + 100), *rad) / norm
+        on_axis = cax
+        cax = cax * float(np.average(np.interp(rr, *rad), weights=rr + 1e-6)) / norm
     if setup.collimation == "closed":
         cax = cax * 0.004 / float(p["collimators"][setup.closed_layer or "MLCX"].get("density_factor", 1.0)) ** 6
     edge = 0.5 * (1 + erf((half - x) / (sigma * math.sqrt(2))))
-    return water.Curves(
-        DEPTH, np.asarray(cax, dtype=float), x, {d: edge * np.interp(d, DEPTH, cax) for d in setup.profile_depths}
-    )
+    profiles = {d: edge * fluence * np.interp(d, DEPTH, on_axis) for d in setup.profile_depths}
+    return water.Curves(DEPTH, np.asarray(cax, dtype=float), x, profiles)
 
 
 @pytest.fixture
@@ -221,7 +233,7 @@ def test_fit_recovers_the_truth(fake) -> None:  # type: ignore[no-untyped-def]
     names = [(s["round"], s["name"]) for s in report["stages"]]
     seq = ["spectrum", "electron_contamination", "focal_spot", "head_scatter", "collimator_density"]
     assert names == [(r, n) for r in (1, 2) for n in seq]
-    assert report["unconstrained"] == ["dlg"]  # 合成資料沒有 DLG 量測
+    assert report["unconstrained"] == ["dlg", "radial_fluence"]  # 合成資料沒有 DLG 量測、沒有離軸的側向分佈
     last = {s["name"]: s for s in report["stages"] if s["round"] == 2}
     # 資料約束得到的：找回真值
     assert p["focal_spot_sigma_mm"] == 1.0
@@ -262,7 +274,13 @@ def test_unconstrained_parameters_keep_the_prior(fake) -> None:  # type: ignore[
     ds["measurements"] = [m for m in ds["measurements"] if m["kind"] == "output_factor"]
     fitted, report = fitting.fit(prior, [ds], tb=None, histories=10)
     # 3 cm 的輸出因子約束得到焦點（小射野）；能譜、電子污染、準直器密度沒有資料
-    assert set(report["unconstrained"]) == {"spectrum", "electron_contamination", "collimator_density", "dlg"}
+    assert set(report["unconstrained"]) == {
+        "spectrum",
+        "electron_contamination",
+        "collimator_density",
+        "dlg",
+        "radial_fluence",
+    }
     assert "electron_contamination" not in fitted["params"]
     assert fitted["params"]["spectrum_weights"] == pytest.approx(prior["params"]["spectrum_weights"])
     final = fitting.finalize(fitted, prior, report, demo=False)
@@ -397,3 +415,27 @@ def test_dlg_is_taken_from_measurements() -> None:
     assert stage.parameters["dlg_mm"] == {"MLCX1": pytest.approx((0.19 + 0.13) / 2)}
     assert st.model["params"]["collimators"]["MLCX1"]["dlg_mm"] == pytest.approx(0.16)
     assert stage.cost_after <= stage.cost_before
+
+
+def test_radial_fluence_is_fitted_from_off_axis_profiles(fake) -> None:  # type: ignore[no-untyped-def]
+    """原射源的徑向通量（例如 FFF 的形狀、平坦射束的「角」）：有完整的側向分佈才擬（只用射野內的點）；從平的先驗
+    出發要找回真的形狀（離軸 10 cm 高 4%），擬不到的外圍照最後一個節點；只有 GPU 引擎用 → 寫進限制。真的是平的時
+    要擬回平的（不去補機頭散射）。"""
+    prior = beam_models.demo_6x()
+    truth = _truth(prior)
+    shape = [1.0, 1.01, 1.025, 1.04, 1.05, 1.05, 1.05]
+    truth["params"]["radial_fluence"] = {"r_mm": list(fitting.RADIAL_NODES_MM), "weight": shape}
+    ds = _user_curves(truth)
+    fitted, report = fitting.fit(prior, [ds], tb=None, histories=10)
+    assert "radial_fluence" not in report["unconstrained"]
+    last = {s["name"]: s for s in report["stages"] if s["round"] == 2}
+    rf = last["radial_fluence"]
+    assert rf["measurements"] == ["prof100", "prof300"]  # 射野內的點；輸出因子、半影是機頭散射的事
+    w = fitted["params"]["radial_fluence"]["weight"]
+    assert w[0] == 1.0 and w[2] == pytest.approx(1.025, abs=0.01) and w[3] == pytest.approx(1.04, abs=0.015)
+    assert w[5] == w[6] == w[4]  # 300 mm 射野內 80% → 擬到約 116 mm（150 mm 的節點），外面照它
+    assert rf["cost_after"] <= rf["cost_before"] + 1e-9
+    final = fitting.finalize(fitted, prior, report, demo=True)
+    assert any("徑向通量" in x and "GPU" in x for x in final["limitations"])
+    flat, _ = fitting.fit(prior, [_user_curves(_truth(prior))], tb=None, histories=10)
+    assert flat["params"]["radial_fluence"]["weight"] == pytest.approx([1.0] * 7, abs=0.005)
