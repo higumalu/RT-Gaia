@@ -877,7 +877,6 @@ EN: dict[str, str] = {
     "偵檢器不明：側向分佈沒有做體積平均": "Unknown detector: no volume averaging applied to the profile",
     "模型沒有 MLC": "The model has no MLC",
     "這個量或條件還不支援": "This quantity or condition is not supported yet",
-    "只支援 x 方向（jaw X／葉片移動方向）的側向分佈": "Only profiles along x (jaw X, leaf travel) are supported",
     "模型沒有 MLC 層 {p0}": "The model has no MLC layer {p0}",
     "葉端偏移要模擬掃描間隙（之後加）": "The leaf-end offset needs sweeping-gap simulations (will follow)",
     "DLG 要模擬掃描間隙（之後加）": "The DLG needs sweeping-gap simulations (will follow)",
@@ -922,6 +921,7 @@ EN: dict[str, str] = {
     "FFF 角分佈": "FFF angular spread",
     "側向分佈一律以中心軸正規化比較": "Profiles are always compared normalized at the central axis",
     "電子污染一樣好的候選值，讓 10 cm 深的劑量（以 dmax 做 MU 校正）差 {pct}%：要建成區的 PDD 才定得下來": "Equally good electron contamination values change the dose at 10 cm depth (MU calibrated at dmax) by {pct}%: build-up PDD points are needed to pin it down",
+    "對角線的側向分佈還不支援": "Diagonal profiles are not supported yet",
     # 劑量計算
     "GPU Monte Carlo：機頭只算鎢的衰減（不模擬準直器散射）；電子污染用射束模型的虛擬射源": "GPU Monte Carlo: the head is modelled by tungsten attenuation only (no collimator scatter); electron contamination comes from the beam model's virtual source",
     "OpenTOPAS 用實體機頭與空氣模擬，不加射束模型的虛擬電子污染（那是 GPU 引擎的擬合成分）": "OpenTOPAS simulates the physical head and air and does not add the beam model's virtual electron contamination (a fitted component of the GPU engine)",

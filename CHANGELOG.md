@@ -104,6 +104,7 @@ First public release candidate. RT-Gaia is research software; it is not a medica
 - Full water-tank curves in beam data: PDD and profile points are compared and fitted point by point with a
   combined 1 % / 1 mm tolerance (profiles normalized at the central axis, after detector averaging); build-up
   points constrain electron contamination, small-field profiles the focal spot, large-field profiles head scatter.
+  Profiles can be crossline (x) or inline (y).
 - On the GPU engine, head-scatter photons are aimed at the field opening from their starting point on the
   extended source, so the collimators decide how much of the source each field sees.
 - Beam models can carry fitted components: a virtual electron contamination source (GPU engine), monitor chamber

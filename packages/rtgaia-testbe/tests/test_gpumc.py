@@ -326,3 +326,14 @@ def test_source_model_components(tb) -> None:  # type: ignore[no-untyped-def]
     b = water.simulate(bs, water.Setup(40, 40, 1000), tb, 300_000_000, seed=5).mean
     ratio = water.dose_at(b.depth_mm, b.cax, 100.0) / water.dose_at(a.depth_mm, a.cax, 100.0)
     assert ratio == pytest.approx(1 / 1.012, abs=1e-6)  # 同一個種子、同一組粒子：只差 M
+
+
+def test_x_and_y_profiles(tb) -> None:  # type: ignore[no-untyped-def]
+    """10 × 6 cm 的 jaw 射野、SSD 100、10 cm 深：x 方向 FWHM ≈ 110 mm、y 方向 ≈ 66 mm（幾何投影 1.1 倍）。"""
+    from rtgaia_dosecalc import water
+
+    s = water.Setup(100, 60, 1000, profile_depths=(100.0,), profile_y=True)
+    c = water.simulate(beam_models.demo_6x(), s, tb, 500_000_000).mean
+    fx = water.profile_metrics(c.x_mm, c.profiles[100.0], fff=False)["fwhm_mm"]
+    fy = water.profile_metrics(c.y_mm, c.profiles_y[100.0], fff=False)["fwhm_mm"]
+    assert fx == pytest.approx(110.0, abs=1.5) and fy == pytest.approx(66.0, abs=1.5)

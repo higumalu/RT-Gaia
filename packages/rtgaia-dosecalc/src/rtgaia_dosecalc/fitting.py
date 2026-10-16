@@ -202,8 +202,9 @@ def combine(parts: Parts) -> tuple[water.Curves, list[water.Curves]]:
     def mix(get: Any) -> water.Curves:
         cax = sum(w * get(s).cax for w, s in parts)
         prof = {d: sum(w * get(s).profiles[d] for w, s in parts) for d in get(first).profiles}
+        prof_y = {d: sum(w * get(s).profiles_y[d] for w, s in parts) for d in get(first).profiles_y}
         c = get(first)
-        return water.Curves(depth_mm=c.depth_mm, cax=cax, x_mm=c.x_mm, profiles=prof)
+        return water.Curves(depth_mm=c.depth_mm, cax=cax, x_mm=c.x_mm, profiles=prof, y_mm=c.y_mm, profiles_y=prof_y)
 
     return mix(lambda s: s.mean), [mix(lambda s, k=k: s.batches[k]) for k in range(len(first.batches))]
 
@@ -244,7 +245,8 @@ class Problem:
         for s in (s for c in checks for s in (c.setup, c.reference) if s is not None):
             prev = out.get(_key(s))
             depths = tuple(sorted(set((prev.profile_depths if prev else ()) + s.profile_depths)))
-            out[_key(s)] = water.Setup(s.field_x, s.field_y, s.ssd, s.collimation, s.closed_layer, depths)
+            y = s.profile_y or bool(prev and prev.profile_y)
+            out[_key(s)] = water.Setup(s.field_x, s.field_y, s.ssd, s.collimation, s.closed_layer, depths, y)
         return cls(checks, out)
 
     def ids(self) -> list[str]:

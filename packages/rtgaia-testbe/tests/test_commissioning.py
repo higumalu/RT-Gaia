@@ -311,3 +311,40 @@ def test_collimator_density_factor_in_opentopas() -> None:
     )
     assert 'sv:Ma/WMLCEff/Components = 1 "Tungsten"' in text and "d:Ma/WMLCEff/Density = 16.405 g/cm3" in text
     assert 's:Ge/MLC/Material = "WMLCEff"' in text and 's:Ge/JawX/Material = "G4_W"' in text
+
+
+def test_y_profiles_use_a_fine_z_grid_and_the_z_axis() -> None:
+    s = water.Setup(100, 60, 1000, profile_depths=(100.0,), profile_y=True)
+    g = water.grid_for(s, 1000)
+    assert g.spacing[2] == g.spacing[0] and s.key.endswith("+y")
+    xs, ys, zs = g.centers(0), g.centers(1), g.centers(2)
+    X, Z = xs[None, None, :], zs[:, None, None]
+    # x 方向開到 ±55、y（LPS z）方向開到 ±33
+    dose = np.where((np.abs(X) <= 55) & (np.abs(Z) <= 33), 1.0, 0.05) * np.ones((1, len(ys), 1))
+    cur = water.reduce(dose, g, s)
+    assert cur.profiles_y and cur.y_mm is not None
+    py = cur.profiles_y[100.0]
+    edge_y = cur.y_mm[np.argmax(py < 0.5)]
+    edge_x = cur.x_mm[np.argmax(cur.profiles[100.0] < 0.5)]
+    assert 33 <= edge_y <= 34.5 and 55 <= edge_x <= 56.5
+
+
+def test_y_profile_measurements_are_planned_on_y() -> None:
+    ds = {
+        "dataset_id": "y",
+        "measurements": [
+            beam_data.check_measurement(
+                {"kind": "profile", "conditions": {"field_mm": "100", "ssd_mm": 1000, "depth_mm": 100, "axis": "y"},
+                 "points": [[-60, 5.0], [0, 100.0], [60, 5.0]]}
+            )[0],
+            beam_data.check_measurement(
+                {"kind": "scalar", "quantity": "penumbra_80_20_mm",
+                 "conditions": {"field_mm": "100", "ssd_mm": 1000, "depth_mm": 100, "axis": "diagonal"},
+                 "points": [[6.0]]}
+            )[0],
+        ],
+    }  # fmt: skip
+    checks = commissioning.plan_checks(MODELS["demo-6x"], ds)
+    prof = [c for c in checks if c.quantity == "profile"]
+    assert len(prof) == 3 and all(c.setup.profile_y and c.extra["axis"] == "y" for c in prof)
+    assert next(c for c in checks if c.quantity == "penumbra_80_20_mm").unsupported

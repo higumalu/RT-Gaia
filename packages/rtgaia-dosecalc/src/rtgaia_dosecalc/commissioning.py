@@ -161,7 +161,8 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
         elif kind == "profile":
             f = _field(cond)
             d = float(cond["depth_mm"])
-            if cond.get("axis", "x") != "x" or f is None:
+            axis = cond.get("axis", "x")
+            if axis not in ("x", "y") or f is None:
                 for row in m["points"]:
                     out.append(
                         base(
@@ -169,12 +170,12 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
                             x=row[0],
                             measured=row[vi],
                             u_measured=unc(row),
-                            unsupported="只支援 x 方向（jaw X／葉片移動方向）的側向分佈",
+                            unsupported="對角線的側向分佈還不支援",
                         )
-                    )  # noqa: E501
+                    )
                 continue
             scale = 100.0 if m.get("unit") == "fraction" else 1.0
-            s = water.Setup(f[0], f[1], ssd, col, profile_depths=(d,))
+            s = water.Setup(f[0], f[1], ssd, col, profile_depths=(d,), profile_y=axis == "y")
             r = water.detector_radius(str(cond.get("detector") or ""))
             norm_note = "" if cond.get("normalization") in (None, "central_axis") else "側向分佈一律以中心軸正規化比較"
             values = [float(row[vi]) * scale for row in m["points"]]
@@ -191,6 +192,7 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
                     depth=d,
                 )  # noqa: E501
                 c.extra["fff"] = fff
+                c.extra["axis"] = axis
                 if r is not None:
                     c.extra["detector_r"] = r
                 notes = [x for x in (norm_note, "" if r is not None else "偵檢器不明：側向分佈沒有做體積平均") if x]
@@ -256,15 +258,10 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
                 )
             elif q in PROFILE_QUANTITIES and f and "depth_mm" in cond:
                 d = float(cond["depth_mm"])
-                if cond.get("axis", "x") != "x":
+                axis = cond.get("axis", "x")
+                if axis not in ("x", "y"):
                     out.append(
-                        base(
-                            quantity=q,
-                            x=d,
-                            measured=val,
-                            u_measured=u,
-                            unsupported="只支援 x 方向（jaw X／葉片移動方向）的側向分佈",
-                        )
+                        base(quantity=q, x=d, measured=val, u_measured=u, unsupported="對角線的側向分佈還不支援")
                     )
                     continue
                 c = base(
@@ -272,10 +269,11 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
                     x=d,
                     measured=val,
                     u_measured=u,
-                    setup=water.Setup(f[0], f[1], ssd, col, profile_depths=(d,)),
+                    setup=water.Setup(f[0], f[1], ssd, col, profile_depths=(d,), profile_y=axis == "y"),
                     depth=d,
                 )
                 c.extra["fff"] = fff
+                c.extra["axis"] = axis
                 r = water.detector_radius(str(cond.get("detector") or ""))
                 if r is None:
                     c.extra["note"] = "偵檢器不明：側向分佈沒有做體積平均"
@@ -349,12 +347,20 @@ def _within(quantity: str, measured: float, model: float, grad: float = 0.0) -> 
     return diff, scaled, abs(scaled) <= 1.0
 
 
+def _profile(check: Check, curves: water.Curves) -> tuple[np.ndarray, np.ndarray]:
+    """模型在這個量測方向（x 或 y）的側向分佈（鏡射後、偵檢器平均後，絕對值）。"""
+    if check.extra.get("axis") == "y":
+        pos, prof = curves.y_mm, curves.profiles_y[float(check.depth)]
+    else:
+        pos, prof = curves.x_mm, curves.profiles[float(check.depth)]
+    assert pos is not None
+    return pos, water.average_detector(pos, prof, float(check.extra.get("detector_r") or 0.0))
+
+
 def _profile_percent(check: Check, curves: water.Curves) -> tuple[np.ndarray, np.ndarray]:
     """模型的側向分佈（偵檢器平均後、中心軸 ＝ 100%）。"""
-    prof = water.average_detector(
-        curves.x_mm, curves.profiles[float(check.depth)], float(check.extra.get("detector_r") or 0.0)
-    )
-    return curves.x_mm, 100.0 * prof / prof[0]
+    pos, prof = _profile(check, curves)
+    return pos, 100.0 * prof / prof[0]
 
 
 def gradient(check: Check, curves: water.Curves) -> float:
@@ -383,10 +389,8 @@ def _value(check: Check, curves: water.Curves, ref: water.Curves | None, hpm: fl
     if q == "pdd10x":
         return water.pdd_at(curves.depth_mm, curves.cax, 100.0)
     if q in PROFILE_QUANTITIES:
-        prof = water.average_detector(
-            curves.x_mm, curves.profiles[float(check.depth)], float(check.extra.get("detector_r") or 0.0)
-        )
-        return water.profile_metrics(curves.x_mm, prof, bool(check.extra.get("fff")))[q]
+        pos, prof = _profile(check, curves)
+        return water.profile_metrics(pos, prof, bool(check.extra.get("fff")))[q]
     if q in ("output_factor", "mlc_transmission"):
         assert ref is not None
         if check.depth is None:
@@ -446,7 +450,8 @@ def run_checks(
             key = (s.field_x, s.field_y, s.ssd, s.collimation, s.closed_layer)
             prev = setups.get(str(key))
             depths = tuple(sorted(set((prev.profile_depths if prev else ()) + s.profile_depths)))
-            setups[str(key)] = water.Setup(s.field_x, s.field_y, s.ssd, s.collimation, s.closed_layer, depths)
+            y = s.profile_y or bool(prev and prev.profile_y)
+            setups[str(key)] = water.Setup(s.field_x, s.field_y, s.ssd, s.collimation, s.closed_layer, depths, y)
     sims: dict[str, water.Simulated] = {}
     for i, (key, s) in enumerate(setups.items()):
         if progress is not None:

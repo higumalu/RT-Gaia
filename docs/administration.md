@@ -1176,7 +1176,9 @@ detector averaging). Curve points use a combined tolerance of 1 percentage point
 gradient, so steep regions (build-up, penumbra) are judged by position. In a fit, PDD points shallower than 3 cm
 constrain electron contamination together with the depth of maximum dose, profiles of fields up to 10 × 10 cm
 constrain the focal spot (and the FFF angular spread), and profiles of larger fields constrain head scatter.
-Profiles along y (jaw Y, across the leaves) and diagonal profiles are listed as not supported yet.
+Profiles along x (crossline: jaw X, leaf travel) and y (inline: jaw Y, across the leaves) are both supported; a
+condition with y profiles is simulated on a finer grid across the leaves, which takes longer. Diagonal profiles
+are listed as not supported yet.
 
 The columns default to `depth_mm, value[, uncertainty]` for depth doses, `position_mm, value[, uncertainty]` for
 profiles and `field_mm, value[, uncertainty]` (square fields) for output factors; rectangular fields use

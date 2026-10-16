@@ -56,11 +56,14 @@ class Setup:
     closed_layer: str = ""
     profile_depths: tuple[float, ...] = ()
     """要取側向分佈的深度（mm）。"""
+    profile_y: bool = False
+    """也要 y 方向（jaw Y、跨葉片）的側向分佈：z 軸改成跟 x 一樣細的格子（比較慢，只在有 y 方向量測時開）。"""
 
     @property
     def key(self) -> str:
         d = ",".join(f"{v:g}" for v in self.profile_depths)
-        return f"{self.field_x:g}x{self.field_y:g}@{self.ssd:g}/{self.collimation}{self.closed_layer}[{d}]"
+        y = "+y" if self.profile_y else ""
+        return f"{self.field_x:g}x{self.field_y:g}@{self.ssd:g}/{self.collimation}{self.closed_layer}[{d}]{y}"
 
     @property
     def r_avg(self) -> float:
@@ -85,7 +88,7 @@ def grid_for(setup: Setup, sad: float) -> Grid:
     兩個側向軸的格數都是奇數 → 中心軸落在一格的正中央。"""
     small = min(setup.field_x, setup.field_y)
     sx = float(np.clip(small / 20.0, 0.5, 1.0))
-    sz = float(np.clip(small / 10.0, 0.5, 5.0))
+    sz = sx if setup.profile_y else float(np.clip(small / 10.0, 0.5, 5.0))
     grow = (setup.ssd + DEPTH_MAX_MM) / sad
     hx = min(300.0, setup.field_x / 2 * grow + LATERAL_MARGIN_MM)
     hz = min(300.0, setup.field_y / 2 * grow + LATERAL_MARGIN_MM)
@@ -183,6 +186,9 @@ class Curves:
     x_mm: np.ndarray
     """側向分佈的位置（≥ 0，鏡射後）。"""
     profiles: dict[float, np.ndarray] = field(default_factory=dict)
+    y_mm: np.ndarray | None = None
+    profiles_y: dict[float, np.ndarray] = field(default_factory=dict)
+    """y 方向（LPS z：jaw Y、跨葉片）的側向分佈；`Setup.profile_y` 才有。"""
 
 
 def reduce(dose: np.ndarray, grid: Grid, setup: Setup) -> Curves:
@@ -199,14 +205,22 @@ def reduce(dose: np.ndarray, grid: Grid, setup: Setup) -> Curves:
     right = band[:, c:]
     left = band[:, c::-1]
     mirrored = (right + left) / 2  # (ny, nx//2+1)，x ＝ 0 起
-    profiles = {}
-    for d in setup.profile_depths:
+    w = np.array([0.25, 0.5, 0.25])
+
+    def rows_of(d: float) -> list[int]:
         j = int(np.clip(np.searchsorted(ys, d), 1, len(ys) - 1))
         lo = j - 1 if abs(ys[j - 1] - d) <= abs(ys[j] - d) else j
-        rows = [max(0, lo - 1), lo, min(len(ys) - 1, lo + 1)]
-        w = np.array([0.25, 0.5, 0.25])
-        profiles[float(d)] = (mirrored[rows] * w[:, None]).sum(axis=0)
-    return Curves(depth_mm=ys, cax=cax, x_mm=xs[c:] - xs[c], profiles=profiles)
+        return [max(0, lo - 1), lo, min(len(ys) - 1, lo + 1)]
+
+    profiles = {float(d): (mirrored[rows_of(d)] * w[:, None]).sum(axis=0) for d in setup.profile_depths}
+    out = Curves(depth_mm=ys, cax=cax, x_mm=xs[c:] - xs[c], profiles=profiles)
+    if setup.profile_y:
+        band_y = dose[:, :, ix].mean(axis=2).T  # (ny, nz)：|x| ≤ r_avg 平均
+        cz = band_y.shape[1] // 2
+        mirrored_y = (band_y[:, cz:] + band_y[:, cz::-1]) / 2
+        out.y_mm = zs[cz:] - zs[cz]
+        out.profiles_y = {float(d): (mirrored_y[rows_of(d)] * w[:, None]).sum(axis=0) for d in setup.profile_depths}
+    return out
 
 
 # ── 取值 ──────────────────────────────────────────────────────────────────────
@@ -369,5 +383,7 @@ def simulate(
         cax=np.mean([c.cax for c in per], axis=0),
         x_mm=per[0].x_mm,
         profiles={d: np.mean([c.profiles[d] for c in per], axis=0) for d in setup.profile_depths},
+        y_mm=per[0].y_mm,
+        profiles_y={d: np.mean([c.profiles_y[d] for c in per], axis=0) for d in per[0].profiles_y},
     )
     return Simulated(setup, grid, per, avg, info["histories"], info["seconds"], m_equiv)
