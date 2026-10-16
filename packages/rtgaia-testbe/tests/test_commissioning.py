@@ -353,3 +353,47 @@ def test_y_profile_measurements_are_planned_on_y() -> None:
     prof = [c for c in checks if c.quantity == "profile"]
     assert len(prof) == 3 and all(c.setup.profile_y and c.extra["axis"] == "y" for c in prof)
     assert next(c for c in checks if c.quantity == "penumbra_80_20_mm").unsupported
+
+
+def test_tmr_is_simulated_in_isocentric_setups(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """TMR：每個深度一個等中心條件（SSD ＝ SAD − 深度），對正規化深度的條件取比值。假的模擬器的劑量含距離平方反比
+    → 等中心的點都在 SAD，TMR 只剩深度的形狀；從 SSD 擺位的 PDD 直接拿會差上距離平方。"""
+    d, dose = _depth_curve()
+    shape = (1 - np.exp(-np.asarray([15.0, 50.0, 100.0, 200.0, 280.0]) / 14 * 1.8)) * np.exp(
+        -0.005 * np.asarray([15.0, 50.0, 100.0, 200.0, 280.0])
+    )
+    seen = []
+
+    def fake(model, setup, tb, histories, *, batches=10, seed=1):  # type: ignore[no-untyped-def]
+        seen.append(setup.ssd)
+        g = water.grid_for(setup, 1000)
+        cur = water.Curves(depth_mm=d, cax=dose * (1000.0 / (setup.ssd + d)) ** 2, x_mm=np.zeros(1), profiles={})
+        return water.Simulated(setup, g, [cur] * 3, cur, histories, 0.0, 1.0)
+
+    monkeypatch.setattr(water, "simulate", fake)
+    raw = [
+        {"kind": "depth_dose", "quantity": "tmr", "measurement_id": "tmr",
+         "conditions": {"field_mm": "100", "sad_mm": 1000, "normalization": "dmax"},
+         "points": [[x, float(v)] for x, v in zip((15, 50, 100, 200, 280), shape / shape.max(), strict=True)],
+         "unit": "fraction"},
+        {"kind": "depth_dose", "quantity": "tpr", "measurement_id": "tpr800",
+         "conditions": {"field_mm": "100", "sad_mm": 800, "normalization": "depth", "normalization_depth_mm": 100},
+         "points": [[50, 120.0], [100, 100.0]]},
+    ]  # fmt: skip
+    ms = [beam_data.check_measurement(m)[0] for m in raw]
+    assert all(ms), [beam_data.check_measurement(m)[1] for m in raw]
+    ds = {"dataset_id": "tmr", "measurements": ms}
+    checks = commissioning.plan_checks(MODELS["demo-6x"], ds)
+    tmr = {c.x: c for c in checks if c.measurement_id == "tmr"}
+    assert tmr[100.0].setup.ssd == 900.0 and tmr[100.0].reference.ssd == 985.0  # 參考 ＝ 量測最大那一點（15 mm）
+    assert tmr[15.0].measured == pytest.approx(100.0) and tmr[280.0].unsupported  # 水箱下面要留反散射
+    assert all(c.unsupported for c in checks if c.measurement_id == "tpr800")  # 只支援 SAD 100 cm
+    rep = commissioning.run_checks(MODELS["demo-6x"], ds, tb=None, hpm=1.0, histories=10)
+    rows = {r["x"]: r for r in rep["checks"] if r["measurement_id"] == "tmr" and r["status"] != "unsupported"}
+    assert set(rows) == {15.0, 50.0, 100.0, 200.0}
+    for x, r in rows.items():
+        assert r["model"] == pytest.approx(r["measured"], abs=0.05), x
+        assert r["status"] == "pass"
+    assert {900.0, 800.0, 950.0, 985.0} <= set(seen)
+    # 用 SSD 擺位的 PDD 的話 200 mm 處差上距離平方（(1000＋15)／(1000＋200))² ≈ 0.72）—— 這裡沒有
+    assert rows[200.0]["model"] > 1.2 * water.pdd_at(d, dose * (1000.0 / (1000.0 + d)) ** 2, 200.0)

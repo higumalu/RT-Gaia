@@ -66,7 +66,7 @@ FOCAL_PROFILE_MAX_FIELD_MM = 100.0
 """焦點那一段只用這個射野以下的半影、FWHM。"""
 """焦點那一段也用的小射野輸出因子（邊長 ≤ 這個值）。"""
 """整串分段擬合跑幾輪。"""
-SPECTRUM_QUANTITIES = ("pdd", "tpr20_10", "pdd10x")
+SPECTRUM_QUANTITIES = ("pdd", "tpr", "tmr", "tpr20_10", "pdd10x")
 PROFILE_QUANTITIES = commissioning.PROFILE_QUANTITIES
 
 
@@ -423,7 +423,8 @@ def fit_spectrum(st: State, basis: Basis, problem: Problem, prior: np.ndarray) -
             [residuals(problem, curves(w)), (wn - prior) / (PRIOR_REL_SIGMA * np.maximum(prior, 1e-3))]
         )
 
-    x0 = st.group_weights.copy()
+    # 上一輪正規化後的權重可能掉到下限以下（總和 > 1 時）→ 起點夾回範圍內
+    x0 = np.clip(st.group_weights, 1e-4, 10.0)
     before = cost(residuals(problem, curves(x0)))
     x, sd = _lsq(fun, x0, np.full(len(x0), 1e-4), np.full(len(x0), 10.0))
     st.group_weights = x / x.sum()
@@ -873,13 +874,18 @@ def fit(
         sel = [
             c
             for c in checks
-            if c.quantity in quantities and not (beyond_dmax and c.quantity == "pdd" and (c.depth or 0) < 30.0)
+            if c.quantity in quantities
+            and not (beyond_dmax and c.quantity in commissioning.DEPTH_CURVES and (c.depth or 0) < 30.0)
         ]
         return Problem.of(sel) if sel else None
 
     spec = pick(*SPECTRUM_QUANTITIES, beyond_dmax=True)
     # 電子污染：dmax ＋ 建成區（30 mm 以內）的 PDD 點（使用者的完整 PDD 才有；公開資料多半只有 dmax）
-    ec_checks = [c for c in checks if c.quantity == "dmax_mm" or (c.quantity == "pdd" and (c.depth or 0) < 30.0)]
+    ec_checks = [
+        c
+        for c in checks
+        if c.quantity == "dmax_mm" or (c.quantity in commissioning.DEPTH_CURVES and (c.depth or 0) < 30.0)
+    ]
     dmax = Problem.of(ec_checks) if ec_checks else None
 
     # 焦點：側向分佈 ＋ 小射野（≤ 4 cm）的輸出因子 —— 小射野的輸出因子對焦點大小很敏感，只看半影的話跟輸出因子

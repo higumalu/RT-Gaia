@@ -1217,7 +1217,12 @@ after averaging the profile over the detector named in the measurement (CC13, PT
 the inflection point is 50 %. `report.json` lists every point with the measured value, the model value, both
 uncertainties, the difference and whether it is within tolerance (1 % for dose ratios and output factors, 1 mm
 for positions, 1 percentage point for PDD, 0.1 percentage point for transmission). Measurements the check cannot
-simulate yet (TPR and TMR curves, jaw transmission, diagonal profiles) are listed with the reason; the dosimetric
+simulate yet (jaw transmission, diagonal profiles, TPR and TMR at an SAD other than 100 cm or deeper than 25 cm)
+are listed with the reason. TPR and TMR curves are simulated as they are measured: one isocentric setup per depth
+(SSD = SAD − depth, field size at that depth), divided by the setup at the normalization depth (the depth of the
+measured maximum for `dmax`, or `normalization_depth_mm`); they are not converted from PDDs, because that
+conversion assumes the scatter the check is meant to test. Each depth is a separate simulation, so a full TMR
+table takes longer than a PDD; the dosimetric
 leaf gap and the leaf-end effect are compared directly with the model's DLG. With the default statistics a dataset takes a few minutes on an RTX 5090; dual-layer MLC models are about
 three times slower.
 
@@ -1251,8 +1256,8 @@ uv run rtgaia-dosecalc fit-model --model demo-6x --fit pub-beyer2013-6x --valida
 The dose is linear in the source components, so each component (the primary source in four energy groups, head
 scatter, electron contamination) is simulated once per measurement condition and any weighting is a sum; non-linear
 parameters are searched on small grids. The fit runs in stages, each using only the measurements that constrain it
-physically: the spectrum from PDDs beyond 3 cm, TPR20,10 and %dd(10)x (pulled towards the prior); electron
-contamination from the depth of maximum dose; the focal spot (and the angular spread of FFF beams) from penumbra,
+physically: the spectrum from PDD, TPR and TMR points beyond 3 cm, TPR20,10 and %dd(10)x (pulled towards the
+prior); electron contamination from the depth of maximum dose and depth-dose points within 3 cm; the focal spot (and the angular spread of FFF beams) from penumbra,
 field width, unflatness and slope; the radial fluence from the in-field part of full profiles (within 80 % of the
 half-width; penumbra and out-of-field points belong to the focal spot and head scatter, which would otherwise be
 traded for the outer nodes) and FFF unflatness and slope, pulled towards the prior's shape, smoothed, and only

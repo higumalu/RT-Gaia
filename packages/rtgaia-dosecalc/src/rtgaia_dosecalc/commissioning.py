@@ -3,7 +3,9 @@
 `plan_checks(model, dataset)` 把資料集的量測拆成「要模擬的條件」（同條件的量測共用一次模擬）與「每一點怎麼取值」；
 `run_checks` 模擬並回報：每一點的量測值、模型值、差（絕對、%）、兩邊不確定度合成後的 z、是否在容許內。
 
-* 不支援的量測（TPR／TMR 曲線、葉端偏移與 DLG 的掃描間隙、jaw 穿透…）照列，標 `unsupported` 與原因，不默默略過。
+* TPR／TMR：每個深度一個等中心條件（SSD ＝ SAD − 深度、射野在那個深度），對正規化深度的條件取比值 —— 不從
+  PDD 換算（換算要假設散射，正是要驗的東西）。
+* 不支援的量測（對角線的側向分佈、jaw 穿透…）照列，標 `unsupported` 與原因，不默默略過。
 * 幾何規格（葉片高度、葉端半徑）直接跟模型參數比，不模擬。
 * 容許（`TOLERANCE`）：劑量比 1%、位置 1 mm（比 TPS commissioning 常用的 2%／2 mm 嚴，roadmap 的起點門檻）；
   輸出因子 1%、穿透 0.1 個百分點、unflatness 1%、slope 10%。
@@ -24,9 +26,12 @@ from . import water
 LAYER_DEVICE = {"distal": "MLCX1", "lower": "MLCX1", "proximal": "MLCX2", "upper": "MLCX2"}
 DTA_MM = 1.0
 """曲線點（PDD、側向分佈）的位置容許：高梯度處的容許 ＝ 1 個百分點 ⊕ 梯度 × 1 mm（逐點的 1%／1 mm）。"""
-CURVE_QUANTITIES = ("pdd", "profile")
+CURVE_QUANTITIES = ("pdd", "tpr", "tmr", "profile")
+DEPTH_CURVES = ("pdd", "tpr", "tmr")
 TOLERANCE = {
     "pdd": ("percent_points", 1.0),
+    "tpr": ("percent_points", 1.0),
+    "tmr": ("percent_points", 1.0),
     "profile": ("percent_points", 1.0),
     "dmax_mm": ("mm", 1.0),
     "tpr20_10": ("relative", 0.01),
@@ -82,6 +87,68 @@ def _collimation(model: dict[str, Any], cond: dict[str, Any]) -> str:
     return "jaw"
 
 
+SAD_MM = 1000.0
+"""水箱模擬的 SAD（`water.setup_beam`）。"""
+BACKSCATTER_MARGIN_MM = 50.0
+"""TPR／TMR 的點下面要有的水（等中心擺位的點在深處，模擬的水箱只有 `water.DEPTH_MAX_MM`）。"""
+
+
+def _ratio_checks(
+    m: dict[str, Any], q: str, cond: dict[str, Any], col: str, base: Any, unc: Any, vi: int
+) -> list[Check]:
+    """TPR／TMR 曲線 → 每一點一個比較（條件：SSD ＝ SAD − 深度；參考：正規化深度的同一個射野）。正規化：`dmax`
+    （沒寫也是）取量測最大的那一點的深度、`depth` 取 `normalization_depth_mm`；量測值重新以那一點 ＝ 100%。
+    高梯度處的位置容許用量測曲線自己的斜率（模型只在量測的深度有值）。"""
+    f = _field(cond)
+    rows = sorted(m["points"], key=lambda r: float(r[0]))
+    depths = np.asarray([float(r[0]) for r in rows])
+    scale = 100.0 if m.get("unit") == "fraction" else 1.0
+    values = np.asarray([float(r[vi]) * scale for r in rows])
+    norm = cond.get("normalization") or "dmax"
+    why = ""
+    if f is None:
+        why = "深度劑量要有射野"
+    elif abs(float(cond.get("sad_mm") or SAD_MM) - SAD_MM) > 1e-6:
+        why = f"只支援 SAD {SAD_MM:g} mm 的 TPR／TMR"
+    elif norm not in ("dmax", "depth") or (norm == "depth" and cond.get("normalization_depth_mm") is None):
+        why = "TPR／TMR 只支援以 dmax 或指定深度（normalization_depth_mm）正規化"
+    elif len(rows) < 2 and norm == "dmax":
+        why = "以 dmax 正規化的 TPR／TMR 至少要兩點"
+    if why:
+        return [base(quantity=q, x=r[0], measured=r[vi], u_measured=unc(r), unsupported=why) for r in m["points"]]
+    assert f is not None
+    d_ref = float(depths[int(np.argmax(values))]) if norm == "dmax" else float(cond["normalization_depth_mm"])
+    v_ref = float(np.interp(d_ref, depths, values))
+    if not min(depths) <= d_ref <= min(max(depths), water.DEPTH_MAX_MM - BACKSCATTER_MARGIN_MM) or v_ref <= 0:
+        return [
+            base(quantity=q, x=r[0], measured=r[vi], u_measured=unc(r), unsupported="正規化深度不在量測範圍內")
+            for r in m["points"]
+        ]
+    grad = np.gradient(100.0 * values / v_ref, depths) if len(rows) > 1 else np.zeros(1)
+    ref = water.Setup(f[0], f[1], SAD_MM - d_ref, col)
+    out = []
+    deepest = water.DEPTH_MAX_MM - BACKSCATTER_MARGIN_MM
+    for i, r in enumerate(rows):
+        d = float(r[0])
+        if d > deepest:
+            why = f"深度超過 {deepest:g} mm：水箱模擬的下面要留 {BACKSCATTER_MARGIN_MM:g} mm 的反散射"
+            out.append(base(quantity=q, x=d, measured=r[vi], u_measured=unc(r), unsupported=why))
+            continue
+        c = base(
+            quantity=q,
+            x=d,
+            measured=100.0 * float(r[vi]) * scale / v_ref,
+            u_measured=unc(r, 100.0 * scale / v_ref),
+            setup=water.Setup(f[0], f[1], SAD_MM - d, col),
+            reference=ref,
+            depth=d,
+        )
+        c.extra["reference_depth_mm"] = d_ref
+        c.extra["gradient"] = float(grad[i])
+        out.append(c)
+    return out
+
+
 def _ssd(cond: dict[str, Any]) -> tuple[float, str]:
     """SSD；只給 SAD 的（等中心擺位）→ SSD ＝ SAD − 深度；都沒有 → 100 cm 並在備註寫出來。"""
     if "ssd_mm" in cond:
@@ -121,6 +188,9 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
                     c.extra["note"] = "；".join(x for x in (c.extra.get("note"), why) if x)
             return c
 
+        if kind == "depth_dose" and q in ("tpr", "tmr"):
+            out += _ratio_checks(m, q, cond, col, base, unc, vi)
+            continue
         if kind == "depth_dose":
             f = _field(cond)
             if q != "pdd" or f is None:
@@ -131,7 +201,7 @@ def plan_checks(model: dict[str, Any], dataset: dict[str, Any]) -> list[Check]:
                             x=row[0],
                             measured=row[vi],
                             u_measured=unc(row),
-                            unsupported="只支援 PDD（TPR／TMR 曲線之後加）",
+                            unsupported="深度劑量要有射野",
                         )
                     )
                 continue
@@ -386,6 +456,8 @@ def gradient(check: Check, curves: water.Curves) -> float:
     if check.quantity == "profile":
         x, y = _profile_percent(check, curves)
         return float(np.interp(abs(float(check.x)), x, np.gradient(y, x)))
+    if check.quantity in ("tpr", "tmr"):
+        return float(check.extra.get("gradient") or 0.0)
     return 0.0
 
 
@@ -396,6 +468,10 @@ def _value(check: Check, curves: water.Curves, ref: water.Curves | None, hpm: fl
     if q == "profile":
         x, y = _profile_percent(check, curves)
         return float(np.interp(abs(float(check.x)), x, y))
+    if q in ("tpr", "tmr"):
+        assert ref is not None
+        a = water.dose_at(curves.depth_mm, curves.cax, float(check.depth))
+        return 100.0 * a / water.dose_at(ref.depth_mm, ref.cax, float(check.extra["reference_depth_mm"]))
     if q == "dmax_mm":
         return water.dmax_mm(curves.depth_mm, curves.cax)
     if q == "tpr20_10":

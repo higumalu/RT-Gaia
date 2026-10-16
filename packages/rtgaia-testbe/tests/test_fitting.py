@@ -439,3 +439,19 @@ def test_radial_fluence_is_fitted_from_off_axis_profiles(fake) -> None:  # type:
     assert any("徑向通量" in x and "GPU" in x for x in final["limitations"])
     flat, _ = fitting.fit(prior, [_user_curves(_truth(prior))], tb=None, histories=10)
     assert flat["params"]["radial_fluence"]["weight"] == pytest.approx([1.0] * 7, abs=0.005)
+
+
+def test_tmr_points_go_to_the_spectrum_and_contamination_stages(fake) -> None:  # type: ignore[no-untyped-def]
+    """TMR／TPR 跟 PDD 一樣分：30 mm 以內給電子污染、更深的給能譜。"""
+    from rtgaia_dosecalc import beam_data
+
+    prior = beam_models.demo_6x()
+    tmr = beam_data.check_measurement(
+        {"kind": "depth_dose", "quantity": "tmr", "measurement_id": "tmr",
+         "conditions": {"field_mm": "100", "sad_mm": 1000, "normalization": "dmax"},
+         "points": [[5, 80.0], [15, 100.0], [50, 92.0], [100, 78.0], [200, 55.0]]}
+    )[0]  # fmt: skip
+    assert tmr
+    _, report = fitting.fit(prior, [{"dataset_id": "t", "measurements": [tmr]}], tb=None, histories=10)
+    stages = {s["name"]: s for s in report["stages"] if s["round"] == 1}
+    assert stages["spectrum"]["measurements"] == ["tmr"] and stages["electron_contamination"]["measurements"] == ["tmr"]
